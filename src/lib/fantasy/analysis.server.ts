@@ -28,8 +28,8 @@ export interface LeagueRow {
   playoff_teams: number;
   regular_season_weeks: number;
   scoring_type: string;
-  scoring_rules: unknown;
-  roster_slots: unknown;
+  scoring_rules: Record<string, number>;
+  roster_slots: string[];
   external_id: string | null;
   last_synced_at: string | null;
 }
@@ -78,6 +78,14 @@ export interface AnalysisPayload {
   scoreboard: ScoreboardGame[];
   tradeCandidates: { id: string; name: string; position: string; proj: number; teamName: string; teamId: string }[];
   myTradeable: { id: string; name: string; position: string; proj: number }[];
+}
+
+function toLeagueRow(l: Record<string, unknown>): LeagueRow {
+  return {
+    ...(l as unknown as LeagueRow),
+    scoring_rules: (l['scoring_rules'] ?? {}) as Record<string, number>,
+    roster_slots: asSlots(l['roster_slots']),
+  };
 }
 
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
@@ -202,7 +210,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   if (!mine) {
     return {
-      league: league as LeagueRow,
+      league: toLeagueRow(league),
       slots,
       myTeam: null,
       standings,
@@ -354,7 +362,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const myTeamRow = teams.find((t) => t.id === mine.id)!;
 
   return {
-    league: league as LeagueRow,
+    league: toLeagueRow(league),
     slots,
     myTeam: {
       id: mine.id,

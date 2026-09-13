@@ -126,7 +126,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         regular_season_weeks: Math.max(regularWeeks, 8),
         scoring_type: (bundle.league.scoring_settings?.["rec"] ?? 0) >= 1 ? "ppr" : (bundle.league.scoring_settings?.["rec"] ?? 0) > 0 ? "half_ppr" : "standard",
         scoring_rules: bundle.league.scoring_settings ?? {},
-        roster_slots: slots.length ? slots : undefined,
+        roster_slots: slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],
         last_synced_at: new Date().toISOString(),
       })
       .select()
@@ -470,5 +470,5 @@ Include every scoring rule you can read using short snake_case keys and numeric 
     } catch {
       throw new Error("Nothing readable was found in that screenshot.");
     }
-    return { mode: data.mode, result: parsed };
+    return { mode: data.mode, result: parsed as Record<string, unknown> };
   });
