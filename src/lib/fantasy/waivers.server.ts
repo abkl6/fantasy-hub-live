@@ -205,9 +205,9 @@ export async function buildWaiverBoard(
     const baseMine = baseline.find((r) => r.id === mine.id)!;
     const beforeLineup = optimalLineup(myRoster, slots).total;
     const droppable = [...myRoster].sort((a, b) => a.proj - b.proj);
+    const rosterCap = slots.length + 6;
 
     for (const fa of freeAgents.slice(0, SCORED_CANDIDATES)) {
-      const drop = droppable.find((d) => d.proj < fa.projWeek) ?? null;
       const candidate: EnginePlayer = {
         id: fa.id,
         name: fa.name,
@@ -216,10 +216,26 @@ export async function buildWaiverBoard(
         proj: fa.projWeek,
         volatility: fa.volatility,
       };
-      const nextRoster = drop
-        ? myRoster.map((p) => (p.name === drop.name ? candidate : p))
-        : [...myRoster, candidate];
-      const lineupGain = optimalLineup(nextRoster, slots).total - beforeLineup;
+
+      // Try every plausible drop (plus keeping everyone when there is room)
+      // and keep whichever leaves the strongest starting lineup.
+      const options: { roster: EnginePlayer[]; drop: EnginePlayer | null }[] = droppable
+        .slice(0, 8)
+        .map((d) => ({ roster: myRoster.map((p) => (p.name === d.name ? candidate : p)), drop: d }));
+      if (myRoster.length < rosterCap) options.push({ roster: [...myRoster, candidate], drop: null });
+
+      let best = options[0]!;
+      let bestTotal = -Infinity;
+      for (const opt of options) {
+        const total = optimalLineup(opt.roster, slots).total;
+        if (total > bestTotal) {
+          bestTotal = total;
+          best = opt;
+        }
+      }
+      const nextRoster = best.roster;
+      const drop = best.drop;
+      const lineupGain = bestTotal - beforeLineup;
 
       const dist = teamDistribution(nextRoster, slots);
       const inputs = simInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
