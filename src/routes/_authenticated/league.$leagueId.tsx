@@ -31,7 +31,7 @@ import {
   getDraftRecapFn,
   getPlayoffPictureFn,
   getTrendsFn,
-  getWaiverWire,
+  getWaiverBoard,
   importSleeperDraftFn,
   setBestLineupFn,
 } from "@/lib/fantasy.functions";
