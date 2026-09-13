@@ -440,11 +440,72 @@ export async function evaluateTrade(
   const before = optimalLineup(roster, analysis.slots).total;
   const after = optimalLineup(next, analysis.slots).total;
 
+  // Re-run the season with the post-trade roster to get real odds movement.
+  const [{ data: teamRows }, { data: matchupRows }, { data: allSpots }] = await Promise.all([
+    supabase.from("teams").select("*").eq("league_id", leagueId),
+    supabase.from("matchups").select("*").eq("league_id", leagueId),
+    supabase.from("roster_spots").select("*").eq("league_id", leagueId),
+  ]);
+
+  const simInputs = (teamRows ?? []).map((t) => {
+    const teamRoster: EnginePlayer[] = (allSpots ?? [])
+      .filter((s) => s.team_id === t.id)
+      .map((s) => ({
+        id: s.player_id,
+        name: s.player_name,
+        position: s.position.toUpperCase(),
+        nflTeam: s.nfl_team,
+        proj: Number(s.proj_points),
+        volatility: 0.35,
+      }));
+    const games = t.wins + t.losses + t.ties;
+    const dist = teamRoster.length
+      ? teamDistribution(teamRoster, analysis.slots)
+      : { mean: games > 0 ? Number(t.points_for) / games : 100, sd: 22 };
+    return {
+      id: t.id,
+      name: t.name,
+      isMine: t.is_mine,
+      wins: t.wins,
+      losses: t.losses,
+      ties: t.ties,
+      pointsFor: Number(t.points_for),
+      mean: dist.mean,
+      sd: dist.sd,
+    };
+  });
+
+  const schedule: ScheduleGame[] = (matchupRows ?? [])
+    .filter((m) => m.home_team_id && m.away_team_id)
+    .map((m) => ({ week: m.week, homeTeamId: m.home_team_id!, awayTeamId: m.away_team_id! }));
+
+  const simConfig = {
+    playoffTeams: analysis.league.playoff_teams,
+    regularSeasonWeeks: analysis.league.regular_season_weeks,
+    currentWeek: analysis.league.current_week,
+  };
+
+  const nextDist = teamDistribution(next, analysis.slots);
+  const afterInputs = simInputs.map((t) =>
+    t.id === analysis.myTeam!.id ? { ...t, mean: nextDist.mean, sd: nextDist.sd } : t,
+  );
+  const afterSim = simulateSeason(afterInputs, simConfig, schedule, 1500, 7);
+  const afterMine = afterSim.find((r) => r.id === analysis.myTeam!.id)!;
+
   return {
     pointsDelta: Math.round((after - before) * 10) / 10,
     beforeTitleOdds: analysis.myTeam.titleOdds,
+    afterTitleOdds: afterMine.titleOdds,
     beforePlayoffOdds: analysis.myTeam.playoffOdds,
-    slots: analysis.slots,
+    afterPlayoffOdds: afterMine.playoffOdds,
+    beforeWins: analysis.myTeam.projWins,
+    afterWins: afterMine.projWins,
+    verdict:
+      afterMine.titleOdds - analysis.myTeam.titleOdds > 0.01
+        ? "accept"
+        : afterMine.titleOdds - analysis.myTeam.titleOdds < -0.01
+          ? "decline"
+          : "even",
     before,
     after,
   };
