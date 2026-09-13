@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { GameDayBoard } from "@/components/GameDayBoard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,6 +182,7 @@ function LeaguePage() {
 
       <Tabs value={tab} onValueChange={setTab} className="mt-8">
         <TabsList className="flex flex-wrap">
+          <TabsTrigger value="live">Live</TabsTrigger>
           <TabsTrigger value="moves">Moves</TabsTrigger>
           <TabsTrigger value="lineup">Lineup</TabsTrigger>
           <TabsTrigger value="grades">Grades</TabsTrigger>
@@ -192,6 +194,10 @@ function LeaguePage() {
           <TabsTrigger value="trends">Trends</TabsTrigger>
           <TabsTrigger value="draft">Draft</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="live" className="mt-6">
+          <GameDayBoard leagueId={leagueId} />
+        </TabsContent>
 
         <TabsContent value="moves" className="mt-6 space-y-3">
           {!data.suggestions.length && (
