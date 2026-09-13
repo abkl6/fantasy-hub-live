@@ -45,6 +45,9 @@ export const getAnalysis = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { buildAnalysis } = await import("./fantasy/analysis.server");
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    // Backfill any team still missing a roster so availability stays accurate.
+    await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
     return buildAnalysis(context.supabase, data.leagueId);
   });
 
