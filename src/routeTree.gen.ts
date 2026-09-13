@@ -14,8 +14,10 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedConnectRouteImport } from './routes/_authenticated/connect'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedGamedayRouteImport } from './routes/_authenticated/gameday'
 import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated/trades'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
+import { Route as ApiPublicCronLiveScoringRouteImport } from './routes/api/public/cron/live-scoring'
 import { Route as ApiPublicYahooCallbackRouteImport } from './routes/api/public/yahoo/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -42,6 +44,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGamedayRoute = AuthenticatedGamedayRouteImport.update({
+  id: '/gameday',
+  path: '/gameday',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTradesRoute = AuthenticatedTradesRouteImport.update({
   id: '/trades',
   path: '/trades',
@@ -52,6 +59,12 @@ const AuthenticatedLeagueLeagueIdRoute =
     id: '/league/$leagueId',
     path: '/league/$leagueId',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiPublicCronLiveScoringRoute =
+  ApiPublicCronLiveScoringRouteImport.update({
+    id: '/api/public/cron/live-scoring',
+    path: '/api/public/cron/live-scoring',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicYahooCallbackRoute = ApiPublicYahooCallbackRouteImport.update({
   id: '/api/public/yahoo/callback',
@@ -64,8 +77,10 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/gameday': typeof AuthenticatedGamedayRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -73,8 +88,10 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/gameday': typeof AuthenticatedGamedayRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesById {
@@ -84,8 +101,10 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/connect': typeof AuthenticatedConnectRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/gameday': typeof AuthenticatedGamedayRoute
   '/_authenticated/trades': typeof AuthenticatedTradesRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRouteTypes {
@@ -95,8 +114,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/connect'
     | '/dashboard'
+    | '/gameday'
     | '/trades'
     | '/league/$leagueId'
+    | '/api/public/cron/live-scoring'
     | '/api/public/yahoo/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -104,8 +125,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/connect'
     | '/dashboard'
+    | '/gameday'
     | '/trades'
     | '/league/$leagueId'
+    | '/api/public/cron/live-scoring'
     | '/api/public/yahoo/callback'
   id:
     | '__root__'
@@ -114,8 +137,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/connect'
     | '/_authenticated/dashboard'
+    | '/_authenticated/gameday'
     | '/_authenticated/trades'
     | '/_authenticated/league/$leagueId'
+    | '/api/public/cron/live-scoring'
     | '/api/public/yahoo/callback'
   fileRoutesById: FileRoutesById
 }
@@ -123,6 +148,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicCronLiveScoringRoute: typeof ApiPublicCronLiveScoringRoute
   ApiPublicYahooCallbackRoute: typeof ApiPublicYahooCallbackRoute
 }
 
@@ -163,6 +189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/gameday': {
+      id: '/_authenticated/gameday'
+      path: '/gameday'
+      fullPath: '/gameday'
+      preLoaderRoute: typeof AuthenticatedGamedayRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/trades': {
       id: '/_authenticated/trades'
       path: '/trades'
@@ -177,6 +210,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeagueLeagueIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/cron/live-scoring': {
+      id: '/api/public/cron/live-scoring'
+      path: '/api/public/cron/live-scoring'
+      fullPath: '/api/public/cron/live-scoring'
+      preLoaderRoute: typeof ApiPublicCronLiveScoringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/yahoo/callback': {
       id: '/api/public/yahoo/callback'
       path: '/api/public/yahoo/callback'
@@ -190,6 +230,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConnectRoute: typeof AuthenticatedConnectRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedGamedayRoute: typeof AuthenticatedGamedayRoute
   AuthenticatedTradesRoute: typeof AuthenticatedTradesRoute
   AuthenticatedLeagueLeagueIdRoute: typeof AuthenticatedLeagueLeagueIdRoute
 }
@@ -197,6 +238,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConnectRoute: AuthenticatedConnectRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedGamedayRoute: AuthenticatedGamedayRoute,
   AuthenticatedTradesRoute: AuthenticatedTradesRoute,
   AuthenticatedLeagueLeagueIdRoute: AuthenticatedLeagueLeagueIdRoute,
 }
@@ -208,6 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicCronLiveScoringRoute: ApiPublicCronLiveScoringRoute,
   ApiPublicYahooCallbackRoute: ApiPublicYahooCallbackRoute,
 }
 export const routeTree = rootRouteImport

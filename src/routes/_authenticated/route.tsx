@@ -38,6 +38,9 @@ function AuthenticatedLayout() {
               <Link to="/dashboard">Leagues</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
+              <Link to="/gameday">Game day</Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost">
               <Link to="/trades">Trades</Link>
             </Button>
             <Button asChild size="sm">

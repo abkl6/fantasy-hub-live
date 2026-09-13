@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { slotAccepts } from "./engine";
+import { normalizeName } from "./names";
 
 type DB = SupabaseClient<Database>;
 
@@ -24,7 +25,7 @@ function asSlots(value: unknown): string[] {
   return DEFAULT_SLOTS;
 }
 
-const key = (name: string) => name.trim().toLowerCase();
+const key = (name: string) => normalizeName(name);
 
 interface PoolPlayer {
   id: string;

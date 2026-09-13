@@ -20,3 +20,5 @@
 - [x] 18. Draft recap grades (Sleeper import + screenshot fallback)
 - [x] 19. Waiver wire board: points, suggested FAAB bid, trade value, title impact, one-tap add
 - [x] 20. League format (redraft/keeper/dynasty/guillotine/best ball) and true scoring-rule aware analysis
+- [x] 21. Player name matching (suffix-safe) + duplicate player merge so rostered players never show as free agents
+- [x] 22. Game day: live points from Sleeper stats + ESPN game states, per-league scoring log, live projected finals, auto-refresh during game windows, cron endpoint /api/public/cron/live-scoring
