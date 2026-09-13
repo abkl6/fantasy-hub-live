@@ -497,6 +497,12 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   <span>
                     Bid <span className="stat-num text-foreground">{p.bid > 0 ? `${p.bid}%` : "no bid"}</span>
                   </span>
+                  {p.longTermValue !== null && (
+                    <span>
+                      Keep value{" "}
+                      <span className="stat-num text-foreground">{p.longTermValue.toFixed(0)}</span>/100
+                    </span>
+                  )}
                   {p.titleDelta !== null && (
                     <span className={p.titleDelta > 0 ? "text-primary" : ""}>
                       Title {p.titleDelta > 0 ? "+" : ""}
