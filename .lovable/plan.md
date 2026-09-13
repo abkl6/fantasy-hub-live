@@ -43,7 +43,7 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 
 - **Yahoo**: requires creating a free Yahoo developer app and giving me the client ID and secret. I will ask for these when we reach that step.
 - **ESPN private leagues**: each user copies two values from their own ESPN session; I will show in-app instructions.
-- **FFPC / NFL.com**: no public interface to connect to. These stay manual unless you have credentials or an export file from them.
+- **FFPC / NFL.com**: no public interface to connect to. These are added by screenshot upload or manual entry.
 
 ## Technical notes
 
