@@ -82,6 +82,7 @@ export type Database = {
           created_at: string
           current_week: number
           external_id: string | null
+          format: string
           id: string
           last_synced_at: string | null
           name: string
@@ -100,6 +101,7 @@ export type Database = {
           created_at?: string
           current_week?: number
           external_id?: string | null
+          format?: string
           id?: string
           last_synced_at?: string | null
           name: string
@@ -118,6 +120,7 @@ export type Database = {
           created_at?: string
           current_week?: number
           external_id?: string | null
+          format?: string
           id?: string
           last_synced_at?: string | null
           name?: string
@@ -274,6 +277,7 @@ export type Database = {
       }
       players: {
         Row: {
+          age: number | null
           bye_week: number | null
           created_at: string
           full_name: string
@@ -284,11 +288,14 @@ export type Database = {
           proj_points_week: number
           search_name: string
           sleeper_id: string | null
+          stat_projections: Json
           status: string
           updated_at: string
           volatility: number
+          years_exp: number | null
         }
         Insert: {
+          age?: number | null
           bye_week?: number | null
           created_at?: string
           full_name: string
@@ -299,11 +306,14 @@ export type Database = {
           proj_points_week?: number
           search_name: string
           sleeper_id?: string | null
+          stat_projections?: Json
           status?: string
           updated_at?: string
           volatility?: number
+          years_exp?: number | null
         }
         Update: {
+          age?: number | null
           bye_week?: number | null
           created_at?: string
           full_name?: string
@@ -314,9 +324,11 @@ export type Database = {
           proj_points_week?: number
           search_name?: string
           sleeper_id?: string | null
+          stat_projections?: Json
           status?: string
           updated_at?: string
           volatility?: number
+          years_exp?: number | null
         }
         Relationships: []
       }

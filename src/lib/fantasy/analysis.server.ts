@@ -16,6 +16,20 @@ import {
   type SimTeamResult,
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
+import { leagueScoring } from "./scoring";
+import {
+  asFormat,
+  bestBallDistribution,
+  blendedValue,
+  dynastyValue,
+  FORMAT_LABELS,
+  hasLineupDecisions,
+  isMultiYear,
+  isSurvival,
+  simulateGuillotine,
+  type LeagueFormat,
+  type SurvivalResult,
+} from "./format";
 
 type DB = SupabaseClient<Database>;
 
@@ -33,6 +47,15 @@ export interface LeagueRow {
   roster_slots: string[];
   external_id: string | null;
   last_synced_at: string | null;
+  format: string;
+}
+
+export interface DynastyRow {
+  name: string;
+  position: string;
+  age: number | null;
+  longTermValue: number;
+  blendedValue: number;
 }
 
 export interface MoveSuggestion {
@@ -81,6 +104,14 @@ export interface AnalysisPayload {
   myTradeable: { id: string; name: string; position: string; proj: number }[];
   playoff: PlayoffPayload;
   alerts: Alert[];
+  format: LeagueFormat;
+  formatLabel: string;
+  scoringLabel: string;
+  /** Guillotine only: weekly survival odds instead of playoff/title odds. */
+  survival: SurvivalResult[] | null;
+  mySurvival: SurvivalResult | null;
+  /** Dynasty / keeper only: long-term value of my roster. */
+  dynasty: DynastyRow[] | null;
 }
 
 export interface Alert {
@@ -135,6 +166,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const matchups = matchupRows ?? [];
   const players = playerRows ?? [];
 
+  // Every projection below is re-scored against this league's own rules, so
+  // half-PPR, TE-premium or 6-point passing TDs change the numbers.
+  const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
+  const format = asFormat((league as { format?: string }).format);
+  const bestBall = !hasLineupDecisions(format);
+
   // Anyone held by any team in the league is off the waiver wire, whatever
   // position label the platform used for them.
   const rosteredNames = new Set(spots.map((s) => s.player_name.trim().toLowerCase()));
@@ -156,14 +193,17 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         name: s.player_name,
         position: s.position.toUpperCase(),
         nflTeam: s.nfl_team,
-        proj: Number(s.proj_points),
+        proj: scoring.scale(s.position, Number(s.proj_points)),
         volatility: 0.35,
       })),
   }));
 
+  const distributionOf = (roster: EnginePlayer[]) =>
+    bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
+
   const simInputs = engineTeams.map((t) => {
     const dist = t.roster.length
-      ? teamDistribution(t.roster, slots)
+      ? distributionOf(t.roster)
       : {
           mean:
             t.wins + t.losses + t.ties > 0
@@ -225,6 +265,22 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     })
     .sort((x, y) => Number(y.home.isMine || y.away.isMine) - Number(x.home.isMine || x.away.isMine));
 
+  // Guillotine leagues have no playoffs: the lowest scorer is cut each week.
+  const weeksLeft = Math.max(1, league.regular_season_weeks - league.current_week + 1);
+  const survival = isSurvival(format)
+    ? simulateGuillotine(
+        simInputs.map((t) => ({ id: t.id, name: t.name, isMine: t.isMine, mean: t.mean, sd: t.sd })),
+        weeksLeft,
+      )
+    : null;
+
+  const formatMeta = {
+    format,
+    formatLabel: FORMAT_LABELS[format],
+    scoringLabel: scoring.label,
+    survival,
+  };
+
   if (!mine) {
     return {
       league: toLeagueRow(league),
@@ -240,6 +296,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       myTradeable: [],
       playoff: buildPlayoffPicture(simInputs, simConfig, schedule, standings),
       alerts: [],
+      ...formatMeta,
+      mySurvival: null,
+      dynasty: null,
     };
   }
 
@@ -249,7 +308,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // --- what-if helper: re-run the season with my team's roster swapped -----
   const baseMine = baselineById.get(mine.id)!;
   const whatIf = (roster: EnginePlayer[]) => {
-    const dist = teamDistribution(roster, slots);
+    const dist = distributionOf(roster);
     const inputs = simInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
     const res = simulateSeason(inputs, simConfig, schedule, 1200, 7);
     const m = res.find((r) => r.id === mine.id)!;
@@ -266,7 +325,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // --- start / sit --------------------------------------------------------
   const currentStarters = spots.filter((s) => s.team_id === mine.id && s.is_starter);
   const bestNames = new Set(best.starters.map((s) => s.player?.name).filter(Boolean) as string[]);
-  if (currentStarters.length) {
+  // Best ball auto-starts the top scorers, so start/sit advice is meaningless.
+  if (currentStarters.length && !bestBall) {
     for (const s of best.starters) {
       if (!s.player) continue;
       const isStarting = currentStarters.some((c) => c.player_name === s.player!.name);
@@ -275,14 +335,15 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         .filter((c) => slotAccepts(s.slot, c.position.toUpperCase()) && !bestNames.has(c.player_name))
         .sort((a, b) => Number(a.proj_points) - Number(b.proj_points))[0];
       if (!benched) continue;
-      const gain = s.player.proj - Number(benched.proj_points);
+      const benchedProj = scoring.scale(benched.position, Number(benched.proj_points));
+      const gain = s.player.proj - benchedProj;
       if (gain < 0.6) continue;
       const impact = whatIf(mine.roster);
       suggestions.push({
         id: `start-${s.player.name}`,
         kind: "start-sit",
         headline: `Start ${s.player.name} over ${benched.player_name}`,
-        detail: `${s.slot} slot. Projection goes from ${Number(benched.proj_points).toFixed(1)} to ${s.player.proj.toFixed(1)} points this week.`,
+        detail: `${s.slot} slot. Projection goes from ${benchedProj.toFixed(1)} to ${s.player.proj.toFixed(1)} points this week.`,
         pointsDelta: Math.round(gain * 10) / 10,
         winDelta: Math.round(impact.winDelta * 100) / 100,
         titleDelta: impact.titleDelta,
@@ -302,7 +363,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       name: p.full_name,
       position: p.position.toUpperCase(),
       nflTeam: p.nfl_team,
-      proj: Number(p.proj_points_week),
+      proj: scoring.scale(p.position, Number(p.proj_points_week)),
       volatility: Number(p.volatility),
     }))
     .sort((a, b) => b.proj - a.proj)
@@ -377,6 +438,44 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     why.push(
       `Your best available move (${suggestions[0].headline}) is worth ${(suggestions[0].titleDelta * 100).toFixed(1)} points of title odds.`,
     );
+  }
+  why.push(`${FORMAT_LABELS[format]} league scored as ${scoring.label}.`);
+
+  const mySurvival = survival?.find((s) => s.isMine) ?? null;
+  if (mySurvival) {
+    why.push(
+      `${(mySurvival.surviveWeekOdds * 100).toFixed(0)}% chance of surviving this week; projected to last about ${mySurvival.expectedWeeksLeft} more weeks.`,
+    );
+  }
+
+  // --- dynasty / keeper long-term value ------------------------------------
+  let dynasty: DynastyRow[] | null = null;
+  if (isMultiYear(format)) {
+    const ageByName = new Map(
+      players.map((p) => [
+        p.full_name.trim().toLowerCase(),
+        {
+          age: (p as { age?: number | null }).age ?? null,
+          yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
+          season: scoring.scale(p.position, Number(p.proj_points_season)),
+        },
+      ]),
+    );
+    const bestSeason = Math.max(1, ...[...ageByName.values()].map((v) => v.season));
+    dynasty = mine.roster
+      .map((p) => {
+        const meta = ageByName.get(p.name.trim().toLowerCase());
+        const season = meta?.season ?? p.proj * 17;
+        const longTerm = dynastyValue(p.position, season, bestSeason, meta?.age ?? null, meta?.yearsExp ?? null);
+        return {
+          name: p.name,
+          position: p.position,
+          age: meta?.age ?? null,
+          longTermValue: longTerm,
+          blendedValue: blendedValue(format, season, bestSeason, longTerm),
+        };
+      })
+      .sort((a, b) => b.blendedValue - a.blendedValue);
   }
 
   const myTeamRow = teams.find((t) => t.id === mine.id)!;
@@ -484,6 +583,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       .map((p) => ({ id: p.name, name: p.name, position: p.position, proj: p.proj })),
     playoff,
     alerts,
+    ...formatMeta,
+    mySurvival,
+    dynasty,
   };
 }
 

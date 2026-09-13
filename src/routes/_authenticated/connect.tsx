@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import {
   createManualLeague,
   findSleeperLeagues,
@@ -214,6 +215,7 @@ function ManualPanel() {
     regularSeasonWeeks: 14,
     currentWeek: 1,
     scoringType: "ppr",
+    format: "redraft" as (typeof LEAGUE_FORMATS)[number],
     myTeamName: "My team",
     slots: "QB, RB, RB, WR, WR, TE, FLEX, K, DEF",
   });
@@ -266,6 +268,7 @@ function ManualPanel() {
           currentWeek: Number(form.currentWeek),
           scoringType: form.scoringType,
           scoringRules,
+          format: form.format,
           rosterSlots: form.slots
             .split(",")
             .map((s) => s.trim().toUpperCase())

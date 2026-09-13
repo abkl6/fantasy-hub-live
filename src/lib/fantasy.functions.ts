@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
 
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
@@ -248,6 +249,7 @@ const manualSchema = z.object({
   rosterSlots: z.array(z.string()).min(1).max(25),
   myTeamName: z.string().min(1).max(60),
   opponentNames: z.array(z.string()).optional(),
+  format: z.enum(LEAGUE_FORMATS).optional(),
 });
 
 export const createManualLeague = createServerFn({ method: "POST" })
@@ -269,6 +271,7 @@ export const createManualLeague = createServerFn({ method: "POST" })
         scoring_type: data.scoringType,
         scoring_rules: data.scoringRules ?? {},
         roster_slots: data.rosterSlots,
+        format: data.format ?? "redraft",
         last_synced_at: new Date().toISOString(),
       })
       .select()
@@ -391,6 +394,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         scoringRules: z.record(z.string(), z.number()).optional(),
         rosterSlots: z.array(z.string()).optional(),
         scoringType: z.string().max(20).optional(),
+        format: z.enum(LEAGUE_FORMATS).optional(),
       })
       .parse(d),
   )
@@ -400,6 +404,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.scoringRules !== undefined) patch["scoring_rules"] = data.scoringRules;
     if (data.rosterSlots !== undefined) patch["roster_slots"] = data.rosterSlots;
     if (data.scoringType !== undefined) patch["scoring_type"] = data.scoringType;
+    if (data.format !== undefined) patch["format"] = data.format;
     const { error } = await context.supabase
       .from("leagues")
       .update(patch as never)
