@@ -105,6 +105,7 @@ function LeaguePage() {
           <TabsTrigger value="grades">Grades</TabsTrigger>
           <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
           <TabsTrigger value="standings">Standings</TabsTrigger>
+          <TabsTrigger value="waivers">Available</TabsTrigger>
           <TabsTrigger value="trade">Trade</TabsTrigger>
         </TabsList>
 
@@ -223,6 +224,10 @@ function LeaguePage() {
               ))}
             </tbody>
           </table>
+        </TabsContent>
+
+        <TabsContent value="waivers" className="mt-6">
+          <WaiverPanel leagueId={leagueId} />
         </TabsContent>
 
         <TabsContent value="trade" className="mt-6">
