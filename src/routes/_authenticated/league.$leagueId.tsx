@@ -167,7 +167,7 @@ function LeaguePage() {
           <TabsTrigger value="grades">Grades</TabsTrigger>
           <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
           <TabsTrigger value="standings">Standings</TabsTrigger>
-          <TabsTrigger value="waivers">Available</TabsTrigger>
+          <TabsTrigger value="waivers">Waivers</TabsTrigger>
           <TabsTrigger value="trade">Trade</TabsTrigger>
           <TabsTrigger value="playoff">Playoff</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
