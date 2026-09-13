@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedConnectRouteImport } from './routes/_authenticated/connect'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
+import { Route as ApiPublicYahooCallbackRouteImport } from './routes/api/public/yahoo/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const AuthenticatedLeagueLeagueIdRoute =
     path: '/league/$leagueId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicYahooCallbackRoute = ApiPublicYahooCallbackRouteImport.update({
+  id: '/api/public/yahoo/callback',
+  path: '/api/public/yahoo/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,12 +77,25 @@ export interface FileRoutesById {
   '/_authenticated/connect': typeof AuthenticatedConnectRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/connect' | '/dashboard' | '/league/$leagueId'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/connect'
+    | '/dashboard'
+    | '/league/$leagueId'
+    | '/api/public/yahoo/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/connect' | '/dashboard' | '/league/$leagueId'
+  to:
+    | '/'
+    | '/auth'
+    | '/connect'
+    | '/dashboard'
+    | '/league/$leagueId'
+    | '/api/public/yahoo/callback'
   id:
     | '__root__'
     | '/'
@@ -83,12 +104,14 @@ export interface FileRouteTypes {
     | '/_authenticated/connect'
     | '/_authenticated/dashboard'
     | '/_authenticated/league/$leagueId'
+    | '/api/public/yahoo/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicYahooCallbackRoute: typeof ApiPublicYahooCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -135,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeagueLeagueIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/yahoo/callback': {
+      id: '/api/public/yahoo/callback'
+      path: '/api/public/yahoo/callback'
+      fullPath: '/api/public/yahoo/callback'
+      preLoaderRoute: typeof ApiPublicYahooCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -157,6 +187,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicYahooCallbackRoute: ApiPublicYahooCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
