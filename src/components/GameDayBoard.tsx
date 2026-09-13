@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGameDayFn } from "@/lib/fantasy.functions";
 import { gameWindow, pollInterval } from "@/lib/fantasy/gamewindow";
-import type { LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live.server";
+import type { LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
 
 const stateLabel: Record<LivePlayerRow["gameState"], string> = {
   pre: "Yet to play",
