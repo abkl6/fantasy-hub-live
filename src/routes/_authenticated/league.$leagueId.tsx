@@ -289,8 +289,10 @@ function PlayerList({
 
 function TradePanel({ leagueId }: { leagueId: string }) {
   const evaluate = useServerFn(evaluateTradeFn);
+  const save = useServerFn(logTrade);
   const [give, setGive] = useState("");
   const [get, setGet] = useState("");
+  const [saved, setSaved] = useState(false);
 
   const run = useMutation({
     mutationFn: () =>
@@ -301,6 +303,38 @@ function TradePanel({ leagueId }: { leagueId: string }) {
           getNames: get.split(",").map((s) => s.trim()).filter(Boolean),
         },
       }),
+    onSuccess: () => setSaved(false),
+  });
+
+  const store = useMutation({
+    mutationFn: (status: "proposed" | "accepted") => {
+      const r = run.data!;
+      return save({
+        data: {
+          leagueId,
+          gave: give
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((name) => ({ name, position: "-", proj: 0 })),
+          got: r.incoming,
+          pointsDelta: r.pointsDelta,
+          titleOddsBefore: r.beforeTitleOdds,
+          titleOddsAfter: r.afterTitleOdds,
+          playoffOddsBefore: r.beforePlayoffOdds,
+          playoffOddsAfter: r.afterPlayoffOdds,
+          winsBefore: r.beforeWins,
+          winsAfter: r.afterWins,
+          verdict: r.verdict,
+          status,
+        },
+      });
+    },
+    onSuccess: () => {
+      setSaved(true);
+      toast.success("Saved to your trade history.");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that trade."),
   });
 
   return (
@@ -360,6 +394,24 @@ function TradePanel({ leagueId }: { leagueId: string }) {
             Weekly points change: {run.data.pointsDelta >= 0 ? "+" : ""}
             {run.data.pointsDelta.toFixed(1)}
           </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Button size="sm" disabled={store.isPending || saved} onClick={() => store.mutate("accepted")}>
+              {store.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              I made this trade
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={store.isPending || saved}
+              onClick={() => store.mutate("proposed")}
+            >
+              Save as an idea
+            </Button>
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/trades">See trade history</Link>
+            </Button>
+          </div>
         </div>
       )}
     </section>
