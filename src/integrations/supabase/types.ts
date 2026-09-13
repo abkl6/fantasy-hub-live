@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      draft_picks: {
+        Row: {
+          created_at: string
+          id: string
+          league_id: string
+          nfl_team: string | null
+          pick_number: number
+          player_name: string
+          position: string
+          proj_points_season: number
+          round: number | null
+          team_id: string
+          updated_at: string
+          user_id: string
+          value_vs_adp: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league_id: string
+          nfl_team?: string | null
+          pick_number: number
+          player_name: string
+          position: string
+          proj_points_season?: number
+          round?: number | null
+          team_id: string
+          updated_at?: string
+          user_id: string
+          value_vs_adp?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league_id?: string
+          nfl_team?: string | null
+          pick_number?: number
+          player_name?: string
+          position?: string
+          proj_points_season?: number
+          round?: number | null
+          team_id?: string
+          updated_at?: string
+          user_id?: string
+          value_vs_adp?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_picks_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_picks_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leagues: {
         Row: {
           created_at: string
@@ -161,6 +224,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      player_news: {
+        Row: {
+          created_at: string
+          id: string
+          injury_body_part: string | null
+          news_text: string | null
+          player_id: string | null
+          player_name: string
+          position: string
+          published_at: string
+          source: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          injury_body_part?: string | null
+          news_text?: string | null
+          player_id?: string | null
+          player_name: string
+          position: string
+          published_at?: string
+          source?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          injury_body_part?: string | null
+          news_text?: string | null
+          player_id?: string | null
+          player_name?: string
+          position?: string
+          published_at?: string
+          source?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_news_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       players: {
         Row: {
@@ -491,6 +601,63 @@ export type Database = {
           },
           {
             foreignKeyName: "trade_history_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          league_id: string
+          playoff_odds: number
+          power_score: number
+          proj_losses: number
+          proj_wins: number
+          team_id: string
+          title_odds: number
+          user_id: string
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league_id: string
+          playoff_odds?: number
+          power_score?: number
+          proj_losses?: number
+          proj_wins?: number
+          team_id: string
+          title_odds?: number
+          user_id: string
+          week: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league_id?: string
+          playoff_odds?: number
+          power_score?: number
+          proj_losses?: number
+          proj_wins?: number
+          team_id?: string
+          title_odds?: number
+          user_id?: string
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_snapshots_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_snapshots_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
