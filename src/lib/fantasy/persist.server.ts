@@ -3,6 +3,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+import { playerIndex } from "./names";
+
 type DB = SupabaseClient<Database>;
 
 const DEFAULT_PROJ: Record<string, number> = {
@@ -113,8 +115,7 @@ export async function persistBundle(
     const id = teamId.get(t.externalId);
     if (!id) return [];
     return t.roster.map((p) => {
-      const match =
-        byKey.get(`${p.name.toLowerCase()}|${p.position.toUpperCase()}`) ?? byName.get(p.name.toLowerCase());
+      const match = index.find(p.name, p.position);
       return {
         team_id: id,
         league_id: league.id,
