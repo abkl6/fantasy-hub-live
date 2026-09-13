@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { evaluateTradeFn, getAnalysis } from "@/lib/fantasy.functions";
+import { evaluateTradeFn, getAnalysis, getWaiverWire } from "@/lib/fantasy.functions";
 import { logTrade } from "@/lib/platforms.functions";
 
 export const Route = createFileRoute("/_authenticated/league/$leagueId")({
@@ -289,6 +289,80 @@ function PlayerList({
           </li>
         ))}
         {!players.length && <li className="text-sm text-muted-foreground">Nothing here.</li>}
+      </ul>
+    </section>
+  );
+}
+
+const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
+
+function WaiverPanel({ leagueId }: { leagueId: string }) {
+  const load = useServerFn(getWaiverWire);
+  const [search, setSearch] = useState("");
+  const [position, setPosition] = useState("ALL");
+
+  const { data, isFetching } = useQuery({
+    queryKey: ["waivers", leagueId, search, position],
+    queryFn: () => load({ data: { leagueId, search, position } }),
+    refetchOnWindowFocus: false,
+  });
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold uppercase">Available players</h2>
+          <p className="text-xs text-muted-foreground">
+            Everyone not already on a roster in this league.
+          </p>
+        </div>
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search a player"
+          className="w-full sm:w-64"
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {POSITIONS.map((p) => (
+          <Button
+            key={p}
+            size="sm"
+            variant={position === p ? "default" : "outline"}
+            onClick={() => setPosition(p)}
+          >
+            {p}
+          </Button>
+        ))}
+      </div>
+
+      {!!data?.estimatedRosterSpots && (
+        <p className="mt-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+          Some rival rosters are estimated because this league was added by hand. Enter or import
+          their real rosters to make this list exact.
+        </p>
+      )}
+
+      <ul className="mt-4 space-y-2">
+        {isFetching && !data && <li className="text-sm text-muted-foreground">Loading…</li>}
+        {data?.players.map((p) => (
+          <li key={p.id} className="flex items-center justify-between border-t border-border py-2 text-sm">
+            <span>
+              <span className="eyebrow mr-2 text-muted-foreground">{p.position}</span>
+              {p.name}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {p.nflTeam ?? "FA"}
+                {p.byeWeek ? ` · bye ${p.byeWeek}` : ""}
+                {p.status && p.status !== "Active" ? ` · ${p.status}` : ""}
+              </span>
+            </span>
+            <span className="stat-num">{p.proj.toFixed(1)}</span>
+          </li>
+        ))}
+        {data && !data.players.length && (
+          <li className="text-sm text-muted-foreground">No available players match that.</li>
+        )}
       </ul>
     </section>
   );
