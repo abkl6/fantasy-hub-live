@@ -32,8 +32,10 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 5. ESPN integration (public league IDs first, private-league credentials second).
 6. NFL player and stats reference data so analysis works for every platform, including manual leagues.
 7. Analyzer features: strength grades, start/sit, waiver targets, trade evaluator.
-8. Yahoo integration once Yahoo app credentials are available.
-9. FFPC: manual entry only, with a clear note in the UI explaining why.
+8. Season simulation engine powering playoff and title odds, then win-impact labels on every suggestion.
+9. Yahoo integration once Yahoo app credentials are available.
+10. FFPC: manual entry only, with a clear note in the UI explaining why.
+
 
 ## Setup needed from you
 
