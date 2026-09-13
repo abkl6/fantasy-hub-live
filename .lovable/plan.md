@@ -54,4 +54,7 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 - Row-level security scoping every league, roster, and credential row to its owner; stored ESPN/Yahoo credentials encrypted at rest and never returned to the client.
 - Title odds come from a Monte Carlo simulation of the rest of the season (weekly team score distributions from player projections plus variance, run over the remaining schedule and playoff bracket). Runs server-side, results cached per league/week.
 - Win impact of a move is the same simulation re-run with the hypothetical roster, differenced against the baseline — one shared routine used by waivers, start/sit, and trades so numbers always agree.
+- Screenshot import uses vision-capable AI via the built-in AI gateway, returning a structured roster/scoring object validated against the canonical player list and the league's roster slots; low-confidence rows are flagged for the user to confirm. Images are stored privately per user.
+- A flexible scoring-rules record per league (point values, bonuses, thresholds) feeds the projection engine, so custom scoring changes projections and odds rather than being cosmetic.
+
 
