@@ -86,7 +86,6 @@ export async function buildWaiverBoard(
   const spots = spotRows ?? [];
   const players = playerRows ?? [];
 
-  const seasonByName = new Map(players.map((p) => [key(p.full_name), Number(p.proj_points_season)]));
   const rostered = new Set(spots.map((s) => key(s.player_name)));
   const usablePosition = (position: string) =>
     slots.some((slot) => slotAccepts(slot, position)) || BENCH_POSITIONS.includes(position);
@@ -284,9 +283,4 @@ export async function buildWaiverBoard(
     rosterLimit: slots.length + 6,
     hasMyTeam: !!mine,
   };
-}
-
-/** Season projections keyed by lowercase player name — small helper for callers. */
-export function seasonProjection(map: Map<string, number>, name: string) {
-  return map.get(key(name)) ?? 0;
 }
