@@ -12,6 +12,8 @@ A signed-in app where one person tracks all of their fantasy teams across differ
    - Yahoo: sign in with Yahoo to import leagues (requires a Yahoo developer app; see Setup needed).
    - FFPC and NFL.com: no public connection exists, so these are added manually.
    - Manual: name the league, scoring type, and enter the roster by player.
+   - **From screenshots**: upload one or more screenshots of a roster page or the league settings/scoring page from any app, and the roster and scoring rules are read out of the images automatically. The user sees what was read, fixes anything wrong inline, and confirms before it saves. Works for FFPC, NFL.com, or any league that can't be connected directly, and handles unusual scoring (custom point values, bonuses, unusual roster slots).
+
 4. **League detail page** — roster with player status, live-ish matchup scoreboard (refreshed when the page opens or the user hits Refresh), standings, and schedule.
 5. **Analyzer** per team:
    - Strength and weak spots: position-by-position grade vs. league average.
@@ -28,7 +30,7 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 1. Accounts and sign-in, plus the empty dashboard shell and design system (bold sports-broadcast look, dark surface, one accent color, condensed headline type — no generic purple gradient).
 2. Data storage: users, tracked leagues, teams, rosters, players, weekly scores, manual entries.
 3. Sleeper integration end to end (fastest real data), including league import and scoreboard.
-4. Manual league entry + roster editor.
+4. Manual league entry + roster editor, including screenshot upload that fills in rosters and custom scoring rules for review.
 5. ESPN integration (public league IDs first, private-league credentials second).
 6. NFL player and stats reference data so analysis works for every platform, including manual leagues.
 7. Analyzer features: strength grades, start/sit, waiver targets, trade evaluator.
@@ -41,7 +43,7 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 
 - **Yahoo**: requires creating a free Yahoo developer app and giving me the client ID and secret. I will ask for these when we reach that step.
 - **ESPN private leagues**: each user copies two values from their own ESPN session; I will show in-app instructions.
-- **FFPC / NFL.com**: no public interface to connect to. These stay manual unless you have credentials or an export file from them.
+- **FFPC / NFL.com**: no public interface to connect to. These are added by screenshot upload or manual entry.
 
 ## Technical notes
 
@@ -52,4 +54,7 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 - Row-level security scoping every league, roster, and credential row to its owner; stored ESPN/Yahoo credentials encrypted at rest and never returned to the client.
 - Title odds come from a Monte Carlo simulation of the rest of the season (weekly team score distributions from player projections plus variance, run over the remaining schedule and playoff bracket). Runs server-side, results cached per league/week.
 - Win impact of a move is the same simulation re-run with the hypothetical roster, differenced against the baseline — one shared routine used by waivers, start/sit, and trades so numbers always agree.
+- Screenshot import uses vision-capable AI via the built-in AI gateway, returning a structured roster/scoring object validated against the canonical player list and the league's roster slots; low-confidence rows are flagged for the user to confirm. Images are stored privately per user.
+- A flexible scoring-rules record per league (point values, bonuses, thresholds) feeds the projection engine, so custom scoring changes projections and odds rather than being cosmetic.
+
 
