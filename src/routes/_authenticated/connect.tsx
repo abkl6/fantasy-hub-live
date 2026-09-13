@@ -516,3 +516,251 @@ function ManualPanel() {
     </section>
   );
 }
+
+// ---------------------------------------------------------------- ESPN
+
+function EspnPanel() {
+  const navigate = useNavigate();
+  const preview = useServerFn(previewEspnLeague);
+  const doImport = useServerFn(importEspnLeague);
+
+  const [leagueId, setLeagueId] = useState("");
+  const [season, setSeason] = useState(new Date().getFullYear());
+  const [swid, setSwid] = useState("");
+  const [espnS2, setEspnS2] = useState("");
+  const [showPrivate, setShowPrivate] = useState(false);
+
+  const creds = () => ({
+    ...(swid.trim() ? { swid: swid.trim() } : {}),
+    ...(espnS2.trim() ? { espnS2: espnS2.trim() } : {}),
+  });
+
+  const look = useMutation({
+    mutationFn: () => preview({ data: { leagueId: leagueId.trim(), season, ...creds() } }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not reach ESPN."),
+  });
+
+  const importer = useMutation({
+    mutationFn: (myTeamExternalId: string) =>
+      doImport({ data: { leagueId: leagueId.trim(), season, myTeamExternalId, ...creds() } }),
+    onSuccess: (res) => {
+      toast.success(`${res.name} imported.`);
+      navigate({ to: "/league/$leagueId", params: { leagueId: res.leagueId } });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
+  });
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <h2 className="text-2xl font-bold uppercase">Connect ESPN</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Your league ID is the number in the ESPN league URL after <code>leagueId=</code>. Public
+        leagues need nothing else.
+      </p>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="espn-league">League ID</Label>
+          <Input
+            id="espn-league"
+            inputMode="numeric"
+            placeholder="1234567"
+            value={leagueId}
+            onChange={(e) => setLeagueId(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="espn-season">Season</Label>
+          <Input
+            id="espn-season"
+            type="number"
+            value={season}
+            onChange={(e) => setSeason(Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="mt-4 text-xs uppercase tracking-wider text-primary underline-offset-4 hover:underline"
+        onClick={() => setShowPrivate((v) => !v)}
+      >
+        {showPrivate ? "Hide private league settings" : "My league is private"}
+      </button>
+
+      {showPrivate && (
+        <div className="mt-4 space-y-4 rounded-lg border border-border bg-background/50 p-4">
+          <p className="text-xs text-muted-foreground">
+            Open your ESPN league in a browser while signed in, open the browser's developer tools,
+            go to Application → Cookies → fantasy.espn.com, and copy the two values below. They are
+            stored privately on your account and never shown again.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="espn-swid">SWID</Label>
+            <Input
+              id="espn-swid"
+              placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"
+              value={swid}
+              onChange={(e) => setSwid(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="espn-s2">espn_s2</Label>
+            <Input
+              id="espn-s2"
+              placeholder="AEB..."
+              value={espnS2}
+              onChange={(e) => setEspnS2(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      <Button
+        className="mt-5"
+        disabled={look.isPending || leagueId.trim().length < 2}
+        onClick={() => look.mutate()}
+      >
+        {look.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+        Find my league
+      </Button>
+
+      {look.data && (
+        <div className="mt-6">
+          <p className="eyebrow text-primary">{look.data.name}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Week {look.data.currentWeek} · pick which team is yours.
+          </p>
+          <div className="mt-4 space-y-3">
+            {look.data.teams.map((t) => (
+              <div
+                key={t.externalId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-4"
+              >
+                <div>
+                  <p className="font-semibold">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t.ownerName ? `${t.ownerName} · ` : ""}
+                    {t.record}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={importer.isPending}
+                  onClick={() => importer.mutate(t.externalId)}
+                >
+                  {importer.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  This is my team
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- Yahoo
+
+function YahooPanel() {
+  const navigate = useNavigate();
+  const status = useServerFn(yahooStatus);
+  const start = useServerFn(startYahooSignIn);
+  const leagues = useServerFn(listYahooLeagues);
+  const doImport = useServerFn(importYahooLeague);
+
+  const state = useQuery({ queryKey: ["yahoo-status"], queryFn: () => status({}) });
+
+  const signIn = useMutation({
+    mutationFn: () => start({ data: { origin: window.location.origin } }),
+    onSuccess: (res) => {
+      window.location.href = res.url;
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not start Yahoo sign-in."),
+  });
+
+  const find = useMutation({
+    mutationFn: () => leagues({}),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read your Yahoo leagues."),
+  });
+
+  const importer = useMutation({
+    mutationFn: (leagueKey: string) => doImport({ data: { leagueKey } }),
+    onSuccess: (res) => {
+      toast.success(`${res.name} imported.`);
+      navigate({ to: "/league/$leagueId", params: { leagueId: res.leagueId } });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
+  });
+
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get("yahoo");
+    if (!result) return;
+    if (result === "connected") toast.success("Yahoo account connected.");
+    else if (result === "expired") toast.error("That Yahoo sign-in timed out. Try again.");
+    else if (result === "failed") toast.error("Yahoo turned down the sign-in. Check the app settings.");
+    window.history.replaceState({}, "", window.location.pathname);
+    void state.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <h2 className="text-2xl font-bold uppercase">Connect Yahoo</h2>
+
+      {state.data && !state.data.configured && (
+        <p className="mt-3 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm text-warning">
+          Yahoo sign-in is built and ready, but it still needs the Yahoo app credentials before it
+          can run. Once those are saved, this button will take you to Yahoo.
+        </p>
+      )}
+
+      <p className="mt-3 text-sm text-muted-foreground">
+        Sign in with your Yahoo account and every Yahoo football league on it can be imported —
+        rosters, standings and the full schedule.
+      </p>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <Button
+          disabled={signIn.isPending || state.isLoading || state.data?.configured === false}
+          onClick={() => signIn.mutate()}
+        >
+          {signIn.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+          {state.data?.connected ? "Reconnect Yahoo" : "Sign in with Yahoo"}
+        </Button>
+        {state.data?.connected && (
+          <Button variant="outline" disabled={find.isPending} onClick={() => find.mutate()}>
+            {find.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            Show my Yahoo leagues
+          </Button>
+        )}
+      </div>
+
+      {find.data && (
+        <div className="mt-6 space-y-3">
+          {!find.data.length && (
+            <p className="text-sm text-muted-foreground">No football leagues on that Yahoo account.</p>
+          )}
+          {find.data.map((l) => (
+            <div
+              key={l.leagueKey}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-4"
+            >
+              <div>
+                <p className="font-semibold">{l.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {l.teamCount} teams · {l.season} season
+                </p>
+              </div>
+              <Button size="sm" disabled={importer.isPending} onClick={() => importer.mutate(l.leagueKey)}>
+                {importer.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                Import
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
