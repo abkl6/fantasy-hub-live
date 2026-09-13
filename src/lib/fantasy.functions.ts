@@ -887,3 +887,25 @@ export const setBestLineupFn = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+// ---------------------------------------------------------------- game day
+
+export const getGameDayFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ leagueId: z.string().uuid().optional(), refresh: z.boolean().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { buildGameDay, refreshLiveScoring } = await import("./fantasy/live.server");
+
+    if (data.refresh) {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await refreshLiveScoring(supabaseAdmin);
+      } catch {
+        // A provider hiccup should never blank the page; serve the last snapshot.
+      }
+    }
+
+    return buildGameDay(context.supabase, data.leagueId ? { leagueId: data.leagueId } : {});
+  });
