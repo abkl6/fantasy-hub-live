@@ -222,6 +222,9 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
       await supabase.from("matchups").insert(matchupInserts as never);
     }
 
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    await syncLeagueRosters(supabase, userId, league.id);
+
     return { leagueId: league.id, name: league.name };
   });
 
