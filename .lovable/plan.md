@@ -50,3 +50,6 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 - Player identity mapping table to reconcile provider player IDs against a canonical NFL player list.
 - Fetch on load with short-lived server-side caching to avoid hammering provider APIs; manual Refresh bypasses cache.
 - Row-level security scoping every league, roster, and credential row to its owner; stored ESPN/Yahoo credentials encrypted at rest and never returned to the client.
+- Title odds come from a Monte Carlo simulation of the rest of the season (weekly team score distributions from player projections plus variance, run over the remaining schedule and playoff bracket). Runs server-side, results cached per league/week.
+- Win impact of a move is the same simulation re-run with the hypothetical roster, differenced against the baseline — one shared routine used by waivers, start/sit, and trades so numbers always agree.
+
