@@ -452,13 +452,15 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     },
     standings,
     grades,
-    lineup: best.starters.map((s) => ({
-      slot: s.slot,
-      name: s.player?.name ?? "Empty",
-      position: s.player?.position ?? "-",
-      proj: s.player?.proj ?? 0,
-      ...metaFor(s.player?.name ?? ""),
-    })),
+    lineup: best.starters
+      .filter((s) => s.slot.toUpperCase() !== "BN")
+      .map((s) => ({
+        slot: s.slot,
+        name: s.player?.name ?? "Empty",
+        position: s.player?.position ?? "-",
+        proj: s.player?.proj ?? 0,
+        ...metaFor(s.player?.name ?? ""),
+      })),
     bench: best.bench.map((p) => ({ name: p.name, position: p.position, proj: p.proj, ...metaFor(p.name) })),
     suggestions: suggestions.slice(0, 12),
     scoreboard,
