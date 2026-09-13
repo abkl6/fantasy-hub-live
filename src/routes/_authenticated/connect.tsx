@@ -1,7 +1,7 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +24,14 @@ import {
   readScreenshot,
   saveRoster,
 } from "@/lib/fantasy.functions";
+import {
+  importEspnLeague,
+  importYahooLeague,
+  listYahooLeagues,
+  previewEspnLeague,
+  startYahooSignIn,
+  yahooStatus,
+} from "@/lib/platforms.functions";
 
 export const Route = createFileRoute("/_authenticated/connect")({
   head: () => ({
