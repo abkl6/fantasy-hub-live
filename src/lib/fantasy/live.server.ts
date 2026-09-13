@@ -357,11 +357,14 @@ export async function buildGameDay(
     const mySpots = spots.filter((s) => s.team_id === mine.id).map(toRow);
     const oppSpots = opp ? spots.filter((s) => s.team_id === opp.id).map(toRow) : [];
 
+    const benched = (slot: string) => ["BN", "IR", "TAXI"].includes(slot.toUpperCase());
     const startersOf = (rows: LivePlayerRow[]) => {
-      const flagged = rows.filter((r) => r.isStarter);
+      const flagged = rows.filter((r) => r.isStarter && !benched(r.slot));
       if (flagged.length) return flagged;
       // Estimated rosters may not flag starters; fall back to the best eligible.
-      return rows.filter((r) => startable(r.position)).slice(0, Math.max(1, slots.length));
+      return rows
+        .filter((r) => !benched(r.slot) && startable(r.position))
+        .slice(0, Math.max(1, slots.length));
     };
 
     const starters = startersOf(mySpots);

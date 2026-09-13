@@ -36,7 +36,7 @@ function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
           <p className="text-[11px] text-muted-foreground">
             {p.position}
             {p.nflTeam ? ` · ${p.nflTeam}` : ""} ·{" "}
-            {p.gameState === "in" && p.gameClock ? `Q live ${p.gameClock}` : stateLabel[p.gameState]}
+            {p.gameState === "in" && p.gameClock ? `In progress · ${p.gameClock}` : stateLabel[p.gameState]}
           </p>
         </div>
       </div>
