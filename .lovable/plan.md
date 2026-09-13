@@ -18,7 +18,10 @@ A signed-in app where one person tracks all of their fantasy teams across differ
    - Start/sit: recommended lineup for the week with reasons.
    - Waiver targets: available players who beat a current starter at a weak position.
    - Trade evaluator: pick players from each side, get a fairness verdict and impact on both rosters.
-6. **Refresh behavior** — data loads fresh on page load and via a manual Refresh button; no background polling.
+6. **Championship projections** — for each team: odds to make the playoffs and to win the league title, projected final record, and a simple "why" (schedule difficulty, roster strength, injuries). Shown on the dashboard as a headline number per team and on the league page as a full standings-style odds table.
+7. **Every suggestion shows win impact** — each waiver pickup, drop, start/sit swap, and trade is labeled with the change it makes to weekly win chance and to title odds (e.g. "+3.1% title odds"). Suggestions are ranked by that impact, so the top of the list is always the highest-value move. One-tap actions: accept a suggested lineup change, mark a waiver claim as planned, or save a trade idea to revisit.
+8. **Refresh behavior** — data loads fresh on page load and via a manual Refresh button; no background polling.
+
 
 ## Build order
 
