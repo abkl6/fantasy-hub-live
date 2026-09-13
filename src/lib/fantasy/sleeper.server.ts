@@ -26,7 +26,7 @@ export async function sleeperPlayers(): Promise<Record<string, SleeperPlayer>> {
   for (const [id, p] of Object.entries(raw)) {
     const name = p.full_name ?? [p.first_name, p.last_name].filter(Boolean).join(" ");
     if (!name || !p.position) continue;
-    slim[id] = { full_name: name, position: p.position, team: p.team ?? null ?? undefined };
+    slim[id] = { full_name: name, position: p.position, team: p.team ?? null };
   }
   playerCache = slim;
   playerCacheAt = Date.now();
