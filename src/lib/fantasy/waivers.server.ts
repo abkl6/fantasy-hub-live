@@ -1,0 +1,292 @@
+/**
+ * Waiver wire board: every unowned player in a league with projected points,
+ * points above replacement ("trade value"), a suggested FAAB bid, and the
+ * championship-odds impact of adding the best candidates. Server-only.
+ */
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+
+import {
+  optimalLineup,
+  simulateSeason,
+  slotAccepts,
+  teamDistribution,
+  type EnginePlayer,
+  type ScheduleGame,
+} from "./engine";
+
+type DB = SupabaseClient<Database>;
+
+const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
+const BENCH_POSITIONS = ["QB", "RB", "WR", "TE"];
+/** How many candidates get a full season re-simulation. */
+const SCORED_CANDIDATES = 12;
+
+function asSlots(value: unknown): string[] {
+  if (Array.isArray(value) && value.length) return value.map(String).filter((s) => s.toUpperCase() !== "BN");
+  return DEFAULT_SLOTS;
+}
+
+const key = (name: string) => name.trim().toLowerCase();
+
+export interface WaiverBoardRow {
+  id: string;
+  name: string;
+  position: string;
+  nflTeam: string | null;
+  byeWeek: number | null;
+  status: string;
+  projWeek: number;
+  projSeason: number;
+  /** Season points above the replacement-level starter at this position. */
+  tradeValue: number;
+  /** Suggested bid as a percentage of a $100 FAAB budget. */
+  bid: number;
+  /** Points your best starting lineup gains this week, if scored. */
+  lineupGain: number | null;
+  titleDelta: number | null;
+  playoffDelta: number | null;
+  winDelta: number | null;
+  suggestedDrop: string | null;
+  scored: boolean;
+}
+
+export interface WaiverBoard {
+  rows: WaiverBoardRow[];
+  estimatedRosterSpots: number;
+  rosterSize: number;
+  rosterLimit: number;
+  hasMyTeam: boolean;
+}
+
+export async function buildWaiverBoard(
+  supabase: DB,
+  leagueId: string,
+  opts: { search?: string; position?: string; limit?: number } = {},
+): Promise<WaiverBoard> {
+  const { data: league, error } = await supabase
+    .from("leagues")
+    .select("*")
+    .eq("id", leagueId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!league) throw new Error("League not found.");
+
+  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, { data: playerRows }] =
+    await Promise.all([
+      supabase.from("teams").select("*").eq("league_id", leagueId),
+      supabase.from("roster_spots").select("*").eq("league_id", leagueId),
+      supabase.from("matchups").select("*").eq("league_id", leagueId),
+      supabase.from("players").select("*"),
+    ]);
+
+  const slots = asSlots(league.roster_slots);
+  const teams = teamRows ?? [];
+  const spots = spotRows ?? [];
+  const players = playerRows ?? [];
+
+  const seasonByName = new Map(players.map((p) => [key(p.full_name), Number(p.proj_points_season)]));
+  const rostered = new Set(spots.map((s) => key(s.player_name)));
+  const usablePosition = (position: string) =>
+    slots.some((slot) => slotAccepts(slot, position)) || BENCH_POSITIONS.includes(position);
+
+  // --- replacement level: the Nth best season projection at each position ---
+  const startersNeeded = (pos: string) => {
+    const direct = slots.filter((s) => slotAccepts(s, pos) && s.toUpperCase() !== "FLEX").length;
+    const flex = slots.filter((s) => s.toUpperCase() === "FLEX" && slotAccepts(s, pos)).length;
+    return Math.max(1, direct + Math.ceil(flex / 3));
+  };
+  const replacement = new Map<string, number>();
+  for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF"]) {
+    const pool = players
+      .filter((p) => p.position.toUpperCase() === pos)
+      .map((p) => Number(p.proj_points_season))
+      .sort((a, b) => b - a);
+    const idx = Math.min(pool.length - 1, Math.max(0, teams.length * startersNeeded(pos) - 1));
+    replacement.set(pos, pool.length ? (pool[idx] ?? 0) : 0);
+  }
+
+  const search = opts.search?.trim().toLowerCase();
+  const wanted = opts.position?.toUpperCase();
+
+  const freeAgents = players
+    .filter((p) => !rostered.has(key(p.full_name)))
+    .filter((p) => usablePosition(p.position.toUpperCase()))
+    .map((p) => {
+      const pos = p.position.toUpperCase();
+      const projSeason = Number(p.proj_points_season);
+      return {
+        id: p.id,
+        name: p.full_name,
+        position: pos,
+        nflTeam: p.nfl_team,
+        byeWeek: p.bye_week,
+        status: p.status,
+        projWeek: Number(p.proj_points_week),
+        projSeason,
+        volatility: Number(p.volatility),
+        tradeValue: Math.round((projSeason - (replacement.get(pos) ?? 0)) * 10) / 10,
+      };
+    })
+    .sort((a, b) => b.tradeValue - a.tradeValue);
+
+  const mine = teams.find((t) => t.is_mine) ?? null;
+  const myRoster: EnginePlayer[] = mine
+    ? spots
+        .filter((s) => s.team_id === mine.id)
+        .map((s) => ({
+          id: s.player_id,
+          name: s.player_name,
+          position: s.position.toUpperCase(),
+          nflTeam: s.nfl_team,
+          proj: Number(s.proj_points),
+          volatility: 0.35,
+        }))
+    : [];
+
+  // --- championship impact for the strongest candidates --------------------
+  const impacts = new Map<
+    string,
+    { titleDelta: number; playoffDelta: number; winDelta: number; lineupGain: number; drop: string | null }
+  >();
+
+  if (mine && myRoster.length) {
+    const engineTeams = teams.map((t) => ({
+      id: t.id,
+      roster: spots
+        .filter((s) => s.team_id === t.id)
+        .map<EnginePlayer>((s) => ({
+          id: s.player_id,
+          name: s.player_name,
+          position: s.position.toUpperCase(),
+          nflTeam: s.nfl_team,
+          proj: Number(s.proj_points),
+          volatility: 0.35,
+        })),
+      wins: t.wins,
+      losses: t.losses,
+      ties: t.ties,
+      pointsFor: Number(t.points_for),
+      name: t.name,
+      isMine: t.is_mine,
+    }));
+
+    const simInputs = engineTeams.map((t) => {
+      const dist = t.roster.length
+        ? teamDistribution(t.roster, slots)
+        : {
+            mean: t.wins + t.losses + t.ties > 0 ? t.pointsFor / (t.wins + t.losses + t.ties) : 100,
+            sd: 22,
+          };
+      return {
+        id: t.id,
+        name: t.name,
+        isMine: t.isMine,
+        wins: t.wins,
+        losses: t.losses,
+        ties: t.ties,
+        pointsFor: t.pointsFor,
+        mean: dist.mean,
+        sd: dist.sd,
+      };
+    });
+
+    const schedule: ScheduleGame[] = (matchupRows ?? [])
+      .filter((m) => m.home_team_id && m.away_team_id)
+      .map((m) => ({ week: m.week, homeTeamId: m.home_team_id!, awayTeamId: m.away_team_id! }));
+
+    const simConfig = {
+      playoffTeams: league.playoff_teams,
+      regularSeasonWeeks: league.regular_season_weeks,
+      currentWeek: league.current_week,
+    };
+
+    const baseline = simulateSeason(simInputs, simConfig, schedule, 900, 7);
+    const baseMine = baseline.find((r) => r.id === mine.id)!;
+    const beforeLineup = optimalLineup(myRoster, slots).total;
+    const droppable = [...myRoster].sort((a, b) => a.proj - b.proj);
+
+    for (const fa of freeAgents.slice(0, SCORED_CANDIDATES)) {
+      const drop = droppable.find((d) => d.proj < fa.projWeek) ?? null;
+      const candidate: EnginePlayer = {
+        id: fa.id,
+        name: fa.name,
+        position: fa.position,
+        nflTeam: fa.nflTeam,
+        proj: fa.projWeek,
+        volatility: fa.volatility,
+      };
+      const nextRoster = drop
+        ? myRoster.map((p) => (p.name === drop.name ? candidate : p))
+        : [...myRoster, candidate];
+      const lineupGain = optimalLineup(nextRoster, slots).total - beforeLineup;
+
+      const dist = teamDistribution(nextRoster, slots);
+      const inputs = simInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
+      const res = simulateSeason(inputs, simConfig, schedule, 900, 7);
+      const m = res.find((r) => r.id === mine.id)!;
+
+      impacts.set(fa.id, {
+        titleDelta: m.titleOdds - baseMine.titleOdds,
+        playoffDelta: m.playoffOdds - baseMine.playoffOdds,
+        winDelta: Math.round((m.projWins - baseMine.projWins) * 100) / 100,
+        lineupGain: Math.round(lineupGain * 10) / 10,
+        drop: lineupGain > 0 && drop ? drop.name : null,
+      });
+    }
+  }
+
+  const bestTradeValue = Math.max(1, freeAgents[0]?.tradeValue ?? 1);
+
+  const rows: WaiverBoardRow[] = freeAgents
+    .filter((p) => (wanted && wanted !== "ALL" ? p.position === wanted : true))
+    .filter((p) => (search ? p.name.toLowerCase().includes(search) : true))
+    .slice(0, opts.limit ?? 60)
+    .map((p) => {
+      const impact = impacts.get(p.id) ?? null;
+      let bid = 0;
+      if (impact && impact.lineupGain > 0.1) {
+        bid = Math.round(
+          Math.min(60, impact.lineupGain * 4 + Math.max(0, impact.titleDelta) * 100 * 2.5 + 1),
+        );
+      } else if (!impact && p.tradeValue > 0) {
+        // Stash value only: a small speculative bid scaled to season upside.
+        bid = Math.round(Math.min(8, (p.tradeValue / bestTradeValue) * 8));
+      }
+      return {
+        id: p.id,
+        name: p.name,
+        position: p.position,
+        nflTeam: p.nflTeam,
+        byeWeek: p.byeWeek,
+        status: p.status,
+        projWeek: p.projWeek,
+        projSeason: Math.round(p.projSeason * 10) / 10,
+        tradeValue: p.tradeValue,
+        bid,
+        lineupGain: impact ? impact.lineupGain : null,
+        titleDelta: impact ? impact.titleDelta : null,
+        playoffDelta: impact ? impact.playoffDelta : null,
+        winDelta: impact ? impact.winDelta : null,
+        suggestedDrop: impact ? impact.drop : null,
+        scored: !!impact,
+      };
+    });
+
+  const estimated = spots.filter((s) => s.is_auto).length;
+  const rosterSize = mine ? spots.filter((s) => s.team_id === mine.id).length : 0;
+
+  return {
+    rows,
+    estimatedRosterSpots: estimated,
+    rosterSize,
+    rosterLimit: slots.length + 6,
+    hasMyTeam: !!mine,
+  };
+}
+
+/** Season projections keyed by lowercase player name — small helper for callers. */
+export function seasonProjection(map: Map<string, number>, name: string) {
+  return map.get(key(name)) ?? 0;
+}
