@@ -179,12 +179,16 @@ function LeaguePage() {
               key={i}
               className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
             >
-              <TeamScore name={m.homeName} points={m.homePoints} winning={m.homePoints >= m.awayPoints} />
+              <TeamScore
+                name={m.home.name}
+                points={m.home.score}
+                winning={m.home.score >= m.away.score}
+              />
               <span className="px-4 text-xs uppercase text-muted-foreground">vs</span>
               <TeamScore
-                name={m.awayName}
-                points={m.awayPoints}
-                winning={m.awayPoints > m.homePoints}
+                name={m.away.name}
+                points={m.away.score}
+                winning={m.away.score > m.home.score}
                 alignRight
               />
             </div>
