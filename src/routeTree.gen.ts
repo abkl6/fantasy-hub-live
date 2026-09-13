@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedConnectRouteImport } from './routes/_authenticated/connect'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -39,18 +40,26 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLeagueLeagueIdRoute =
+  AuthenticatedLeagueLeagueIdRouteImport.update({
+    id: '/league/$leagueId',
+    path: '/league/$leagueId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -59,12 +68,13 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/connect': typeof AuthenticatedConnectRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/connect' | '/dashboard'
+  fullPaths: '/' | '/auth' | '/connect' | '/dashboard' | '/league/$leagueId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/connect' | '/dashboard'
+  to: '/' | '/auth' | '/connect' | '/dashboard' | '/league/$leagueId'
   id:
     | '__root__'
     | '/'
@@ -72,6 +82,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/connect'
     | '/_authenticated/dashboard'
+    | '/_authenticated/league/$leagueId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,17 +128,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/league/$leagueId': {
+      id: '/_authenticated/league/$leagueId'
+      path: '/league/$leagueId'
+      fullPath: '/league/$leagueId'
+      preLoaderRoute: typeof AuthenticatedLeagueLeagueIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConnectRoute: typeof AuthenticatedConnectRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedLeagueLeagueIdRoute: typeof AuthenticatedLeagueLeagueIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConnectRoute: AuthenticatedConnectRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedLeagueLeagueIdRoute: AuthenticatedLeagueLeagueIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
