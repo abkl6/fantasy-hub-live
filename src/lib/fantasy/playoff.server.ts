@@ -179,7 +179,7 @@ export function buildPlayoffPicture(
   const mine = teams.find((t) => t.isMine);
   const rooting: RootingInterest[] = [];
   if (mine) {
-    for (const g of schedule.filter((x) => x.week >= config.currentWeek)) {
+    for (const g of schedule.filter((x) => x.week > config.currentWeek)) {
       if (g.homeTeamId === mine.id || g.awayTeamId === mine.id) continue;
       const home = teamById.get(g.homeTeamId);
       const away = teamById.get(g.awayTeamId);
