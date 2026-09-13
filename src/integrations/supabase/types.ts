@@ -137,6 +137,56 @@ export type Database = {
         }
         Relationships: []
       }
+      live_player_stats: {
+        Row: {
+          created_at: string
+          game_clock: string | null
+          game_state: string
+          id: string
+          opponent: string | null
+          player_id: string
+          season: number
+          sleeper_id: string | null
+          stats: Json
+          updated_at: string
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          game_clock?: string | null
+          game_state?: string
+          id?: string
+          opponent?: string | null
+          player_id: string
+          season: number
+          sleeper_id?: string | null
+          stats?: Json
+          updated_at?: string
+          week: number
+        }
+        Update: {
+          created_at?: string
+          game_clock?: string | null
+          game_state?: string
+          id?: string
+          opponent?: string | null
+          player_id?: string
+          season?: number
+          sleeper_id?: string | null
+          stats?: Json
+          updated_at?: string
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_player_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matchups: {
         Row: {
           away_score: number
@@ -480,6 +530,59 @@ export type Database = {
           },
         ]
       }
+      scoring_events: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          delta: Json
+          description: string
+          id: string
+          nfl_team: string | null
+          occurred_at: string
+          player_id: string
+          player_name: string
+          position: string
+          season: number
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          delta?: Json
+          description: string
+          id?: string
+          nfl_team?: string | null
+          occurred_at?: string
+          player_id: string
+          player_name: string
+          position: string
+          season: number
+          week: number
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          delta?: Json
+          description?: string
+          id?: string
+          nfl_team?: string | null
+          occurred_at?: string
+          player_id?: string
+          player_name?: string
+          position?: string
+          season?: number
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scoring_events_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           created_at: string
@@ -682,7 +785,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      norm_player_name: { Args: { name: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
