@@ -293,18 +293,12 @@ export async function loadPlayoffPicture(
     .filter((m) => m.home_team_id && m.away_team_id)
     .map((m) => ({ week: m.week, homeTeamId: m.home_team_id!, awayTeamId: m.away_team_id! }));
 
-  return buildPlayoffPicture(teams, {
+  const simConfig = {
     playoffTeams: league.playoff_teams,
     regularSeasonWeeks: league.regular_season_weeks,
     currentWeek: league.current_week,
-  }, schedule, teams.map((t) => ({
-    id: t.id,
-    name: t.name,
-    isMine: t.isMine,
-    playoffOdds: 0,
-    titleOdds: 0,
-    projWins: t.wins + t.losses + t.ties > 0 ? t.wins + t.ties * 0.5 : 0,
-    projLosses: 0,
-    powerRank: 0,
-  })));
+  };
+  const simResults = simulateSeason(teams, simConfig, schedule, 2500, 7);
+
+  return buildPlayoffPicture(teams, simConfig, schedule, simResults);
 }
