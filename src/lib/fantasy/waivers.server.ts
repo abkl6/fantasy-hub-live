@@ -219,10 +219,11 @@ export async function buildWaiverBoard(
 
       // Try every plausible drop (plus keeping everyone when there is room)
       // and keep whichever leaves the strongest starting lineup.
-      const options: { roster: EnginePlayer[]; drop: EnginePlayer | null }[] = droppable
-        .slice(0, 8)
-        .map((d) => ({ roster: myRoster.map((p) => (p.name === d.name ? candidate : p)), drop: d }));
+      const options: { roster: EnginePlayer[]; drop: EnginePlayer | null }[] = [];
       if (myRoster.length < rosterCap) options.push({ roster: [...myRoster, candidate], drop: null });
+      for (const d of droppable.slice(0, 8)) {
+        options.push({ roster: myRoster.map((p) => (p.name === d.name ? candidate : p)), drop: d });
+      }
 
       let best = options[0]!;
       let bestTotal = -Infinity;
