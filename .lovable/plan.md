@@ -30,7 +30,7 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 1. Accounts and sign-in, plus the empty dashboard shell and design system (bold sports-broadcast look, dark surface, one accent color, condensed headline type — no generic purple gradient).
 2. Data storage: users, tracked leagues, teams, rosters, players, weekly scores, manual entries.
 3. Sleeper integration end to end (fastest real data), including league import and scoreboard.
-4. Manual league entry + roster editor.
+4. Manual league entry + roster editor, including screenshot upload that fills in rosters and custom scoring rules for review.
 5. ESPN integration (public league IDs first, private-league credentials second).
 6. NFL player and stats reference data so analysis works for every platform, including manual leagues.
 7. Analyzer features: strength grades, start/sit, waiver targets, trade evaluator.
