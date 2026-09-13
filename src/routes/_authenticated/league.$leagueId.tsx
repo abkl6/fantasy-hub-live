@@ -266,14 +266,14 @@ function PlayerList({
   players,
 }: {
   title: string;
-  players: { id: string; name: string; position: string; slot?: string; proj: number }[];
+  players: { name: string; position: string; slot?: string; proj: number }[];
 }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <h2 className="text-lg font-bold uppercase">{title}</h2>
       <ul className="mt-3 space-y-2">
-        {players.map((p) => (
-          <li key={p.id} className="flex items-center justify-between text-sm">
+        {players.map((p, i) => (
+          <li key={`${p.name}-${i}`} className="flex items-center justify-between text-sm">
             <span>
               <span className="eyebrow mr-2 text-muted-foreground">{p.slot ?? p.position}</span>
               {p.name}
