@@ -31,7 +31,7 @@ import {
   getDraftRecapFn,
   getPlayoffPictureFn,
   getTrendsFn,
-  getWaiverWire,
+  getWaiverBoard,
   importSleeperDraftFn,
   setBestLineupFn,
 } from "@/lib/fantasy.functions";
@@ -167,7 +167,7 @@ function LeaguePage() {
           <TabsTrigger value="grades">Grades</TabsTrigger>
           <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
           <TabsTrigger value="standings">Standings</TabsTrigger>
-          <TabsTrigger value="waivers">Available</TabsTrigger>
+          <TabsTrigger value="waivers">Waivers</TabsTrigger>
           <TabsTrigger value="trade">Trade</TabsTrigger>
           <TabsTrigger value="playoff">Playoff</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
@@ -346,12 +346,20 @@ function PlayerList({
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 
+const SORTS = [
+  { id: "impact", label: "Title impact" },
+  { id: "points", label: "Points" },
+  { id: "bid", label: "Bid" },
+  { id: "value", label: "Trade value" },
+] as const;
+
 function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => void }) {
-  const load = useServerFn(getWaiverWire);
+  const load = useServerFn(getWaiverBoard);
   const add = useServerFn(applyMoveFn);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("ALL");
+  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("impact");
 
   const { data, isFetching } = useQuery({
     queryKey: ["waivers", leagueId, search, position],
@@ -360,10 +368,10 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
   });
 
   const addMutation = useMutation({
-    mutationFn: (name: string) =>
-      add({ data: { leagueId, kind: "waiver", addName: name, dropName: null } }),
-    onSuccess: () => {
-      toast.success("Player added to your bench");
+    mutationFn: (v: { name: string; drop: string | null }) =>
+      add({ data: { leagueId, kind: "waiver", addName: v.name, dropName: v.drop } }),
+    onSuccess: (_r, v) => {
+      toast.success(v.drop ? `Added ${v.name}, dropped ${v.drop}` : `${v.name} added to your bench`);
       queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
       queryClient.invalidateQueries({ queryKey: ["waivers", leagueId] });
       onAdded?.();
@@ -371,13 +379,23 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not add player."),
   });
 
+  const rows = [...(data?.rows ?? [])].sort((a, b) => {
+    if (sort === "points") return b.projWeek - a.projWeek;
+    if (sort === "bid") return b.bid - a.bid;
+    if (sort === "value") return b.tradeValue - a.tradeValue;
+    return (b.titleDelta ?? -1) - (a.titleDelta ?? -1) || b.tradeValue - a.tradeValue;
+  });
+
+  const rosterFull = !!data && data.rosterSize >= data.rosterLimit;
+
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold uppercase">Available players</h2>
+          <h2 className="text-lg font-bold uppercase">Waiver wire</h2>
           <p className="text-xs text-muted-foreground">
-            Everyone not already on a roster in this league.
+            Everyone still unowned in this league, with what they are worth and what they do to your
+            title chances.
           </p>
         </div>
         <Input
@@ -401,48 +419,97 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
         ))}
       </div>
 
-      {!!data?.estimatedRosterSpots && (
-        <p className="mt-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-          Some rival rosters are estimated because this league was added by hand. Enter or import
-          their real rosters to make this list exact.
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="eyebrow text-muted-foreground">Sort by</span>
+        {SORTS.map((s) => (
+          <Button
+            key={s.id}
+            size="sm"
+            variant={sort === s.id ? "secondary" : "ghost"}
+            onClick={() => setSort(s.id)}
+          >
+            {s.label}
+          </Button>
+        ))}
+      </div>
+
+      {data && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {data.hasMyTeam
+            ? `Roster ${data.rosterSize} of ${data.rosterLimit}.${rosterFull ? " Full — an add will drop the suggested player." : ""}`
+            : "Mark one team as yours to see title impact and bids."}
+          {data.estimatedRosterSpots
+            ? " Some rival rosters are estimated, so this list is approximate."
+            : ""}
         </p>
       )}
 
-      <ul className="mt-4 space-y-2">
+      <ul className="mt-4 space-y-1">
         {isFetching && !data && <li className="text-sm text-muted-foreground">Loading…</li>}
-        {data?.players.map((p) => (
-          <li key={p.id} className="flex items-center justify-between border-t border-border py-2 text-sm">
-            <span className="flex items-center gap-2">
-              <span className="eyebrow text-muted-foreground">{p.position}</span>
-              <span>{p.name}</span>
-              {p.status && p.status !== "Active" && (
-                <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px] uppercase">
-                  {p.status}
-                </Badge>
-              )}
-              <span className="text-xs text-muted-foreground">
-                {p.nflTeam ?? "FA"}
-                {p.byeWeek ? ` · bye ${p.byeWeek}` : ""}
-              </span>
-            </span>
-            <span className="flex items-center gap-3">
-              <span className="stat-num">{p.proj.toFixed(1)}</span>
+        {rows.map((p) => (
+          <li key={p.id} className="border-t border-border py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="eyebrow text-muted-foreground">{p.position}</span>
+                  <span className="font-medium">{p.name}</span>
+                  {p.status && p.status !== "Active" && (
+                    <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px] uppercase">
+                      {p.status}
+                    </Badge>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {p.nflTeam ?? "FA"}
+                    {p.byeWeek ? ` · bye ${p.byeWeek}` : ""}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>
+                    <span className="stat-num text-foreground">{p.projWeek.toFixed(1)}</span> pts/wk ·{" "}
+                    <span className="stat-num text-foreground">{p.projSeason.toFixed(0)}</span> season
+                  </span>
+                  <span>
+                    Trade value{" "}
+                    <span className={`stat-num ${p.tradeValue > 0 ? "text-foreground" : ""}`}>
+                      {p.tradeValue > 0 ? "+" : ""}
+                      {p.tradeValue.toFixed(1)}
+                    </span>
+                  </span>
+                  <span>
+                    Bid <span className="stat-num text-foreground">{p.bid > 0 ? `${p.bid}%` : "no bid"}</span>
+                  </span>
+                  {p.titleDelta !== null && (
+                    <span className={p.titleDelta > 0 ? "text-primary" : ""}>
+                      Title {p.titleDelta > 0 ? "+" : ""}
+                      {(p.titleDelta * 100).toFixed(1)} pts · playoffs {(p.playoffDelta ?? 0) > 0 ? "+" : ""}
+                      {((p.playoffDelta ?? 0) * 100).toFixed(1)}
+                    </span>
+                  )}
+                  {p.suggestedDrop && <span>Drop {p.suggestedDrop}</span>}
+                </div>
+              </div>
               <Button
                 size="sm"
-                variant="outline"
-                disabled={addMutation.isPending && addMutation.variables === p.name}
-                onClick={() => addMutation.mutate(p.name)}
+                variant={p.titleDelta && p.titleDelta > 0 ? "default" : "outline"}
+                disabled={addMutation.isPending && addMutation.variables?.name === p.name}
+                onClick={() => {
+                  if (rosterFull && !p.suggestedDrop) {
+                    toast.error("Your roster is full. Drop someone on the Lineup tab first.");
+                    return;
+                  }
+                  addMutation.mutate({ name: p.name, drop: p.suggestedDrop });
+                }}
               >
-                {addMutation.isPending && addMutation.variables === p.name ? (
+                {addMutation.isPending && addMutation.variables?.name === p.name ? (
                   <Loader2 className="size-3 animate-spin" />
                 ) : (
                   "Add"
                 )}
               </Button>
-            </span>
+            </div>
           </li>
         ))}
-        {data && !data.players.length && (
+        {data && !rows.length && (
           <li className="text-sm text-muted-foreground">No available players match that.</li>
         )}
       </ul>

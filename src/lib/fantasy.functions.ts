@@ -593,6 +593,26 @@ Include every scoring rule you can read using short snake_case keys and numeric 
     };
   });
 
+export const getWaiverBoard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leagueId: z.string().uuid(),
+        search: z.string().max(60).optional(),
+        position: z.string().max(6).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { buildWaiverBoard } = await import("./fantasy/waivers.server");
+    return buildWaiverBoard(context.supabase, data.leagueId, {
+      ...(data.search ? { search: data.search } : {}),
+      ...(data.position ? { position: data.position } : {}),
+      limit: 60,
+    });
+  });
+
 // ---------------------------------------------------------------- playoff + trends
 
 export const getPlayoffPictureFn = createServerFn({ method: "POST" })

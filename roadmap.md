@@ -18,3 +18,4 @@
 - [x] 16. One-tap actions: apply start/sit, add waiver player, copy trade text
 - [x] 17. Power-rank history + Trends tab + standings sparklines
 - [x] 18. Draft recap grades (Sleeper import + screenshot fallback)
+- [x] 19. Waiver wire board: points, suggested FAAB bid, trade value, title impact, one-tap add
