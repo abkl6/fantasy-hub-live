@@ -73,18 +73,26 @@ function ConnectPage() {
       <p className="eyebrow text-primary">Add a league</p>
       <h1 className="mt-2 text-4xl font-bold uppercase">Bring your teams in</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Sleeper connects straight from your username. Yahoo, ESPN, NFL.com and FFPC do not offer a
-        public way to read your league, so add those from a screenshot of your roster — the scoring
-        settings can come from a screenshot too.
+        Sleeper connects from your username, ESPN from your league ID, and Yahoo by signing in with
+        your Yahoo account. NFL.com and FFPC have no public way to read a league, so add those from a
+        screenshot of your roster — the scoring settings can come from a screenshot too.
       </p>
 
       <Tabs defaultValue="sleeper" className="mt-8">
         <TabsList>
           <TabsTrigger value="sleeper">Sleeper</TabsTrigger>
+          <TabsTrigger value="espn">ESPN</TabsTrigger>
+          <TabsTrigger value="yahoo">Yahoo</TabsTrigger>
           <TabsTrigger value="manual">Screenshot or manual</TabsTrigger>
         </TabsList>
         <TabsContent value="sleeper" className="mt-6">
           <SleeperPanel />
+        </TabsContent>
+        <TabsContent value="espn" className="mt-6">
+          <EspnPanel />
+        </TabsContent>
+        <TabsContent value="yahoo" className="mt-6">
+          <YahooPanel />
         </TabsContent>
         <TabsContent value="manual" className="mt-6">
           <ManualPanel />
