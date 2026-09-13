@@ -492,6 +492,24 @@ function ManualPanel() {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="league-format">League type</Label>
+          <Select
+            value={form.format}
+            onValueChange={(v) => setForm({ ...form, format: v as (typeof LEAGUE_FORMATS)[number] })}
+          >
+            <SelectTrigger id="league-format">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LEAGUE_FORMATS.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {FORMAT_LABELS[f]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {(
           [
             ["teamCount", "Teams"],
