@@ -45,6 +45,9 @@ export const getAnalysis = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { buildAnalysis } = await import("./fantasy/analysis.server");
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    // Backfill any team still missing a roster so availability stays accurate.
+    await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
     return buildAnalysis(context.supabase, data.leagueId);
   });
 
@@ -222,6 +225,9 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
       await supabase.from("matchups").insert(matchupInserts as never);
     }
 
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    await syncLeagueRosters(supabase, userId, league.id);
+
     return { leagueId: league.id, name: league.name };
   });
 
@@ -282,6 +288,9 @@ export const createManualLeague = createServerFn({ method: "POST" })
       .select("id, is_mine");
     if (teamError) throw new Error(teamError.message);
 
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    await syncLeagueRosters(supabase, context.userId, league.id);
+
     return { leagueId: league.id, myTeamId: (teams ?? []).find((t) => t.is_mine)?.id ?? null };
   });
 
@@ -333,10 +342,40 @@ export const saveRoster = createServerFn({ method: "POST" })
           proj_points: match ? Number(match.proj_points_week) : projFor(p.position),
         };
       });
-      const { error } = await supabase.from("roster_spots").insert(rows);
+      const { error } = await supabase.from("roster_spots").insert(rows as never);
       if (error) throw new Error(error.message);
     }
+
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    await syncLeagueRosters(supabase, context.userId, data.leagueId);
+
     return { saved: data.players.length };
+  });
+
+export const getWaiverWire = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leagueId: z.string().uuid(),
+        search: z.string().max(60).optional(),
+        position: z.string().max(6).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { leagueWaiverWire } = await import("./fantasy/rosters.server");
+    const players = await leagueWaiverWire(context.supabase, data.leagueId, {
+      ...(data.search ? { search: data.search } : {}),
+      ...(data.position ? { position: data.position } : {}),
+      limit: 50,
+    });
+    const { count } = await context.supabase
+      .from("roster_spots")
+      .select("id", { count: "exact", head: true })
+      .eq("league_id", data.leagueId)
+      .eq("is_auto", true);
+    return { players, estimatedRosterSpots: count ?? 0 };
   });
 
 export const updateLeagueSettings = createServerFn({ method: "POST" })

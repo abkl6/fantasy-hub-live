@@ -235,6 +235,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_auto: boolean
           is_starter: boolean
           league_id: string
           nfl_team: string | null
@@ -249,6 +250,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_auto?: boolean
           is_starter?: boolean
           league_id: string
           nfl_team?: string | null
@@ -263,6 +265,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_auto?: boolean
           is_starter?: boolean
           league_id?: string
           nfl_team?: string | null

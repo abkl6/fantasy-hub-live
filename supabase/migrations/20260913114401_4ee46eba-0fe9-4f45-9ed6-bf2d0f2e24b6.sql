@@ -1,0 +1,2 @@
+ALTER TABLE public.roster_spots ADD COLUMN IF NOT EXISTS is_auto boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS roster_spots_league_player_idx ON public.roster_spots (league_id, lower(player_name));

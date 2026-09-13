@@ -157,5 +157,10 @@ export async function persistBundle(
     if (error) throw new Error(error.message);
   }
 
+  // Any team the platform returned without a roster gets an estimated one so
+  // the league's available-player list stays accurate.
+  const { syncLeagueRosters } = await import("./rosters.server");
+  await syncLeagueRosters(supabase, userId, league.id);
+
   return { leagueId: league.id, name: league.name, teams: insertedTeams ?? [] };
 }

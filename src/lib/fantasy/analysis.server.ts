@@ -122,7 +122,11 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const matchups = matchupRows ?? [];
   const players = playerRows ?? [];
 
-  const rosteredNames = new Set(spots.map((s) => `${s.player_name.toLowerCase()}|${s.position}`));
+  // Anyone held by any team in the league is off the waiver wire, whatever
+  // position label the platform used for them.
+  const rosteredNames = new Set(spots.map((s) => s.player_name.trim().toLowerCase()));
+  const usablePosition = (position: string) =>
+    slots.some((slot) => slotAccepts(slot, position)) || ["QB", "RB", "WR", "TE"].includes(position);
 
   const engineTeams: EngineTeam[] = teams.map((t) => ({
     id: t.id,
@@ -276,7 +280,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // --- waiver targets -----------------------------------------------------
   const freeAgents = players
-    .filter((p) => !rosteredNames.has(`${p.full_name.toLowerCase()}|${p.position}`))
+    .filter((p) => !rosteredNames.has(p.full_name.trim().toLowerCase()))
+    .filter((p) => usablePosition(p.position.toUpperCase()))
     .map<EnginePlayer>((p) => ({
       id: p.id,
       name: p.full_name,
