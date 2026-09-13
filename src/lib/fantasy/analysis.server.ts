@@ -280,7 +280,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // --- waiver targets -----------------------------------------------------
   const freeAgents = players
-    .filter((p) => !rosteredNames.has(`${p.full_name.toLowerCase()}|${p.position}`))
+    .filter((p) => !rosteredNames.has(p.full_name.trim().toLowerCase()))
+    .filter((p) => usablePosition(p.position.toUpperCase()))
     .map<EnginePlayer>((p) => ({
       id: p.id,
       name: p.full_name,
