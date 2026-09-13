@@ -201,7 +201,7 @@ export async function buildWaiverBoard(
       currentWeek: league.current_week,
     };
 
-    const baseline = simulateSeason(simInputs, simConfig, schedule, 900, 7);
+    const baseline = simulateSeason(simInputs, simConfig, schedule, 1500, 7);
     const baseMine = baseline.find((r) => r.id === mine.id)!;
     const beforeLineup = optimalLineup(myRoster, slots).total;
     const droppable = [...myRoster].sort((a, b) => a.proj - b.proj);
@@ -223,13 +223,16 @@ export async function buildWaiverBoard(
 
       const dist = teamDistribution(nextRoster, slots);
       const inputs = simInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
-      const res = simulateSeason(inputs, simConfig, schedule, 900, 7);
+      const res = simulateSeason(inputs, simConfig, schedule, 1500, 7);
       const m = res.find((r) => r.id === mine.id)!;
 
+      // A pickup that does not improve the optimal lineup cannot move the
+      // season odds; anything the simulation reports there is noise.
+      const meaningful = lineupGain > 0.05;
       impacts.set(fa.id, {
-        titleDelta: m.titleOdds - baseMine.titleOdds,
-        playoffDelta: m.playoffOdds - baseMine.playoffOdds,
-        winDelta: Math.round((m.projWins - baseMine.projWins) * 100) / 100,
+        titleDelta: meaningful ? m.titleOdds - baseMine.titleOdds : 0,
+        playoffDelta: meaningful ? m.playoffOdds - baseMine.playoffOdds : 0,
+        winDelta: meaningful ? Math.round((m.projWins - baseMine.projWins) * 100) / 100 : 0,
         lineupGain: Math.round(lineupGain * 10) / 10,
         drop: lineupGain > 0 && drop ? drop.name : null,
       });
