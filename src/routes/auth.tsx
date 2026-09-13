@@ -88,7 +88,10 @@ function AuthPage() {
           Track every league, every week, with championship odds behind every move.
         </p>
 
-        <Button type="button" variant="outline" className="mt-6 w-full" onClick={onGoogle}>
+        <Button type="button" variant="outline" className="mt-6 w-full" onClick={() => onOAuth("apple")}>
+          Continue with Apple
+        </Button>
+        <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => onOAuth("google")}>
           Continue with Google
         </Button>
 
