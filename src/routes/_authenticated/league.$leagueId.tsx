@@ -75,8 +75,7 @@ function LeaguePage() {
           <h1 className="mt-2 text-4xl font-bold uppercase">{data.league.name}</h1>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
-              {me.name} · {me.wins}-{me.losses}
-              {me.ties ? `-${me.ties}` : ""} · {me.pointsFor.toFixed(1)} points for
+              {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
             </p>
           )}
         </div>
@@ -180,12 +179,16 @@ function LeaguePage() {
               key={i}
               className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
             >
-              <TeamScore name={m.homeName} points={m.homePoints} winning={m.homePoints >= m.awayPoints} />
+              <TeamScore
+                name={m.home.name}
+                points={m.home.score}
+                winning={m.home.score >= m.away.score}
+              />
               <span className="px-4 text-xs uppercase text-muted-foreground">vs</span>
               <TeamScore
-                name={m.awayName}
-                points={m.awayPoints}
-                winning={m.awayPoints > m.homePoints}
+                name={m.away.name}
+                points={m.away.score}
+                winning={m.away.score > m.home.score}
                 alignRight
               />
             </div>
@@ -210,10 +213,7 @@ function LeaguePage() {
                   className={`border-t border-border ${t.isMine ? "bg-primary/5 font-semibold" : ""}`}
                 >
                   <td className="py-3">{t.name}</td>
-                  <td className="stat-num py-3">
-                    {t.wins}-{t.losses}
-                    {t.ties ? `-${t.ties}` : ""}
-                  </td>
+                  <td className="stat-num py-3">{t.record}</td>
                   <td className="stat-num py-3">{t.pointsFor.toFixed(1)}</td>
                   <td className="stat-num py-3">{pct(t.playoffOdds)}</td>
                   <td className="stat-num py-3 text-primary">{pct(t.titleOdds)}</td>
@@ -266,14 +266,14 @@ function PlayerList({
   players,
 }: {
   title: string;
-  players: { id: string; name: string; position: string; slot?: string; proj: number }[];
+  players: { name: string; position: string; slot?: string; proj: number }[];
 }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <h2 className="text-lg font-bold uppercase">{title}</h2>
       <ul className="mt-3 space-y-2">
-        {players.map((p) => (
-          <li key={p.id} className="flex items-center justify-between text-sm">
+        {players.map((p, i) => (
+          <li key={`${p.name}-${i}`} className="flex items-center justify-between text-sm">
             <span>
               <span className="eyebrow mr-2 text-muted-foreground">{p.slot ?? p.position}</span>
               {p.name}
