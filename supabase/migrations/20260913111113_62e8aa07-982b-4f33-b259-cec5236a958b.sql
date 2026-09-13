@@ -1,0 +1,65 @@
+-- 1. Canonical player pool: full top-200 plus all kickers and defenses.
+CREATE UNIQUE INDEX IF NOT EXISTS players_name_position_key ON public.players (lower(full_name), position);
+
+INSERT INTO public.players (full_name, search_name, position, nfl_team, proj_points_week, proj_points_season, volatility, sleeper_id)
+SELECT v.name, lower(v.name), v.pos, v.team, v.wk, round(v.wk * 15, 1),
+  CASE v.pos WHEN 'QB' THEN 0.28 WHEN 'RB' THEN 0.38 WHEN 'WR' THEN 0.40 WHEN 'TE' THEN 0.42 WHEN 'K' THEN 0.45 ELSE 0.52 END,
+  v.sid
+FROM (VALUES
+('Bijan Robinson','RB','ATL',20.5,'9509'),('Jahmyr Gibbs','RB','DET',20.2,'9221'),('Josh Allen','QB','BUF',24.5,'4984'),('Jonathan Taylor','RB','IND',19.9,'6813'),('Ja''Marr Chase','WR','CIN',19.5,'7564'),('Christian McCaffrey','RB','SF',19.6,'4034'),('James Cook','RB','BUF',19.3,'8138'),('Puka Nacua','WR','LAR',19.3,'9493'),('Amon-Ra St. Brown','WR','DET',19,'7547'),('Jaxon Smith-Njigba','WR','SEA',18.8,'9488'),('Derrick Henry','RB','BAL',19,'3198'),('De''Von Achane','RB','MIA',18.7,'9226'),('Drake Maye','QB','NE',24.1,'11564'),('Saquon Barkley','RB','PHI',18.4,'4866'),('Lamar Jackson','QB','BAL',23.7,'4881'),('CeeDee Lamb','WR','DAL',18.5,'6786'),('Justin Jefferson','WR','MIN',18.3,'6794'),('Omarion Hampton','RB','LAC',18.1,'12507'),('Ashton Jeanty','RB','LV',17.8,'12527'),('Kyren Williams','RB','LAR',17.5,'8150'),('Chase Brown','RB','CIN',17.2,'9224'),('Jeremiyah Love','RB','ARI',16.9,'13287'),('Joe Burrow','QB','CIN',23.2,'6770'),('A.J. Brown','WR','NE',18.1,'5859'),('Drake London','WR','ATL',17.8,'8112'),('Kenneth Walker','RB','KC',16.6,'8151'),('Josh Jacobs','RB','GB',16.3,'5850'),('Caleb Williams','QB','CHI',22.8,'11560'),('Jayden Daniels','QB','WAS',22.4,'11566'),('Nico Collins','WR','HOU',17.6,'7569'),('Trey McBride','TE','ARI',15.5,'8130'),('George Pickens','WR','DAL',17.3,'8137'),('Brock Bowers','TE','LV',15.1,'11604'),('Malik Nabers','WR','NYG',17.1,'11632'),('Jalen Hurts','QB','PHI',22,'6904'),('Breece Hall','RB','NYJ',16,'8155'),('Chris Olave','WR','NO',16.9,'8144'),('Rashee Rice','WR','KC',16.6,'10229'),('Javonte Williams','RB','DAL',15.7,'7588'),('Bucky Irving','RB','TB',15.4,'11584'),('Justin Herbert','QB','LAC',21.6,'6797'),('DeVonta Smith','WR','PHI',16.4,'7525'),('Travis Etienne','RB','NO',15.1,'7543'),('Ladd McConkey','WR','LAC',16.1,'11635'),('Tee Higgins','WR','CIN',15.9,'6801'),('Cam Skattebo','RB','NYG',14.8,'12481'),('Colston Loveland','TE','CHI',14.6,'12517'),('Tetairoa McMillan','WR','CAR',15.7,'12526'),('Garrett Wilson','WR','NYJ',15.4,'8146'),('Emeka Egbuka','WR','TB',15.2,'12514'),('Dak Prescott','QB','DAL',21.1,'3294'),('Patrick Mahomes','QB','KC',20.7,'4046'),('TreVeyon Henderson','RB','NE',14.5,'12529'),('Luther Burden','WR','CHI',14.9,'12519'),('Zay Flowers','WR','BAL',14.7,'9997'),('Jaxson Dart','QB','NYG',20.3,'12508'),('David Montgomery','RB','HOU',14.2,'5892'),('Trevor Lawrence','QB','JAX',19.9,'7523'),('Jaylen Waddle','WR','DEN',14.5,'7526'),('Bhayshul Tuten','RB','JAX',13.9,'12490'),('Bo Nix','QB','DEN',19.5,'11563'),('Quinshon Judkins','RB','CLE',13.6,'12512'),('Davante Adams','WR','LAR',14.2,'2133'),('D''Andre Swift','RB','CHI',13.3,'6790'),('Tyler Warren','TE','IND',14.2,'12518'),('DJ Moore','WR','BUF',14,'4983'),('Jaylen Warren','RB','PIT',13,'8228'),('Jameson Williams','WR','DET',13.7,'8148'),('Jadarian Price','RB','SEA',12.7,'13286'),('Terry McLaurin','WR','WAS',13.5,'5927'),('Brock Purdy','QB','SF',19,'8183'),('RJ Harvey','RB','DEN',12.4,'12489'),('Sam LaPorta','TE','DET',13.7,'10859'),('Rhamondre Stevenson','RB','NE',12.1,'7611'),('Mike Evans','WR','SF',13.3,'2216'),('Kyle Monangai','RB','CHI',11.8,'12534'),('Carnell Tate','WR','TEN',13,'13279'),('Jared Goff','QB','DET',18.6,'3163'),('Jordyn Tyson','WR','NO',12.8,'13281'),('Tony Pollard','RB','TEN',11.5,'5967'),('Harold Fannin','TE','CLE',13.3,'12506'),('Christian Watson','WR','GB',12.5,'8167'),('Rome Odunze','WR','CHI',12.3,'11620'),('Rico Dowdle','RB','PIT',11.2,'7021'),('Tucker Kraft','TE','GB',12.8,'9484'),('Chuba Hubbard','RB','CAR',10.9,'7594'),('Matthew Stafford','QB','LAR',18.2,'421'),('Jordan Love','QB','GB',17.8,'6804'),('J.K. Dobbins','RB','DEN',10.6,'6806'),('Kyle Pitts','TE','ATL',12.4,'7553'),('Blake Corum','RB','LAR',10.3,'11586'),('Parker Washington','WR','JAX',12.1,'9487'),('Courtland Sutton','WR','DEN',11.8,'5045'),('DK Metcalf','WR','PIT',11.6,'5846'),('Marvin Harrison','WR','ARI',11.3,'11628'),('Baker Mayfield','QB','TB',17.4,'4892'),('Michael Wilson','WR','ARI',11.1,'10232'),('Brian Thomas','WR','JAX',10.9,'11631'),('Jakobi Meyers','WR','JAX',10.6,'5947'),('Brian Robinson','RB','ATL',10,'8154'),('Dalton Kincaid','TE','BUF',11.9,'10236'),('George Kittle','TE','SF',11.5,'4217'),('Oronde Gadsden','TE','LAC',11,'12493'),('Aaron Jones','RB','MIN',9.7,'4199'),('Kenny Gainwell','RB','TB',9.4,'7567'),('Tyler Shough','QB','NO',16.9,'12545'),('Chris Godwin','WR','TB',10.4,'4037'),('Kyler Murray','QB','MIN',16.5,'5849'),('Jonathon Brooks','RB','CAR',9.1,'11583'),('Travis Kelce','TE','KC',10.6,'1466'),('Tyler Allgeier','RB','ARI',8.8,'8132'),('Makai Lemon','WR','PHI',10.1,'13294'),('Hunter Henry','TE','NE',10.1,'3214'),('James Conner','RB','ARI',8.5,'4137'),('Sam Darnold','QB','SEA',16.1,'4943'),('Jordan Mason','RB','MIN',8.2,'8408'),('Dallas Goedert','TE','PHI',9.6,'5022'),('Alec Pierce','WR','IND',9.9,'8142'),('Jacory Croskey-Merritt','RB','WAS',7.9,'12533'),('Mark Andrews','TE','BAL',9.2,'5012'),('Jake Ferguson','TE','DAL',8.8,'8110'),('Dalton Schultz','TE','HOU',8.3,'5001'),('MarShawn Lloyd','RB','GB',7.6,'11581'),('Jordan Addison','WR','MIN',9.7,'9756'),('Zach Charbonnet','RB','SEA',7.3,'9753'),('Jayden Reed','WR','GB',9.4,'10222'),('C.J. Stroud','QB','HOU',15.7,'9758'),('Juwan Johnson','TE','NO',7.9,'7002'),('Quentin Johnston','WR','LAC',9.2,'9754'),('Michael Pittman','WR','PIT',8.9,'6819'),('Brenton Strange','TE','JAX',7.4,'9480'),('Fernando Mendoza','QB','LV',15.3,'13269'),('Wan''Dale Robinson','WR','TEN',8.7,'8126'),('Woody Marks','RB','HOU',7,'12474'),('Stefon Diggs','WR','WAS',8.5,'2449'),('Isaiah Likely','TE','NYG',7,'8131'),('Kenyon Sadiq','TE','NYJ',6.5,'13330'),('Tyrone Tracy','RB','NYG',6.7,'11655'),('Josh Downs','WR','IND',8.2,'9500'),('KC Concepcion','WR','CLE',8,'13298'),('De''Zhaun Stribling','WR','SF',7.7,'13417'),('Cam Ward','QB','TEN',14.8,'12522'),('Emmett Johnson','RB','KC',6.4,'13337'),('Trey Benson','RB','ARI',6.1,'11589'),('Romeo Doubs','WR','NE',7.5,'8121'),('Mike Washington','RB','LV',5.8,'13305'),('Jonah Coleman','RB','DEN',5.5,'13345'),('Alvin Kamara','RB','NO',5.2,'4035'),('Malik Willis','QB','MIA',14.4,'8161'),('Matthew Golden','WR','GB',7.3,'12501'),('Khalil Shakir','WR','BUF',7,'8134'),('Tyjae Spears','RB','TEN',4.9,'9508'),('Xavier Worthy','WR','KC',6.8,'11624'),('Jauan Jennings','WR','MIN',6.5,'7049'),('Rachaad White','RB','WAS',4.6,'8136'),('Chris Rodriguez','RB','JAX',4.5,'10219'),('AJ Barner','TE','SEA',6,'11603'),('Jayden Higgins','WR','HOU',6.3,'12484'),('T.J. Hockenson','TE','MIN',5.6,'5844'),('Deebo Samuel','WR','SF',6.1,'5872'),('Dylan Sampson','RB','CLE',4.5,'12469'),('Daniel Jones','QB','IND',14,'5870'),('David Njoku','TE','LAC',5.2,'4033'),('Jalen Coker','WR','CAR',5.8,'11646'),('Bryce Young','QB','CAR',13.6,'9228'),('Braelon Allen','RB','NYJ',4.5,'11576'),('Colby Parkinson','TE','LAR',4.7,'6865'),('Chig Okonkwo','TE','WAS',4.3,'8210'),('Mason Taylor','TE','NYJ',3.8,'12498'),('Eli Stowers','TE','PHI',3.4,'13349'),('Kimani Vidal','RB','LAC',4.5,'11647'),('Terrance Ferguson','TE','LAR',3,'12487'),('Theo Johnson','TE','NYG',3,'11597'),('Ja''Kobi Lane','WR','BAL',5.6,'13293'),('Tank Bigsby','RB','PHI',4.5,'9225'),('Cade Otton','TE','TB',3,'8111'),('Keaton Mitchell','RB','LAC',4.5,'9511'),('Rashid Shaheed','WR','SEA',5.3,'8676'),('Isiah Pacheco','RB','DET',4.5,'8205'),('Omar Cooper','WR','NYJ',5.1,'13276'),('Gunnar Helm','TE','TEN',3,'12502'),('Denzel Boston','WR','CLE',4.9,'13346'),('Sean Tucker','RB','TB',4.5,'9506'),('Antonio Williams','WR','WAS',4.6,'13301'),('Brandon Aubrey','K','DAL',9.6,'11533'),('Cameron Dicker','K','LAC',9.5,'8259'),('Jason Myers','K','SEA',9.4,'2747'),('Ka''imi Fairbairn','K','HOU',9.3,'3451'),('Cam Little','K','JAX',9.2,'11786'),('Jake Bates','K','DET',9.1,'11539'),('Chris Boswell','K','PIT',9,'1945'),('Tyler Loop','K','BAL',8.9,'12711'),('Evan McPherson','K','CIN',8.8,'7839'),('Harrison Mevis','K','LAR',8.7,'12015'),('Harrison Butker','K','KC',8.6,'4227'),('Andy Borregales','K','NE',8.5,'12713'),('Will Reichard','K','MIN',8.4,'11792'),('Eddy Pineiro','K','SF',8.3,'5189'),('Wil Lutz','K','DEN',8.2,'3678'),('Cairo Santos','K','CHI',8.1,'2020'),('Trey Smack','K','GB',8,'13545'),('Chase McLaughlin','K','TB',7.9,'6650'),('Jake Elliott','K','PHI',7.8,'4195'),('Matt Gay','K','LV',7.7,'6083'),('Riley Patterson','K','MIA',7.6,'7922'),('Charlie Smyth','K','NO',7.5,'11653'),('Nick Folk','K','ATL',7.4,'650'),('Alex Kessman','K','CAR',7.3,'7933'),('Tyler Bass','K','BUF',7.2,'7042'),('Houston Texans','DEF','HOU',9.8,'HOU'),('New England Patriots','DEF','NE',9.6,'NE'),('Baltimore Ravens','DEF','BAL',9.5,'BAL'),('Pittsburgh Steelers','DEF','PIT',9.3,'PIT'),('Indianapolis Colts','DEF','IND',9.2,'IND'),('Arizona Cardinals','DEF','ARI',9,'ARI'),('Seattle Seahawks','DEF','SEA',8.8,'SEA'),('Las Vegas Raiders','DEF','LV',8.7,'LV'),('New York Jets','DEF','NYJ',8.5,'NYJ'),('Dallas Cowboys','DEF','DAL',8.4,'DAL'),('Washington Commanders','DEF','WAS',8.2,'WAS'),('Los Angeles Chargers','DEF','LAC',8,'LAC'),('Tampa Bay Buccaneers','DEF','TB',7.9,'TB'),('Cleveland Browns','DEF','CLE',7.7,'CLE'),('Atlanta Falcons','DEF','ATL',7.6,'ATL'),('Carolina Panthers','DEF','CAR',7.4,'CAR'),('Jacksonville Jaguars','DEF','JAX',7.2,'JAX'),('Los Angeles Rams','DEF','LAR',7.1,'LAR'),('New Orleans Saints','DEF','NO',6.9,'NO'),('Green Bay Packers','DEF','GB',6.8,'GB'),('Miami Dolphins','DEF','MIA',6.6,'MIA'),('Detroit Lions','DEF','DET',6.4,'DET'),('Buffalo Bills','DEF','BUF',6.3,'BUF'),('Philadelphia Eagles','DEF','PHI',6.1,'PHI'),('San Francisco 49ers','DEF','SF',6,'SF'),('New York Giants','DEF','NYG',5.8,'NYG'),('Tennessee Titans','DEF','TEN',5.6,'TEN'),('Chicago Bears','DEF','CHI',5.5,'CHI'),('Cincinnati Bengals','DEF','CIN',5.3,'CIN'),('Denver Broncos','DEF','DEN',5.2,'DEN'),('Kansas City Chiefs','DEF','KC',5,'KC'),('Minnesota Vikings','DEF','MIN',4.8,'MIN')
+) AS v(name, pos, team, wk, sid)
+ON CONFLICT (lower(full_name), position) DO UPDATE SET
+  nfl_team = EXCLUDED.nfl_team,
+  proj_points_week = EXCLUDED.proj_points_week,
+  proj_points_season = EXCLUDED.proj_points_season,
+  volatility = EXCLUDED.volatility,
+  sleeper_id = EXCLUDED.sleeper_id,
+  updated_at = now();
+
+-- 2. Trade history
+CREATE TABLE public.trade_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  league_id uuid NOT NULL REFERENCES public.leagues(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  week integer NOT NULL DEFAULT 1,
+  partner_team_name text,
+  gave jsonb NOT NULL DEFAULT '[]'::jsonb,
+  got jsonb NOT NULL DEFAULT '[]'::jsonb,
+  points_delta numeric NOT NULL DEFAULT 0,
+  title_odds_before numeric NOT NULL DEFAULT 0,
+  title_odds_after numeric NOT NULL DEFAULT 0,
+  playoff_odds_before numeric NOT NULL DEFAULT 0,
+  playoff_odds_after numeric NOT NULL DEFAULT 0,
+  wins_before numeric NOT NULL DEFAULT 0,
+  wins_after numeric NOT NULL DEFAULT 0,
+  verdict text NOT NULL DEFAULT 'even',
+  status text NOT NULL DEFAULT 'proposed',
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.trade_history TO authenticated;
+GRANT ALL ON public.trade_history TO service_role;
+ALTER TABLE public.trade_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "own trade history" ON public.trade_history FOR ALL TO authenticated
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE INDEX trade_history_league_idx ON public.trade_history (league_id, created_at DESC);
+
+-- 3. Private per-account platform credentials (ESPN cookies, Yahoo tokens).
+CREATE TABLE public.platform_credentials (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  platform text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  expires_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, platform)
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.platform_credentials TO authenticated;
+GRANT ALL ON public.platform_credentials TO service_role;
+ALTER TABLE public.platform_credentials ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "own platform credentials" ON public.platform_credentials FOR ALL TO authenticated
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE TRIGGER platform_credentials_updated_at BEFORE UPDATE ON public.platform_credentials
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
