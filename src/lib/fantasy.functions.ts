@@ -134,6 +134,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         scoring_type: (bundle.league.scoring_settings?.["rec"] ?? 0) >= 1 ? "ppr" : (bundle.league.scoring_settings?.["rec"] ?? 0) > 0 ? "half_ppr" : "standard",
         scoring_rules: bundle.league.scoring_settings ?? {},
         roster_slots: slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],
+        format: sleeperFormat(bundle.league.settings as Record<string, unknown> | undefined),
         last_synced_at: new Date().toISOString(),
       })
       .select()
