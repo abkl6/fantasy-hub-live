@@ -209,10 +209,7 @@ function LeaguePage() {
                   className={`border-t border-border ${t.isMine ? "bg-primary/5 font-semibold" : ""}`}
                 >
                   <td className="py-3">{t.name}</td>
-                  <td className="stat-num py-3">
-                    {t.wins}-{t.losses}
-                    {t.ties ? `-${t.ties}` : ""}
-                  </td>
+                  <td className="stat-num py-3">{t.record}</td>
                   <td className="stat-num py-3">{t.pointsFor.toFixed(1)}</td>
                   <td className="stat-num py-3">{pct(t.playoffOdds)}</td>
                   <td className="stat-num py-3 text-primary">{pct(t.titleOdds)}</td>
