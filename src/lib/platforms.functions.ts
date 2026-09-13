@@ -1,7 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 
 // ---------------------------------------------------------------- ESPN
 
@@ -126,7 +128,7 @@ export const startYahooSignIn = createServerFn({ method: "POST" })
   });
 
 async function yahooAccessToken(
-  supabase: Awaited<ReturnType<typeof requireSupabaseAuth.client>> extends never ? never : any,
+  supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<string> {
   const { yahooRefresh } = await import("./fantasy/yahoo.server");
