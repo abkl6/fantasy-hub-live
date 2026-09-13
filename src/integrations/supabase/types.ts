@@ -132,6 +132,36 @@ export type Database = {
           },
         ]
       }
+      platform_credentials: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          payload: Json
+          platform: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payload?: Json
+          platform: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payload?: Json
+          platform?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       players: {
         Row: {
           bye_week: number | null
@@ -380,6 +410,87 @@ export type Database = {
             columns: ["league_id"]
             isOneToOne: false
             referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trade_history: {
+        Row: {
+          created_at: string
+          gave: Json
+          got: Json
+          id: string
+          league_id: string
+          note: string | null
+          partner_team_name: string | null
+          playoff_odds_after: number
+          playoff_odds_before: number
+          points_delta: number
+          status: string
+          team_id: string | null
+          title_odds_after: number
+          title_odds_before: number
+          user_id: string
+          verdict: string
+          week: number
+          wins_after: number
+          wins_before: number
+        }
+        Insert: {
+          created_at?: string
+          gave?: Json
+          got?: Json
+          id?: string
+          league_id: string
+          note?: string | null
+          partner_team_name?: string | null
+          playoff_odds_after?: number
+          playoff_odds_before?: number
+          points_delta?: number
+          status?: string
+          team_id?: string | null
+          title_odds_after?: number
+          title_odds_before?: number
+          user_id: string
+          verdict?: string
+          week?: number
+          wins_after?: number
+          wins_before?: number
+        }
+        Update: {
+          created_at?: string
+          gave?: Json
+          got?: Json
+          id?: string
+          league_id?: string
+          note?: string | null
+          partner_team_name?: string | null
+          playoff_odds_after?: number
+          playoff_odds_before?: number
+          points_delta?: number
+          status?: string
+          team_id?: string | null
+          title_odds_after?: number
+          title_odds_before?: number
+          user_id?: string
+          verdict?: string
+          week?: number
+          wins_after?: number
+          wins_before?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_history_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_history_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
