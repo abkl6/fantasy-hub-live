@@ -470,5 +470,54 @@ Include every scoring rule you can read using short snake_case keys and numeric 
     } catch {
       throw new Error("Nothing readable was found in that screenshot.");
     }
-    return { mode: data.mode, result: parsed as Record<string, unknown> };
+    const rosterShape = z.object({
+      players: z
+        .array(
+          z.object({
+            name: z.string(),
+            position: z.string(),
+            nflTeam: z.string().nullish(),
+            slot: z.string().nullish(),
+            isStarter: z.boolean().nullish(),
+            confidence: z.number().nullish(),
+          }),
+        )
+        .default([]),
+    });
+    const scoringShape = z.object({
+      scoringType: z.string().nullish(),
+      rules: z.record(z.string(), z.number()).default({}),
+      rosterSlots: z.array(z.string()).nullish(),
+      confidence: z.number().nullish(),
+    });
+
+    if (data.mode === "roster") {
+      const out = rosterShape.safeParse(parsed);
+      if (!out.success) throw new Error("That screenshot did not look like a roster.");
+      return {
+        mode: "roster" as const,
+        players: out.data.players.map((p) => ({
+          name: p.name,
+          position: p.position.toUpperCase(),
+          nflTeam: p.nflTeam ?? null,
+          slot: p.slot ?? null,
+          isStarter: p.isStarter ?? false,
+          confidence: p.confidence ?? 1,
+        })),
+        scoring: null,
+      };
+    }
+
+    const out = scoringShape.safeParse(parsed);
+    if (!out.success) throw new Error("That screenshot did not look like league scoring settings.");
+    return {
+      mode: "scoring" as const,
+      players: null,
+      scoring: {
+        scoringType: out.data.scoringType ?? "ppr",
+        rules: out.data.rules,
+        rosterSlots: out.data.rosterSlots ?? null,
+        confidence: out.data.confidence ?? 1,
+      },
+    };
   });
