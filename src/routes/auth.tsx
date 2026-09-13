@@ -65,12 +65,12 @@ function AuthPage() {
     }
   }
 
-  async function onGoogle() {
-    const result = await lovable.auth.signInWithOAuth("google", {
+  async function onOAuth(provider: "google" | "apple") {
+    const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
     });
     if (result.error) {
-      toast.error("Google sign-in failed. Try again.");
+      toast.error("Sign-in failed. Try again.");
       return;
     }
     if (result.redirected) return;
@@ -88,7 +88,10 @@ function AuthPage() {
           Track every league, every week, with championship odds behind every move.
         </p>
 
-        <Button type="button" variant="outline" className="mt-6 w-full" onClick={onGoogle}>
+        <Button type="button" variant="outline" className="mt-6 w-full" onClick={() => onOAuth("apple")}>
+          Continue with Apple
+        </Button>
+        <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => onOAuth("google")}>
           Continue with Google
         </Button>
 
