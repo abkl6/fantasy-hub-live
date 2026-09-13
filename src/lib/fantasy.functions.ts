@@ -285,6 +285,9 @@ export const createManualLeague = createServerFn({ method: "POST" })
       .select("id, is_mine");
     if (teamError) throw new Error(teamError.message);
 
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    await syncLeagueRosters(supabase, context.userId, league.id);
+
     return { leagueId: league.id, myTeamId: (teams ?? []).find((t) => t.is_mine)?.id ?? null };
   });
 
