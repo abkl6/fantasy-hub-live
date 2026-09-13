@@ -46,8 +46,11 @@ export const getAnalysis = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { buildAnalysis } = await import("./fantasy/analysis.server");
     const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    const { syncPlayerNews } = await import("./fantasy/sleeper.server");
     // Backfill any team still missing a roster so availability stays accurate.
     await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
+    // Refresh injury/status data in the background.
+    await syncPlayerNews(context.supabase).catch(() => {});
     return buildAnalysis(context.supabase, data.leagueId);
   });
 
@@ -588,4 +591,263 @@ Include every scoring rule you can read using short snake_case keys and numeric 
         confidence: out.data.confidence ?? 1,
       },
     };
+  });
+
+// ---------------------------------------------------------------- playoff + trends
+
+export const getPlayoffPictureFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { loadPlayoffPicture } = await import("./fantasy/playoff.server");
+    return loadPlayoffPicture(context.supabase, data.leagueId);
+  });
+
+export const getTrendsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows } = await context.supabase
+      .from("weekly_snapshots")
+      .select("week, team_id, title_odds, playoff_odds, proj_wins, power_score, teams(name, is_mine)")
+      .eq("league_id", data.leagueId)
+      .order("week", { ascending: true });
+
+    const snapshots = (rows ?? []).map((r) => ({
+      week: r.week,
+      teamId: r.team_id,
+      name: (r.teams as { name: string; is_mine: boolean }).name,
+      isMine: (r.teams as { name: string; is_mine: boolean }).is_mine,
+      titleOdds: Number(r.title_odds),
+      playoffOdds: Number(r.playoff_odds),
+      projWins: Number(r.proj_wins),
+      powerScore: Number(r.power_score),
+    }));
+
+    const byTeam = new Map<string, typeof snapshots>();
+    for (const s of snapshots) {
+      const list = byTeam.get(s.teamId) ?? [];
+      list.push(s);
+      byTeam.set(s.teamId, list);
+    }
+
+    return {
+      weeks: [...new Set(snapshots.map((s) => s.week))].sort((a, b) => a - b),
+      series: [...byTeam.values()].map((list) => ({
+        teamId: list[0]!.teamId,
+        name: list[0]!.name,
+        isMine: list[0]!.isMine,
+        points: list.map((s) => ({ week: s.week, titleOdds: s.titleOdds, playoffOdds: s.playoffOdds, projWins: s.projWins })),
+      })),
+    };
+  });
+
+export const syncPlayerNewsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { syncPlayerNews } = await import("./fantasy/sleeper.server");
+    return syncPlayerNews(context.supabase);
+  });
+
+// ---------------------------------------------------------------- draft
+
+export const importSleeperDraftFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid(), sleeperLeagueId: z.string().min(1) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { sleeperDraft, sleeperPlayers } = await import("./fantasy/sleeper.server");
+    const supabase = context.supabase;
+
+    const { data: league } = await supabase.from("leagues").select("id, user_id, team_count").eq("id", data.leagueId).single();
+    if (!league) throw new Error("League not found.");
+
+    const { data: teams } = await supabase.from("teams").select("id, external_id").eq("league_id", data.leagueId);
+    const teamByExternal = new Map((teams ?? []).map((t) => [String(t.external_id), t.id]));
+
+    const draft = await sleeperDraft(data.sleeperLeagueId);
+    if (!draft) throw new Error("No draft found for this Sleeper league.");
+
+    const playerMap = await sleeperPlayers();
+    const { data: canonical } = await supabase.from("players").select("id, full_name, position, proj_points_season, sleeper_id");
+    const bySleeperId = new Map((canonical ?? []).filter((p) => p.sleeper_id).map((p) => [p.sleeper_id, p]));
+    const byName = new Map((canonical ?? []).map((p) => [p.full_name.toLowerCase(), p]));
+
+    const picks = draft.picks.map((pick) => {
+      const meta = pick.metadata ?? {};
+      const name = [meta.first_name, meta.last_name].filter(Boolean).join(" ") || "Unknown";
+      const position = (meta.position ?? "-").toUpperCase();
+      const sleeperPlayer = playerMap[pick.player_id];
+      const match = bySleeperId.get(pick.player_id) ?? byName.get(name.toLowerCase()) ?? byName.get(sleeperPlayer?.full_name?.toLowerCase() ?? "");
+      return {
+        user_id: league.user_id,
+        league_id: data.leagueId,
+        team_id: teamByExternal.get(String(pick.roster_id)) ?? null,
+        pick_number: pick.pick_no,
+        round: pick.round,
+        player_name: match?.full_name ?? name,
+        position: match?.position ?? position,
+        nfl_team: meta.team ?? sleeperPlayer?.team ?? null,
+        proj_points_season: match ? Number(match.proj_points_season) : 0,
+        value_vs_adp: 0,
+      };
+    });
+
+    // Simple value vs ADP: projected season points relative to pick expectation.
+    const sorted = [...picks].sort((a, b) => b.proj_points_season - a.proj_points_season);
+    const totalPicks = picks.length;
+    for (let i = 0; i < picks.length; i++) {
+      const rank = sorted.findIndex((p) => p.pick_number === picks[i]!.pick_number);
+      const expectedRank = picks[i]!.pick_number;
+      picks[i]!.value_vs_adp = totalPicks > 0 ? (expectedRank - (rank + 1)) / totalPicks : 0;
+    }
+
+    await supabase.from("draft_picks").delete().eq("league_id", data.leagueId);
+    if (picks.length) {
+      const { error } = await supabase.from("draft_picks").insert(picks as never);
+      if (error) throw new Error(error.message);
+    }
+
+    return { picks: picks.length };
+  });
+
+export const getDraftRecapFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows } = await context.supabase
+      .from("draft_picks")
+      .select("*, teams(name, is_mine)")
+      .eq("league_id", data.leagueId)
+      .order("pick_number", { ascending: true });
+
+    const picks = (rows ?? []).map((r) => ({
+      ...r,
+      teamName: (r.teams as { name: string; is_mine: boolean } | null)?.name ?? "Unknown",
+      isMine: (r.teams as { name: string; is_mine: boolean } | null)?.is_mine ?? false,
+    }));
+
+    const byTeam = new Map<string, typeof picks>();
+    for (const p of picks) {
+      const list = byTeam.get(p.team_id) ?? [];
+      list.push(p);
+      byTeam.set(p.team_id, list);
+    }
+
+    const grades = [...byTeam.values()].map((list) => {
+      const totalValue = list.reduce((s, p) => s + Number(p.value_vs_adp), 0);
+      const best = list.reduce((max, p) => (Number(p.value_vs_adp) > Number(max.value_vs_adp) ? p : max), list[0]!);
+      const worst = list.reduce((min, p) => (Number(p.value_vs_adp) < Number(min.value_vs_adp) ? p : min), list[0]!);
+      const avgProj = list.reduce((s, p) => s + Number(p.proj_points_season), 0) / (list.length || 1);
+      return {
+        teamId: list[0]!.team_id,
+        teamName: list[0]!.teamName,
+        isMine: list[0]!.isMine,
+        grade: totalValue > 0.3 ? "A" : totalValue > 0.1 ? "B" : totalValue > -0.1 ? "C" : totalValue > -0.3 ? "D" : "F",
+        totalValue,
+        avgProj,
+        bestPick: best,
+        worstPick: worst,
+      };
+    });
+
+    return { picks, grades };
+  });
+
+// ---------------------------------------------------------------- one-tap actions
+
+export const applyMoveFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leagueId: z.string().uuid(),
+        kind: z.enum(["start-sit", "waiver"]),
+        addName: z.string().min(1),
+        dropName: z.string().optional().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+
+    const { data: myTeam } = await supabase
+      .from("teams")
+      .select("id")
+      .eq("league_id", data.leagueId)
+      .eq("is_mine", true)
+      .single();
+    if (!myTeam) throw new Error("Mark a team as yours first.");
+
+    if (data.kind === "start-sit" && data.dropName) {
+      // Swap starter slot with bench player.
+      await supabase
+        .from("roster_spots")
+        .update({ slot: "BN", is_starter: false })
+        .eq("team_id", myTeam.id)
+        .ilike("player_name", data.dropName);
+      await supabase
+        .from("roster_spots")
+        .update({ slot: "START", is_starter: true })
+        .eq("team_id", myTeam.id)
+        .ilike("player_name", data.addName);
+    } else if (data.kind === "waiver") {
+      // Add the free agent and drop the lowest-value same-position player if requested.
+      const { data: canonical } = await supabase
+        .from("players")
+        .select("id, full_name, position, proj_points_week, nfl_team, status")
+        .ilike("full_name", data.addName)
+        .limit(1)
+        .single();
+      if (!canonical) throw new Error(`Could not find ${data.addName} in the player pool.`);
+
+      if (data.dropName) {
+        await supabase.from("roster_spots").delete().eq("team_id", myTeam.id).ilike("player_name", data.dropName);
+      }
+
+      await supabase.from("roster_spots").insert({
+        team_id: myTeam.id,
+        league_id: data.leagueId,
+        user_id: context.userId,
+        player_id: canonical.id,
+        player_name: canonical.full_name,
+        position: canonical.position,
+        nfl_team: canonical.nfl_team,
+        slot: "BN",
+        is_starter: false,
+        proj_points: Number(canonical.proj_points_week),
+      });
+    }
+
+    return { ok: true };
+  });
+
+export const setBestLineupFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const { buildAnalysis } = await import("./fantasy/analysis.server");
+    const analysis = await buildAnalysis(supabase, data.leagueId);
+    if (!analysis.myTeam) throw new Error("Mark a team as yours first.");
+
+    const { data: myTeam } = await supabase
+      .from("teams")
+      .select("id")
+      .eq("league_id", data.leagueId)
+      .eq("is_mine", true)
+      .single();
+    if (!myTeam) throw new Error("Team not found.");
+
+    const starterNames = new Set(analysis.lineup.map((p) => p.name.toLowerCase()));
+
+    const { data: spots } = await supabase.from("roster_spots").select("id, player_name").eq("team_id", myTeam.id);
+    for (const s of spots ?? []) {
+      const isStarter = starterNames.has(s.player_name.toLowerCase());
+      await supabase
+        .from("roster_spots")
+        .update({ slot: isStarter ? "START" : "BN", is_starter: isStarter })
+        .eq("id", s.id);
+    }
+
+    return { ok: true };
   });

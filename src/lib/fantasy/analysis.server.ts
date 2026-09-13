@@ -15,6 +15,7 @@ import {
   type ScheduleGame,
   type SimTeamResult,
 } from "./engine";
+import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
 
 type DB = SupabaseClient<Database>;
 
@@ -72,12 +73,24 @@ export interface AnalysisPayload {
   } | null;
   standings: (SimTeamResult & { record: string; pointsFor: number })[];
   grades: PositionGrade[];
-  lineup: { slot: string; name: string; position: string; proj: number }[];
-  bench: { name: string; position: string; proj: number }[];
+  lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
+  bench: { name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
   suggestions: MoveSuggestion[];
   scoreboard: ScoreboardGame[];
   tradeCandidates: { id: string; name: string; position: string; proj: number; teamName: string; teamId: string }[];
   myTradeable: { id: string; name: string; position: string; proj: number }[];
+  playoff: PlayoffPayload;
+  alerts: Alert[];
+}
+
+export interface Alert {
+  id: string;
+  kind: "injury" | "bye" | "news";
+  playerName: string;
+  position: string;
+  message: string;
+  severity: "low" | "medium" | "high";
+  action?: { label: string; suggestionId?: string; playerName?: string };
 }
 
 function toLeagueRow(l: Record<string, unknown>): LeagueRow {
@@ -225,6 +238,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       scoreboard,
       tradeCandidates: [],
       myTradeable: [],
+      playoff: buildPlayoffPicture(simInputs, simConfig, schedule, standings),
+      alerts: [],
     };
   }
 
@@ -366,6 +381,59 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   const myTeamRow = teams.find((t) => t.id === mine.id)!;
 
+  // Player metadata for status badges and alerts.
+  const playerMeta = new Map(
+    players.map((p) => [
+      p.full_name.trim().toLowerCase(),
+      { status: p.status ?? "Active", nflTeam: p.nfl_team ?? null, byeWeek: p.bye_week ?? null },
+    ]),
+  );
+  const metaFor = (name: string) => playerMeta.get(name.trim().toLowerCase()) ?? { status: "Active", nflTeam: null, byeWeek: null };
+
+  const alerts: Alert[] = [];
+  for (const s of best.starters) {
+    if (!s.player) continue;
+    const meta = metaFor(s.player.name);
+    const status = meta.status.toLowerCase();
+    if (["out", "ir"].includes(status)) {
+      alerts.push({
+        id: `injury-${s.player.name}`,
+        kind: "injury",
+        playerName: s.player.name,
+        position: s.player.position,
+        message: `${s.player.name} is listed as ${meta.status} in your starting lineup.`,
+        severity: "high",
+        action: { label: "Find replacement", playerName: s.player.name },
+      });
+    } else if (["doubtful", "questionable"].includes(status)) {
+      alerts.push({
+        id: `injury-${s.player.name}`,
+        kind: "injury",
+        playerName: s.player.name,
+        position: s.player.position,
+        message: `${s.player.name} is ${meta.status} — check status before kickoff.`,
+        severity: status === "doubtful" ? "high" : "medium",
+        action: { label: "Find replacement", playerName: s.player.name },
+      });
+    }
+    if (meta.byeWeek === league.current_week) {
+      alerts.push({
+        id: `bye-${s.player.name}`,
+        kind: "bye",
+        playerName: s.player.name,
+        position: s.player.position,
+        message: `${s.player.name} is on bye this week.`,
+        severity: "high",
+        action: { label: "Bench and replace", playerName: s.player.name },
+      });
+    }
+  }
+
+  const playoff = buildPlayoffPicture(simInputs, simConfig, schedule, baseline);
+
+  // Persist this week's snapshot for trend charts.
+  await saveWeeklySnapshot(supabase, leagueId, league.current_week, baseline, standings);
+
   return {
     league: toLeagueRow(league),
     slots,
@@ -384,13 +452,16 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     },
     standings,
     grades,
-    lineup: best.starters.map((s) => ({
-      slot: s.slot,
-      name: s.player?.name ?? "Empty",
-      position: s.player?.position ?? "-",
-      proj: s.player?.proj ?? 0,
-    })),
-    bench: best.bench.map((p) => ({ name: p.name, position: p.position, proj: p.proj })),
+    lineup: best.starters
+      .filter((s) => s.slot.toUpperCase() !== "BN")
+      .map((s) => ({
+        slot: s.slot,
+        name: s.player?.name ?? "Empty",
+        position: s.player?.position ?? "-",
+        proj: s.player?.proj ?? 0,
+        ...metaFor(s.player?.name ?? ""),
+      })),
+    bench: best.bench.map((p) => ({ name: p.name, position: p.position, proj: p.proj, ...metaFor(p.name) })),
     suggestions: suggestions.slice(0, 12),
     scoreboard,
     tradeCandidates: engineTeams
@@ -411,7 +482,37 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     myTradeable: mine.roster
       .sort((a, b) => b.proj - a.proj)
       .map((p) => ({ id: p.name, name: p.name, position: p.position, proj: p.proj })),
+    playoff,
+    alerts,
   };
+}
+
+async function saveWeeklySnapshot(
+  supabase: DB,
+  leagueId: string,
+  week: number,
+  baseline: SimTeamResult[],
+  standings: (SimTeamResult & { record: string; pointsFor: number })[],
+) {
+  const { data: league } = await supabase.from("leagues").select("user_id").eq("id", leagueId).single();
+  if (!league) return;
+
+  const rows = baseline.map((r) => {
+    const standing = standings.find((s) => s.id === r.id);
+    return {
+      user_id: league.user_id,
+      league_id: leagueId,
+      team_id: r.id,
+      week,
+      title_odds: r.titleOdds,
+      playoff_odds: r.playoffOdds,
+      proj_wins: r.projWins,
+      proj_losses: r.projLosses,
+      power_score: r.projPointsPerWeek,
+    };
+  });
+
+  await supabase.from("weekly_snapshots").upsert(rows, { onConflict: "league_id,team_id,week" });
 }
 
 /** Evaluates a specific proposed trade for the signed-in manager's team. */

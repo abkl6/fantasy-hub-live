@@ -13,3 +13,8 @@
 - [x] 11. Real-season schedule and opponent rosters imported for every platform
 - [ ] 12. Yahoo sign-in (code complete; waiting on the Yahoo app client ID and secret)
 - [x] 13. FFPC/NFL.com: screenshot/manual only, with in-app explanation
+- [x] 14. Playoff tracking tab (clinch/elimination records, seeds, SOS, rooting interests)
+- [x] 15. Live injury/news/bye alerts with status badges and one-tap "set best lineup"
+- [x] 16. One-tap actions: apply start/sit, add waiver player, copy trade text
+- [x] 17. Power-rank history + Trends tab + standings sparklines
+- [x] 18. Draft recap grades (Sleeper import + screenshot fallback)
