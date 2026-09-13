@@ -403,7 +403,8 @@ export async function buildGameDay(
       const side = sideOf.get(ev.player_id);
       if (!side) continue;
       const points = round1(scoreStats((ev.delta ?? {}) as StatLine, scoring.rules, ev.position));
-      if (Math.abs(points) < 0.05) continue;
+      // Skip the yard-by-yard noise; keep plays worth half a point or more.
+      if (Math.abs(points) < 0.5) continue;
       events.push({
         id: `${league.id}:${ev.id}`,
         leagueId: league.id,

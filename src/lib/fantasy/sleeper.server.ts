@@ -64,7 +64,21 @@ export async function syncPlayerNews(supabase: DB): Promise<{ updated: number }>
     IR: 4,
   };
 
-  const { data: canonicalRows } = await supabase.from("players").select("id, full_name, position, sleeper_id, status");
+  const { data: canonicalRows } = await supabase
+    .from("players")
+    .select("id, full_name, position, sleeper_id, status, nfl_team");
+
+  // Keep NFL teams current: a traded player on an old team breaks live game
+  // matching (we look up his game by team abbreviation).
+  for (const row of canonicalRows ?? []) {
+    if (!row.sleeper_id) continue;
+    const live = players[row.sleeper_id];
+    const team = live?.team ?? null;
+    if (team && team !== row.nfl_team) {
+      await supabase.from("players").update({ nfl_team: team }).eq("id", row.id);
+      row.nfl_team = team;
+    }
+  }
   const bySleeperId = new Map((canonicalRows ?? []).filter((p) => p.sleeper_id).map((p) => [p.sleeper_id, p]));
   const byName = new Map((canonicalRows ?? []).map((p) => [p.full_name.toLowerCase(), p]));
 
