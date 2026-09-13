@@ -12,6 +12,16 @@ function projFor(position: string) {
   return DEFAULT_PROJ[position.toUpperCase()] ?? 6;
 }
 
+/** Sleeper marks keeper/dynasty with settings.type and best ball with a flag. */
+function sleeperFormat(settings: Record<string, unknown> | undefined) {
+  if (!settings) return "redraft";
+  if (Number(settings["best_ball"] ?? 0) === 1) return "best_ball";
+  const type = Number(settings["type"] ?? 0);
+  if (type === 2) return "dynasty";
+  if (type === 1) return "keeper";
+  return "redraft";
+}
+
 // ---------------------------------------------------------------- leagues
 
 export const listLeagues = createServerFn({ method: "GET" })
