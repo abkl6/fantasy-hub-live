@@ -75,8 +75,7 @@ function LeaguePage() {
           <h1 className="mt-2 text-4xl font-bold uppercase">{data.league.name}</h1>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
-              {me.name} · {me.wins}-{me.losses}
-              {me.ties ? `-${me.ties}` : ""} · {me.pointsFor.toFixed(1)} points for
+              {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
             </p>
           )}
         </div>
