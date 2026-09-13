@@ -85,10 +85,7 @@ export async function persistBundle(
   const { data: canonical } = await supabase
     .from("players")
     .select("id, full_name, position, proj_points_week");
-  const byKey = new Map(
-    (canonical ?? []).map((p) => [`${p.full_name.toLowerCase()}|${p.position.toUpperCase()}`, p]),
-  );
-  const byName = new Map((canonical ?? []).map((p) => [p.full_name.toLowerCase(), p]));
+  const index = playerIndex(canonical ?? []);
 
   const { data: insertedTeams, error: teamError } = await supabase
     .from("teams")

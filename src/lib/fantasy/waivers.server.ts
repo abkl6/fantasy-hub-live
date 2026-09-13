@@ -15,6 +15,7 @@ import {
   type EnginePlayer,
   type ScheduleGame,
 } from "./engine";
+import { normalizeName } from "./names";
 import { leagueScoring } from "./scoring";
 import {
   FORMAT_LABELS,
@@ -38,7 +39,7 @@ function asSlots(value: unknown): string[] {
   return DEFAULT_SLOTS;
 }
 
-const key = (name: string) => name.trim().toLowerCase();
+const key = (name: string) => normalizeName(name);
 
 export interface WaiverBoardRow {
   id: string;
