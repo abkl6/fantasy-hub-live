@@ -2,7 +2,13 @@
 
 const BASE = "https://api.sleeper.app/v1";
 
-type SleeperPlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
+type SleeperPlayer = {
+  full_name?: string | undefined;
+  first_name?: string | undefined;
+  last_name?: string | undefined;
+  position?: string | undefined;
+  team?: string | null | undefined;
+};
 
 let playerCache: Record<string, SleeperPlayer> | null = null;
 let playerCacheAt = 0;
