@@ -15,6 +15,16 @@ import {
   type EnginePlayer,
   type ScheduleGame,
 } from "./engine";
+import { leagueScoring } from "./scoring";
+import {
+  FORMAT_LABELS,
+  asFormat,
+  bestBallDistribution,
+  blendedValue,
+  dynastyValue,
+  hasLineupDecisions,
+  isMultiYear,
+} from "./format";
 
 type DB = SupabaseClient<Database>;
 
@@ -50,6 +60,8 @@ export interface WaiverBoardRow {
   winDelta: number | null;
   suggestedDrop: string | null;
   scored: boolean;
+  /** 0-100 keep-forever value; only set in dynasty and keeper leagues. */
+  longTermValue: number | null;
 }
 
 export interface WaiverBoard {
@@ -58,6 +70,10 @@ export interface WaiverBoard {
   rosterSize: number;
   rosterLimit: number;
   hasMyTeam: boolean;
+  format: string;
+  formatLabel: string;
+  scoringLabel: string;
+  showLongTerm: boolean;
 }
 
 export async function buildWaiverBoard(
@@ -90,6 +106,15 @@ export async function buildWaiverBoard(
   const usablePosition = (position: string) =>
     slots.some((slot) => slotAccepts(slot, position)) || BENCH_POSITIONS.includes(position);
 
+  const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
+  const format = asFormat((league as { format?: string }).format);
+  const showLongTerm = isMultiYear(format);
+  const bestBall = !hasLineupDecisions(format);
+  const distributionOf = (roster: EnginePlayer[]) =>
+    bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
+  const seasonOf = (p: { position: string; proj_points_season: number | string }) =>
+    scoring.scale(p.position, Number(p.proj_points_season));
+
   // --- replacement level: the Nth best season projection at each position ---
   const startersNeeded = (pos: string) => {
     const direct = slots.filter((s) => slotAccepts(s, pos) && s.toUpperCase() !== "FLEX").length;
@@ -100,11 +125,13 @@ export async function buildWaiverBoard(
   for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF"]) {
     const pool = players
       .filter((p) => p.position.toUpperCase() === pos)
-      .map((p) => Number(p.proj_points_season))
+      .map((p) => seasonOf(p))
       .sort((a, b) => b - a);
     const idx = Math.min(pool.length - 1, Math.max(0, teams.length * startersNeeded(pos) - 1));
     replacement.set(pos, pool.length ? (pool[idx] ?? 0) : 0);
   }
+
+  const bestSeason = Math.max(1, ...players.map((p) => seasonOf(p)));
 
   const search = opts.search?.trim().toLowerCase();
   const wanted = opts.position?.toUpperCase();
@@ -114,7 +141,16 @@ export async function buildWaiverBoard(
     .filter((p) => usablePosition(p.position.toUpperCase()))
     .map((p) => {
       const pos = p.position.toUpperCase();
-      const projSeason = Number(p.proj_points_season);
+      const projSeason = seasonOf(p);
+      const longTerm = showLongTerm
+        ? dynastyValue(
+            pos,
+            projSeason,
+            bestSeason,
+            (p as { age?: number | null }).age ?? null,
+            (p as { years_exp?: number | null }).years_exp ?? null,
+          )
+        : null;
       return {
         id: p.id,
         name: p.full_name,
@@ -122,13 +158,17 @@ export async function buildWaiverBoard(
         nflTeam: p.nfl_team,
         byeWeek: p.bye_week,
         status: p.status,
-        projWeek: Number(p.proj_points_week),
+        projWeek: scoring.scale(p.position, Number(p.proj_points_week)),
         projSeason,
         volatility: Number(p.volatility),
         tradeValue: Math.round((projSeason - (replacement.get(pos) ?? 0)) * 10) / 10,
+        longTermValue: longTerm,
+        rank: showLongTerm
+          ? blendedValue(format, projSeason, bestSeason, longTerm ?? 0)
+          : projSeason - (replacement.get(pos) ?? 0),
       };
     })
-    .sort((a, b) => b.tradeValue - a.tradeValue);
+    .sort((a, b) => b.rank - a.rank);
 
   const mine = teams.find((t) => t.is_mine) ?? null;
   const myRoster: EnginePlayer[] = mine
@@ -139,7 +179,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: Number(s.proj_points),
+          proj: scoring.scale(s.position, Number(s.proj_points)),
           volatility: 0.35,
         }))
     : [];
@@ -160,7 +200,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: Number(s.proj_points),
+          proj: scoring.scale(s.position, Number(s.proj_points)),
           volatility: 0.35,
         })),
       wins: t.wins,
@@ -173,7 +213,7 @@ export async function buildWaiverBoard(
 
     const simInputs = engineTeams.map((t) => {
       const dist = t.roster.length
-        ? teamDistribution(t.roster, slots)
+        ? distributionOf(t.roster)
         : {
             mean: t.wins + t.losses + t.ties > 0 ? t.pointsFor / (t.wins + t.losses + t.ties) : 100,
             sd: 22,
@@ -238,7 +278,7 @@ export async function buildWaiverBoard(
       const drop = best.drop;
       const lineupGain = bestTotal - beforeLineup;
 
-      const dist = teamDistribution(nextRoster, slots);
+      const dist = distributionOf(nextRoster);
       const inputs = simInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
       const res = simulateSeason(inputs, simConfig, schedule, 1500, 7);
       const m = res.find((r) => r.id === mine.id)!;
@@ -290,6 +330,7 @@ export async function buildWaiverBoard(
         winDelta: impact ? impact.winDelta : null,
         suggestedDrop: impact ? impact.drop : null,
         scored: !!impact,
+        longTermValue: p.longTermValue,
       };
     });
 
@@ -302,5 +343,9 @@ export async function buildWaiverBoard(
     rosterSize,
     rosterLimit: slots.length + 6,
     hasMyTeam: !!mine,
+    format,
+    formatLabel: FORMAT_LABELS[format],
+    scoringLabel: scoring.label,
+    showLongTerm,
   };
 }

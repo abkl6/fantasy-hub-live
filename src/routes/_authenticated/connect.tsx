@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import {
   createManualLeague,
   findSleeperLeagues,
@@ -214,6 +215,7 @@ function ManualPanel() {
     regularSeasonWeeks: 14,
     currentWeek: 1,
     scoringType: "ppr",
+    format: "redraft" as (typeof LEAGUE_FORMATS)[number],
     myTeamName: "My team",
     slots: "QB, RB, RB, WR, WR, TE, FLEX, K, DEF",
   });
@@ -266,6 +268,7 @@ function ManualPanel() {
           currentWeek: Number(form.currentWeek),
           scoringType: form.scoringType,
           scoringRules,
+          format: form.format,
           rosterSlots: form.slots
             .split(",")
             .map((s) => s.trim().toUpperCase())
@@ -486,6 +489,24 @@ function ManualPanel() {
               <SelectItem value="ppr">Full PPR</SelectItem>
               <SelectItem value="half_ppr">Half PPR</SelectItem>
               <SelectItem value="standard">Standard</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="league-format">League type</Label>
+          <Select
+            value={form.format}
+            onValueChange={(v) => setForm({ ...form, format: v as (typeof LEAGUE_FORMATS)[number] })}
+          >
+            <SelectTrigger id="league-format">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LEAGUE_FORMATS.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {FORMAT_LABELS[f]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

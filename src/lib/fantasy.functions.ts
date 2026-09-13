@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
 
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
@@ -9,6 +10,16 @@ const DEFAULT_PROJ: Record<string, number> = {
 
 function projFor(position: string) {
   return DEFAULT_PROJ[position.toUpperCase()] ?? 6;
+}
+
+/** Sleeper marks keeper/dynasty with settings.type and best ball with a flag. */
+function sleeperFormat(settings: Record<string, unknown> | undefined) {
+  if (!settings) return "redraft";
+  if (Number(settings["best_ball"] ?? 0) === 1) return "best_ball";
+  const type = Number(settings["type"] ?? 0);
+  if (type === 2) return "dynasty";
+  if (type === 1) return "keeper";
+  return "redraft";
 }
 
 // ---------------------------------------------------------------- leagues
@@ -133,6 +144,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         scoring_type: (bundle.league.scoring_settings?.["rec"] ?? 0) >= 1 ? "ppr" : (bundle.league.scoring_settings?.["rec"] ?? 0) > 0 ? "half_ppr" : "standard",
         scoring_rules: bundle.league.scoring_settings ?? {},
         roster_slots: slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],
+        format: sleeperFormat(bundle.league.settings as Record<string, unknown> | undefined),
         last_synced_at: new Date().toISOString(),
       })
       .select()
@@ -248,6 +260,7 @@ const manualSchema = z.object({
   rosterSlots: z.array(z.string()).min(1).max(25),
   myTeamName: z.string().min(1).max(60),
   opponentNames: z.array(z.string()).optional(),
+  format: z.enum(LEAGUE_FORMATS).optional(),
 });
 
 export const createManualLeague = createServerFn({ method: "POST" })
@@ -269,6 +282,7 @@ export const createManualLeague = createServerFn({ method: "POST" })
         scoring_type: data.scoringType,
         scoring_rules: data.scoringRules ?? {},
         roster_slots: data.rosterSlots,
+        format: data.format ?? "redraft",
         last_synced_at: new Date().toISOString(),
       })
       .select()
@@ -391,6 +405,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         scoringRules: z.record(z.string(), z.number()).optional(),
         rosterSlots: z.array(z.string()).optional(),
         scoringType: z.string().max(20).optional(),
+        format: z.enum(LEAGUE_FORMATS).optional(),
       })
       .parse(d),
   )
@@ -400,6 +415,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.scoringRules !== undefined) patch["scoring_rules"] = data.scoringRules;
     if (data.rosterSlots !== undefined) patch["roster_slots"] = data.rosterSlots;
     if (data.scoringType !== undefined) patch["scoring_type"] = data.scoringType;
+    if (data.format !== undefined) patch["format"] = data.format;
     const { error } = await context.supabase
       .from("leagues")
       .update(patch as never)

@@ -111,6 +111,14 @@ function LeaguePage() {
               {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
             </p>
           )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="secondary" className="text-[10px] uppercase">
+              {data.formatLabel}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] uppercase">
+              {data.scoringLabel}
+            </Badge>
+          </div>
         </div>
         <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
           {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
@@ -118,13 +126,24 @@ function LeaguePage() {
         </Button>
       </div>
 
-      {me && (
+      {me && !data.mySurvival && (
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <OddsCard label="Title odds" value={pct(me.titleOdds)} tone="primary" />
           <OddsCard label="Playoff odds" value={pct(me.playoffOdds)} />
           <OddsCard
             label="Projected finish"
             value={`${me.projWins.toFixed(1)}-${me.projLosses.toFixed(1)}`}
+          />
+        </div>
+      )}
+
+      {me && data.mySurvival && (
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <OddsCard label="Survive this week" value={pct(data.mySurvival.surviveWeekOdds)} tone="primary" />
+          <OddsCard label="Last team standing" value={pct(data.mySurvival.winOdds)} />
+          <OddsCard
+            label="Weeks you should last"
+            value={`${data.mySurvival.expectedWeeksLeft}`}
           />
         </div>
       )}
@@ -478,6 +497,12 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   <span>
                     Bid <span className="stat-num text-foreground">{p.bid > 0 ? `${p.bid}%` : "no bid"}</span>
                   </span>
+                  {p.longTermValue !== null && (
+                    <span>
+                      Keep value{" "}
+                      <span className="stat-num text-foreground">{p.longTermValue.toFixed(0)}</span>/100
+                    </span>
+                  )}
                   {p.titleDelta !== null && (
                     <span className={p.titleDelta > 0 ? "text-primary" : ""}>
                       Title {p.titleDelta > 0 ? "+" : ""}
