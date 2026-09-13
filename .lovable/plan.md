@@ -18,7 +18,10 @@ A signed-in app where one person tracks all of their fantasy teams across differ
    - Start/sit: recommended lineup for the week with reasons.
    - Waiver targets: available players who beat a current starter at a weak position.
    - Trade evaluator: pick players from each side, get a fairness verdict and impact on both rosters.
-6. **Refresh behavior** — data loads fresh on page load and via a manual Refresh button; no background polling.
+6. **Championship projections** — for each team: odds to make the playoffs and to win the league title, projected final record, and a simple "why" (schedule difficulty, roster strength, injuries). Shown on the dashboard as a headline number per team and on the league page as a full standings-style odds table.
+7. **Every suggestion shows win impact** — each waiver pickup, drop, start/sit swap, and trade is labeled with the change it makes to weekly win chance and to title odds (e.g. "+3.1% title odds"). Suggestions are ranked by that impact, so the top of the list is always the highest-value move. One-tap actions: accept a suggested lineup change, mark a waiver claim as planned, or save a trade idea to revisit.
+8. **Refresh behavior** — data loads fresh on page load and via a manual Refresh button; no background polling.
+
 
 ## Build order
 
@@ -29,8 +32,10 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 5. ESPN integration (public league IDs first, private-league credentials second).
 6. NFL player and stats reference data so analysis works for every platform, including manual leagues.
 7. Analyzer features: strength grades, start/sit, waiver targets, trade evaluator.
-8. Yahoo integration once Yahoo app credentials are available.
-9. FFPC: manual entry only, with a clear note in the UI explaining why.
+8. Season simulation engine powering playoff and title odds, then win-impact labels on every suggestion.
+9. Yahoo integration once Yahoo app credentials are available.
+10. FFPC: manual entry only, with a clear note in the UI explaining why.
+
 
 ## Setup needed from you
 
@@ -45,3 +50,6 @@ A signed-in app where one person tracks all of their fantasy teams across differ
 - Player identity mapping table to reconcile provider player IDs against a canonical NFL player list.
 - Fetch on load with short-lived server-side caching to avoid hammering provider APIs; manual Refresh bypasses cache.
 - Row-level security scoping every league, roster, and credential row to its owner; stored ESPN/Yahoo credentials encrypted at rest and never returned to the client.
+- Title odds come from a Monte Carlo simulation of the rest of the season (weekly team score distributions from player projections plus variance, run over the remaining schedule and playoff bracket). Runs server-side, results cached per league/week.
+- Win impact of a move is the same simulation re-run with the hypothetical roster, differenced against the baseline — one shared routine used by waivers, start/sit, and trades so numbers always agree.
+
