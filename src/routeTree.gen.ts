@@ -16,6 +16,7 @@ import { Route as AuthenticatedConnectRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated/trades'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
+import { Route as ApiPublicCronLiveScoringRouteImport } from './routes/api/public/cron/live-scoring'
 import { Route as ApiPublicYahooCallbackRouteImport } from './routes/api/public/yahoo/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -53,6 +54,12 @@ const AuthenticatedLeagueLeagueIdRoute =
     path: '/league/$leagueId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicCronLiveScoringRoute =
+  ApiPublicCronLiveScoringRouteImport.update({
+    id: '/api/public/cron/live-scoring',
+    path: '/api/public/cron/live-scoring',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicYahooCallbackRoute = ApiPublicYahooCallbackRouteImport.update({
   id: '/api/public/yahoo/callback',
   path: '/api/public/yahoo/callback',
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -75,6 +83,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesById {
@@ -86,6 +95,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/trades': typeof AuthenticatedTradesRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRouteTypes {
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/trades'
     | '/league/$leagueId'
+    | '/api/public/cron/live-scoring'
     | '/api/public/yahoo/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/trades'
     | '/league/$leagueId'
+    | '/api/public/cron/live-scoring'
     | '/api/public/yahoo/callback'
   id:
     | '__root__'
@@ -116,6 +128,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/trades'
     | '/_authenticated/league/$leagueId'
+    | '/api/public/cron/live-scoring'
     | '/api/public/yahoo/callback'
   fileRoutesById: FileRoutesById
 }
@@ -123,6 +136,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicCronLiveScoringRoute: typeof ApiPublicCronLiveScoringRoute
   ApiPublicYahooCallbackRoute: typeof ApiPublicYahooCallbackRoute
 }
 
@@ -177,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeagueLeagueIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/cron/live-scoring': {
+      id: '/api/public/cron/live-scoring'
+      path: '/api/public/cron/live-scoring'
+      fullPath: '/api/public/cron/live-scoring'
+      preLoaderRoute: typeof ApiPublicCronLiveScoringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/yahoo/callback': {
       id: '/api/public/yahoo/callback'
       path: '/api/public/yahoo/callback'
@@ -208,6 +229,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicCronLiveScoringRoute: ApiPublicCronLiveScoringRoute,
   ApiPublicYahooCallbackRoute: ApiPublicYahooCallbackRoute,
 }
 export const routeTree = rootRouteImport
