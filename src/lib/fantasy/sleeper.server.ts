@@ -75,7 +75,13 @@ export async function sleeperLeagueBundle(leagueId: string, throughWeek: number)
     getJson<SleeperLeagueBundle["users"]>(`${BASE}/league/${leagueId}/users`),
   ]);
 
-  const weeks = Array.from({ length: Math.min(Math.max(throughWeek, 1), 18) }, (_, i) => i + 1);
+  // Pull the whole regular season, not just weeks already played, so the
+  // simulation knows who each team still has to face.
+  const lastWeek = Math.min(
+    18,
+    Math.max(throughWeek, Number(league.settings?.["playoff_week_start"] ?? 15) - 1, 14),
+  );
+  const weeks = Array.from({ length: lastWeek }, (_, i) => i + 1);
   const matchups = await Promise.all(
     weeks.map(async (week) => {
       try {

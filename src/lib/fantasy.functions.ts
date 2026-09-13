@@ -394,14 +394,43 @@ export const evaluateTradeFn = createServerFn({ method: "POST" })
     z
       .object({
         leagueId: z.string().uuid(),
-        give: z.array(z.string()).max(5),
-        get: z.array(z.object({ name: z.string(), position: z.string(), proj: z.number() })).max(5),
+        giveNames: z.array(z.string().min(1)).min(1).max(5),
+        getNames: z.array(z.string().min(1)).min(1).max(5),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { evaluateTrade } = await import("./fantasy/analysis.server");
-    return evaluateTrade(context.supabase, data.leagueId, data.give, data.get);
+
+    // Resolve the incoming players against the league's rosters first, then
+    // the canonical player list, so the simulation uses real projections.
+    const [{ data: spots }, { data: canonical }] = await Promise.all([
+      context.supabase
+        .from("roster_spots")
+        .select("player_name, position, proj_points, team_id")
+        .eq("league_id", data.leagueId),
+      context.supabase.from("players").select("full_name, position, proj_points_week"),
+    ]);
+
+    const incoming = data.getNames.map((raw) => {
+      const key = raw.trim().toLowerCase();
+      const spot = (spots ?? []).find((s) => s.player_name.toLowerCase() === key);
+      if (spot) {
+        return { name: spot.player_name, position: spot.position.toUpperCase(), proj: Number(spot.proj_points) };
+      }
+      const player = (canonical ?? []).find((p) => p.full_name.toLowerCase() === key);
+      if (player) {
+        return {
+          name: player.full_name,
+          position: player.position.toUpperCase(),
+          proj: Number(player.proj_points_week),
+        };
+      }
+      throw new Error(`We could not find a player called "${raw.trim()}".`);
+    });
+
+    const result = await evaluateTrade(context.supabase, data.leagueId, data.giveNames, incoming);
+    return { ...result, incoming };
   });
 
 // ---------------------------------------------------------------- screenshots
