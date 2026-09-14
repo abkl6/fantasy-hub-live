@@ -701,13 +701,41 @@ function YahooPanel() {
 
   const state = useQuery({ queryKey: ["yahoo-status"], queryFn: () => status({}) });
 
+  const popupRef = useRef<Window | null>(null);
+
   const signIn = useMutation({
     mutationFn: () => start({ data: { origin: window.location.origin } }),
     onSuccess: (res) => {
-      window.location.href = res.url;
+      // Inside the preview the app runs in an iframe and Yahoo refuses to be framed,
+      // so send the sign-in to a separate tab that was opened on the click itself.
+      if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.location.href = res.url;
+        toast.info("Finish signing in on the Yahoo tab, then come back here.");
+        return;
+      }
+      const opened = window.open(res.url, "_blank", "noopener,noreferrer");
+      if (opened) {
+        toast.info("Finish signing in on the Yahoo tab, then come back here.");
+        return;
+      }
+      try {
+        (window.top ?? window).location.href = res.url;
+      } catch {
+        window.location.href = res.url;
+      }
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not start Yahoo sign-in."),
+    onError: (e) => {
+      popupRef.current?.close();
+      popupRef.current = null;
+      toast.error(e instanceof Error ? e.message : "Could not start Yahoo sign-in.");
+    },
   });
+
+  const beginSignIn = () => {
+    // Opened synchronously so browsers don't treat it as a blocked pop-up.
+    popupRef.current = window.open("about:blank", "_blank");
+    signIn.mutate();
+  };
 
   const find = useMutation({
     mutationFn: () => leagues({}),
