@@ -1,6 +1,6 @@
 import { Link, Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { BarChart3, LogOut, Menu, Monitor, Plus, Radio, Repeat2, Users } from "lucide-react";
+import { BarChart3, Bell, LogOut, Menu, Monitor, Plus, Radio, Repeat2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -71,6 +71,12 @@ function AuthenticatedLayout() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/trades">Trade history</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">
+                  <Bell className="size-4" aria-hidden="true" />
+                  Notifications
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

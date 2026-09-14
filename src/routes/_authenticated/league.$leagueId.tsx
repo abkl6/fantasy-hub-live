@@ -54,6 +54,12 @@ const statusTone: Record<string, "default" | "secondary" | "destructive" | "outl
   IR: "destructive",
 };
 
+interface LeagueSearch {
+  tab?: string;
+  swap?: string;
+  with?: string;
+}
+
 export const Route = createFileRoute("/_authenticated/league/$leagueId")({
   head: () => ({
     meta: [
@@ -67,6 +73,14 @@ export const Route = createFileRoute("/_authenticated/league/$leagueId")({
       { property: "og:description", content: "Championship odds and ranked moves for your fantasy team." },
     ],
   }),
+  // Notification deep links land here: ?tab=lineup&swap=Player&with=Replacement
+  validateSearch: (search: Record<string, unknown>): LeagueSearch => {
+    const out: LeagueSearch = {};
+    if (typeof search["tab"] === "string") out.tab = search["tab"];
+    if (typeof search["swap"] === "string") out.swap = search["swap"];
+    if (typeof search["with"] === "string") out.with = search["with"];
+    return out;
+  },
   component: LeaguePage,
 });
 
@@ -75,8 +89,9 @@ const signed = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)} pts`;
 
 function LeaguePage() {
   const { leagueId } = Route.useParams();
+  const search = Route.useSearch();
   const analyze = useServerFn(getAnalysis);
-  const [tab, setTab] = useState("moves");
+  const [tab, setTab] = useState(search.tab === "lineup" ? "lineup" : "moves");
 
   const forceRef = useRef(false);
   const { data, isLoading, isFetching, refetch, error } = useQuery({
@@ -250,6 +265,22 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="lineup" className="mt-6 space-y-4">
+          {search.swap && (
+            <div className="flex items-start gap-3 rounded-xl bg-card p-4">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+              <p className="text-sm">
+                <span className="font-medium">{search.swap}</span> can't play this week.
+                {search.with ? (
+                  <>
+                    {" "}
+                    Best replacement: <span className="font-medium">{search.with}</span>.
+                  </>
+                ) : (
+                  " No bench replacement is available at that spot."
+                )}
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Starters are based on projected points for this week.

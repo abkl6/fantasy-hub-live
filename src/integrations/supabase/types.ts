@@ -335,6 +335,78 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_log: {
+        Row: {
+          body: string
+          created_at: string
+          dedupe_key: string | null
+          detail: string | null
+          id: string
+          kind: string
+          ref: string | null
+          title: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          dedupe_key?: string | null
+          detail?: string | null
+          id?: string
+          kind: string
+          ref?: string | null
+          title: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          dedupe_key?: string | null
+          detail?: string | null
+          id?: string
+          kind?: string
+          ref?: string | null
+          title?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_prefs: {
+        Row: {
+          created_at: string
+          inactives: boolean
+          lead_change: boolean
+          lineup_lock: boolean
+          red_zone: boolean
+          scoring_plays: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          inactives?: boolean
+          lead_change?: boolean
+          lineup_lock?: boolean
+          red_zone?: boolean
+          scoring_plays?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          inactives?: boolean
+          lead_change?: boolean
+          lineup_lock?: boolean
+          red_zone?: boolean
+          scoring_plays?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pick_values: {
         Row: {
           created_at: string
@@ -676,6 +748,39 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
         }
         Relationships: []
       }

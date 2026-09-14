@@ -17,10 +17,12 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedGamedayRouteImport } from './routes/_authenticated/gameday'
 import { Route as AuthenticatedManagerHubRouteImport } from './routes/_authenticated/manager-hub'
 import { Route as AuthenticatedProjectionsRouteImport } from './routes/_authenticated/projections'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTradeDeskRouteImport } from './routes/_authenticated/trade-desk'
 import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated/trades'
 import { Route as AuthenticatedTvRouteImport } from './routes/_authenticated/tv'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
+import { Route as ApiPublicCronInactivesRouteImport } from './routes/api/public/cron/inactives'
 import { Route as ApiPublicCronLiveScoringRouteImport } from './routes/api/public/cron/live-scoring'
 import { Route as ApiPublicCronTradeValuesRouteImport } from './routes/api/public/cron/trade-values'
 import { Route as ApiPublicCronTradeValuesIrRouteImport } from './routes/api/public/cron/trade-values-ir'
@@ -66,6 +68,11 @@ const AuthenticatedProjectionsRoute =
     path: '/projections',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTradeDeskRoute = AuthenticatedTradeDeskRouteImport.update({
   id: '/trade-desk',
   path: '/trade-desk',
@@ -87,6 +94,11 @@ const AuthenticatedLeagueLeagueIdRoute =
     path: '/league/$leagueId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicCronInactivesRoute = ApiPublicCronInactivesRouteImport.update({
+  id: '/api/public/cron/inactives',
+  path: '/api/public/cron/inactives',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCronLiveScoringRoute =
   ApiPublicCronLiveScoringRouteImport.update({
     id: '/api/public/cron/live-scoring',
@@ -119,10 +131,12 @@ export interface FileRoutesByFullPath {
   '/gameday': typeof AuthenticatedGamedayRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
   '/projections': typeof AuthenticatedProjectionsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/cron/trade-values': typeof ApiPublicCronTradeValuesRoute
   '/api/public/cron/trade-values-ir': typeof ApiPublicCronTradeValuesIrRoute
@@ -136,10 +150,12 @@ export interface FileRoutesByTo {
   '/gameday': typeof AuthenticatedGamedayRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
   '/projections': typeof AuthenticatedProjectionsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/cron/trade-values': typeof ApiPublicCronTradeValuesRoute
   '/api/public/cron/trade-values-ir': typeof ApiPublicCronTradeValuesIrRoute
@@ -155,10 +171,12 @@ export interface FileRoutesById {
   '/_authenticated/gameday': typeof AuthenticatedGamedayRoute
   '/_authenticated/manager-hub': typeof AuthenticatedManagerHubRoute
   '/_authenticated/projections': typeof AuthenticatedProjectionsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/_authenticated/trades': typeof AuthenticatedTradesRoute
   '/_authenticated/tv': typeof AuthenticatedTvRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/cron/trade-values': typeof ApiPublicCronTradeValuesRoute
   '/api/public/cron/trade-values-ir': typeof ApiPublicCronTradeValuesIrRoute
@@ -174,10 +192,12 @@ export interface FileRouteTypes {
     | '/gameday'
     | '/manager-hub'
     | '/projections'
+    | '/settings'
     | '/trade-desk'
     | '/trades'
     | '/tv'
     | '/league/$leagueId'
+    | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
     | '/api/public/cron/trade-values'
     | '/api/public/cron/trade-values-ir'
@@ -191,10 +211,12 @@ export interface FileRouteTypes {
     | '/gameday'
     | '/manager-hub'
     | '/projections'
+    | '/settings'
     | '/trade-desk'
     | '/trades'
     | '/tv'
     | '/league/$leagueId'
+    | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
     | '/api/public/cron/trade-values'
     | '/api/public/cron/trade-values-ir'
@@ -209,10 +231,12 @@ export interface FileRouteTypes {
     | '/_authenticated/gameday'
     | '/_authenticated/manager-hub'
     | '/_authenticated/projections'
+    | '/_authenticated/settings'
     | '/_authenticated/trade-desk'
     | '/_authenticated/trades'
     | '/_authenticated/tv'
     | '/_authenticated/league/$leagueId'
+    | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
     | '/api/public/cron/trade-values'
     | '/api/public/cron/trade-values-ir'
@@ -223,6 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicCronInactivesRoute: typeof ApiPublicCronInactivesRoute
   ApiPublicCronLiveScoringRoute: typeof ApiPublicCronLiveScoringRoute
   ApiPublicCronTradeValuesRoute: typeof ApiPublicCronTradeValuesRoute
   ApiPublicCronTradeValuesIrRoute: typeof ApiPublicCronTradeValuesIrRoute
@@ -287,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/trade-desk': {
       id: '/_authenticated/trade-desk'
       path: '/trade-desk'
@@ -314,6 +346,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/league/$leagueId'
       preLoaderRoute: typeof AuthenticatedLeagueLeagueIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/cron/inactives': {
+      id: '/api/public/cron/inactives'
+      path: '/api/public/cron/inactives'
+      fullPath: '/api/public/cron/inactives'
+      preLoaderRoute: typeof ApiPublicCronInactivesRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/live-scoring': {
       id: '/api/public/cron/live-scoring'
@@ -352,6 +391,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGamedayRoute: typeof AuthenticatedGamedayRoute
   AuthenticatedManagerHubRoute: typeof AuthenticatedManagerHubRoute
   AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTradeDeskRoute: typeof AuthenticatedTradeDeskRoute
   AuthenticatedTradesRoute: typeof AuthenticatedTradesRoute
   AuthenticatedTvRoute: typeof AuthenticatedTvRoute
@@ -364,6 +404,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGamedayRoute: AuthenticatedGamedayRoute,
   AuthenticatedManagerHubRoute: AuthenticatedManagerHubRoute,
   AuthenticatedProjectionsRoute: AuthenticatedProjectionsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTradeDeskRoute: AuthenticatedTradeDeskRoute,
   AuthenticatedTradesRoute: AuthenticatedTradesRoute,
   AuthenticatedTvRoute: AuthenticatedTvRoute,
@@ -377,6 +418,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicCronInactivesRoute: ApiPublicCronInactivesRoute,
   ApiPublicCronLiveScoringRoute: ApiPublicCronLiveScoringRoute,
   ApiPublicCronTradeValuesRoute: ApiPublicCronTradeValuesRoute,
   ApiPublicCronTradeValuesIrRoute: ApiPublicCronTradeValuesIrRoute,
