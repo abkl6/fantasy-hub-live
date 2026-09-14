@@ -93,8 +93,12 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
           <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${odds ?? 0}%` }} />
         </div>
-        {m.isBestBall && m.titleOdds !== null && (
-          <p className="mt-2 text-xs text-muted-foreground">Season title odds: {(m.titleOdds * 100).toFixed(1)}%</p>
+        {(m.titleOdds !== null || m.playoffOdds !== null) && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {m.titleOdds !== null && <>Season title odds: {(m.titleOdds * 100).toFixed(1)}%</>}
+            {m.titleOdds !== null && m.playoffOdds !== null && " · "}
+            {m.playoffOdds !== null && <>Playoff odds: {(m.playoffOdds * 100).toFixed(1)}%</>}
+          </p>
         )}
       </div>
 
