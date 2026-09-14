@@ -1,0 +1,1 @@
+ALTER TABLE public.weekly_snapshots ADD COLUMN IF NOT EXISTS review jsonb;

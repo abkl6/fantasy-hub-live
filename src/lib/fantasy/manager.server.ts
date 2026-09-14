@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis, type Alert, type MoveSuggestion } from "./analysis.server";
+import type { Slot } from "./engine";
 import { isMultiYear } from "./format";
 import { normalizeName } from "./names";
+import { buildWeekReview, inReviewWindow, latestFinalWeek, type WeekReview } from "./week-review.server";
 
 type DB = SupabaseClient<Database>;
 
@@ -54,11 +56,18 @@ export interface ManagerHubPayload {
       dynastyRank: number | null;
     }[];
   }[];
+  /** Last week's recap per league, only between Tuesday and Thursday kickoff. */
+  reviews: (WeekReview & { leagueId: string; leagueName: string; teamName: string })[];
 }
 
 export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> {
-  const { data: leagueRows, error } = await supabase.from("leagues").select("id").order("created_at");
+  const { data: leagueRows, error } = await supabase
+    .from("leagues")
+    .select("id, user_id")
+    .order("created_at");
   if (error) throw new Error(error.message);
+  const ownerByLeague = new Map((leagueRows ?? []).map((l) => [l.id, l.user_id]));
+
 
   const analyses = await Promise.all((leagueRows ?? []).map((league) => buildAnalysis(supabase, league.id)));
   const leagues = analyses.flatMap((analysis) =>
@@ -166,5 +175,65 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
     )
   ).flat();
 
-  return { leagues, moves, trades, waivers, alerts, exposure, standings };
+  // Last week's recap, cached on the weekly snapshot so it is computed once.
+  const reviews = inReviewWindow()
+    ? (
+        await Promise.all(
+          analyses.map(async (analysis) => {
+            const mine = analysis.myTeam;
+            if (!mine) return [];
+            const week = await latestFinalWeek(supabase, analysis.league.id, mine.id);
+            if (!week) return [];
+
+            const { data: snapshot } = await supabase
+              .from("weekly_snapshots")
+              .select("review")
+              .eq("league_id", analysis.league.id)
+              .eq("team_id", mine.id)
+              .eq("week", week)
+              .maybeSingle();
+
+            let review = (snapshot?.review ?? null) as WeekReview | null;
+            if (!review) {
+              const top = analysis.suggestions[0] ?? null;
+              review = await buildWeekReview(supabase, {
+                leagueId: analysis.league.id,
+                season: analysis.league.season,
+                rosterSlots: analysis.slots as Slot[],
+                myTeamId: mine.id,
+                recommendation: top ? { headline: top.headline, detail: top.detail } : null,
+              });
+              if (review) {
+                await supabase.from("weekly_snapshots").upsert(
+                  {
+                    user_id: ownerByLeague.get(analysis.league.id)!,
+                    league_id: analysis.league.id,
+                    team_id: mine.id,
+                    week,
+                    title_odds: mine.titleOdds,
+                    playoff_odds: mine.playoffOdds,
+                    proj_wins: mine.projWins,
+                    proj_losses: mine.projLosses,
+                    power_score: mine.projPointsPerWeek,
+                    review: review as unknown as NonNullable<
+                      Database["public"]["Tables"]["weekly_snapshots"]["Insert"]["review"]
+                    >,
+                  },
+                  { onConflict: "league_id,team_id,week" },
+                );
+              }
+            }
+            if (!review) return [];
+            return [{
+              ...review,
+              leagueId: analysis.league.id,
+              leagueName: analysis.league.name,
+              teamName: mine.name,
+            }];
+          }),
+        )
+      ).flat()
+    : [];
+
+  return { leagues, moves, trades, waivers, alerts, exposure, standings, reviews };
 }

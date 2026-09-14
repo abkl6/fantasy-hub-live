@@ -1237,6 +1237,7 @@ export type Database = {
           power_score: number
           proj_losses: number
           proj_wins: number
+          review: Json | null
           team_id: string
           title_odds: number
           user_id: string
@@ -1250,6 +1251,7 @@ export type Database = {
           power_score?: number
           proj_losses?: number
           proj_wins?: number
+          review?: Json | null
           team_id: string
           title_odds?: number
           user_id: string
@@ -1263,6 +1265,7 @@ export type Database = {
           power_score?: number
           proj_losses?: number
           proj_wins?: number
+          review?: Json | null
           team_id?: string
           title_odds?: number
           user_id?: string
