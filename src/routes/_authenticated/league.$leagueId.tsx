@@ -18,6 +18,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { DraftPicksPanel } from "@/components/DraftPicksPanel";
+import { TradeBuilder } from "@/components/TradeBuilder";
 import { GameDayBoard } from "@/components/GameDayBoard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -293,6 +294,7 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="trade" className="mt-6 space-y-6">
+          <TradeBuilder leagueId={leagueId} />
           <TradePanel leagueId={leagueId} />
           <DraftPicksPanel leagueId={leagueId} />
         </TabsContent>
