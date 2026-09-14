@@ -151,6 +151,13 @@ function TradesPage() {
                     {(titleDelta * 100).toFixed(1)}%
                   </p>
                   <p className="eyebrow text-muted-foreground">title odds</p>
+                  <p
+                    className={`stat-num mt-1 text-sm font-semibold ${playoffDelta >= 0 ? "text-primary" : "text-destructive"}`}
+                  >
+                    {playoffDelta >= 0 ? "+" : ""}
+                    {(playoffDelta * 100).toFixed(1)}%
+                  </p>
+                  <p className="eyebrow text-muted-foreground">playoff odds</p>
                 </div>
               </div>
 
