@@ -18,7 +18,7 @@ export const Route = createFileRoute("/auth")({
         content: "Sign in to Gridiron Edge to track your fantasy football teams, live scores and championship odds.",
       },
       { property: "og:title", content: "Sign in — Gridiron Edge" },
-      { property: "og:description", content: "Access your fantasy football league dashboard and championship odds." },
+      { property: "og:description", content: "Access your fantasy football game day tracker and championship odds." },
     ],
   }),
   component: AuthPage,
@@ -34,7 +34,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/dashboard" });
+    if (!loading && session) navigate({ to: "/gameday" });
   }, [loading, session, navigate]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -46,7 +46,7 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: `${window.location.origin}/gameday`,
             data: { display_name: name || email.split("@")[0] },
           },
         });
@@ -56,7 +56,7 @@ function AuthPage() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/dashboard" });
+        navigate({ to: "/gameday" });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong.");
@@ -74,7 +74,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/gameday" });
   }
 
   return (

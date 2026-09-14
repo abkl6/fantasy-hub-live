@@ -30,15 +30,15 @@ function AuthenticatedLayout() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/dashboard" className="font-display text-xl font-bold uppercase tracking-wider">
+          <Link to="/gameday" className="font-display text-xl font-bold uppercase tracking-wider">
             Gridiron<span className="text-primary">Edge</span>
           </Link>
           <nav className="flex items-center gap-2">
             <Button asChild size="sm" variant="ghost">
-              <Link to="/dashboard">Leagues</Link>
+              <Link to="/gameday">Game day</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
-              <Link to="/gameday">Game day</Link>
+              <Link to="/manager-hub">Leagues</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
               <Link to="/trades">Trades</Link>
