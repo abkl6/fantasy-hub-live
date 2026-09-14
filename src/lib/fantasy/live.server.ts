@@ -349,10 +349,22 @@ export async function buildGameDay(
       : [];
     const startable = (position: string) => slots.some((s) => slotAccepts(s, position.toUpperCase()));
 
+    // Projections come from the shared player database plus this member's own
+    // adjustments, not the value frozen into the roster at import time.
+    const projections = await loadProjections(supabase, {
+      scoring,
+      week: league.current_week ?? liveWeek,
+    });
+
     const toRow = (s: SpotRow): LivePlayerRow => {
       const snap = s.player_id ? live.get(s.player_id) : undefined;
       const livePoints = snap ? round1(scoreStats(snap.stats, scoring.rules, s.position)) : 0;
-      const proj = scoring.scale(s.position, Number(s.proj_points));
+      const proj = projections.week(
+        s.player_id,
+        s.player_name,
+        s.position.toUpperCase(),
+        Number(s.proj_points),
+      );
       const state = snap?.state ?? "pre";
       const projectedFinal =
         state === "post" ? livePoints : state === "in" ? round1(livePoints + proj * 0.4) : round1(proj);
