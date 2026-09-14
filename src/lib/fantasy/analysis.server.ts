@@ -586,7 +586,55 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   });
   const beforeLineup = optimalLineup(mine.roster, slots).total;
 
+  // Read the deal from the other side of the table: does their lineup get
+  // better, do they bank future value, and does that fit how they are built?
+  const partnerRead = (
+    other: (typeof engineTeams)[number],
+    theySend: EnginePlayer[],
+    theyGet: EnginePlayer[],
+    theirSendValue: number,
+    theirGetValue: number,
+  ) => {
+    const out = new Set(theySend.map((p) => p.name));
+    const nextTheirs = [...other.roster.filter((p) => !out.has(p.name)), ...theyGet];
+    const theirBefore = optimalLineup(other.roster, slots).total;
+    const theirAfter = optimalLineup(nextTheirs, slots).total;
+    const pointsDelta = theirAfter - theirBefore;
+    const badge = badgeById.get(other.id);
+    const winNow = badge ? strategyMode(badge.key) === "buy" : false;
+    const clamp = (n: number) => Math.max(-0.25, Math.min(0.25, n));
+    const acceptance = acceptanceScore({
+      bSendValue: theirSendValue,
+      bReceiveValue: theirGetValue,
+      bTitleDelta: clamp(pointsDelta * 0.01),
+      bPlayoffDelta: clamp(pointsDelta * 0.015),
+      bDynastyDelta: isDynastyLeague ? theirGetValue - theirSendValue : null,
+      bWinNow: winNow,
+      isDynasty: isDynastyLeague,
+    });
+    const label = badge?.label ?? "their team";
+    const lineupLine =
+      pointsDelta >= 0.5
+        ? `their lineup gains ${pointsDelta.toFixed(1)} points a week`
+        : pointsDelta <= -0.5
+          ? `their lineup loses ${Math.abs(pointsDelta).toFixed(1)} points a week`
+          : "their lineup barely moves";
+      const valueLine =
+        theirGetValue - theirSendValue >= 0
+          ? `they bank ${Math.round(theirGetValue - theirSendValue).toLocaleString()} of market value`
+          : `they pay ${Math.round(theirSendValue - theirGetValue).toLocaleString()} of market value`;
+    return {
+      pointsDelta,
+      acceptance,
+      band: acceptanceBandOf(acceptance),
+      reason: `As a ${label} ${winNow ? "chasing this season" : "playing the long game"}, ${lineupLine} and ${valueLine}.`,
+    };
+  };
+
+  const tradeIdeas: MoveSuggestion[] = [];
+
   for (const other of partners) {
+
     const otherBadge = badgeById.get(other.id);
     const otherLabel = otherBadge?.label ?? "their team";
     const otherPicks = [...(pickAssets.get(other.id) ?? [])].sort((a, b) => b.value - a.value);
