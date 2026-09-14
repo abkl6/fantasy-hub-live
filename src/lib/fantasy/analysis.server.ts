@@ -290,12 +290,20 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   const standings = [...baseline]
     .sort((a, b) => b.titleOdds - a.titleOdds || b.projWins - a.projWins)
-    .map((r) => {
+    .map((r, index) => {
       const row = teamById.get(r.id);
       return {
         ...r,
         record: row ? recordOf(row) : "0-0",
         pointsFor: row ? Number(row.points_for) : 0,
+        badge: classifyTeam({
+          titleOdds: r.titleOdds,
+          playoffOdds: r.playoffOdds,
+          oddsRank: index + 1,
+          teamCount: teams.length,
+          isDynasty: isMultiYear(format),
+          dynastyRank: null,
+        }),
       };
     });
 
