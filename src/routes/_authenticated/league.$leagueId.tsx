@@ -855,6 +855,11 @@ function MoveCard({
     strategyLabel?: string;
     rationale?: string;
     dynastyDelta?: number;
+    acceptance?: number;
+    acceptanceBand?: string;
+    acceptanceReason?: string;
+    partnerPointsDelta?: number;
+
   };
   onApplied: () => void;
 }) {
