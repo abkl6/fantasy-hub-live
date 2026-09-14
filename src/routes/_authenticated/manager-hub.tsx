@@ -201,11 +201,25 @@ function StandingsCard({ league }: { league: HubStandings }) {
         </div>
       </div>
       {myTeam && !expanded && (
-        <table className="w-full text-xs">
-          <tbody>
-            <StandingsRow team={myTeam} index={myIndex} isDynasty={league.isDynasty} bubble={false} />
-          </tbody>
-        </table>
+        <button type="button" onClick={() => setExpanded(true)} className="flex w-full items-center gap-3 bg-primary/10 px-3 py-2.5 text-left text-xs transition-colors hover:bg-primary/15">
+          <span className="w-6 shrink-0 font-display text-base font-bold tabular-nums">{myIndex + 1}<span className="text-[10px] text-muted-foreground">{ordinal(myIndex + 1)}</span></span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate font-medium">{myTeam.name}</span>
+              <Badge className="shrink-0 text-[9px] uppercase">You</Badge>
+            </span>
+            <span className="mt-0.5 block"><TeamBadge badge={myTeam.badge} /></span>
+          </span>
+          <span className="shrink-0 tabular-nums text-muted-foreground">{myTeam.record}</span>
+          <span className="shrink-0 text-right tabular-nums">{(myTeam.titleOdds * 100).toFixed(1)}% <span className="text-muted-foreground">title</span></span>
+          <span className="shrink-0 text-right tabular-nums">{(myTeam.playoffOdds * 100).toFixed(0)}% <span className="text-muted-foreground">playoffs</span></span>
+          {league.isDynasty && (
+            <span className="shrink-0 text-right tabular-nums">
+              {myTeam.dynastyValue === null ? "—" : <>{myTeam.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {myTeam.dynastyRank}{ordinal(myTeam.dynastyRank)}</span></>}
+            </span>
+          )}
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </button>
       )}
       {expanded && (
         <table className="w-full text-xs">
