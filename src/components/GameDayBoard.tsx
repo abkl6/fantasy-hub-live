@@ -330,12 +330,12 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
   const window = gameWindow();
   const interval = pollInterval();
 
-  const { data, isLoading, isFetching, refetch, error } = useQuery({
+  const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
+    cacheKey: `gameday:${leagueId ?? "all"}`,
     queryKey: ["gameday", leagueId ?? "all"],
     queryFn: () => fetchGameDay({ data: { ...(leagueId ? { leagueId } : {}), refresh: true } }),
     refetchOnWindowFocus: true,
     refetchInterval: interval || false,
-    refetchIntervalInBackground: false,
   });
 
   const events = useMemo(() => {
