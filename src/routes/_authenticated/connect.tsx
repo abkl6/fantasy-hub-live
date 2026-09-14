@@ -951,6 +951,12 @@ function YahooPanel() {
           prove who you are but can't read your leagues — use the screenshot route above meanwhile.
         </p>
 
+      {state.data?.configured === false && (
+        <p className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-foreground">
+          {state.data.notice ?? "Yahoo isn't configured yet."}
+        </p>
+      )}
+
       <div className="mt-5 flex flex-wrap gap-3">
         <Button
           disabled={signIn.isPending || state.isLoading || state.data?.configured === false}
@@ -960,10 +966,20 @@ function YahooPanel() {
           {state.data?.connected ? "Reconnect Yahoo" : "Sign in with Yahoo"}
         </Button>
         {state.data?.connected && (
-          <Button variant="outline" disabled={find.isPending} onClick={() => find.mutate()}>
-            {find.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Show my Yahoo leagues
-          </Button>
+          <>
+            <Button variant="outline" disabled={find.isPending} onClick={() => find.mutate()}>
+              {find.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Show my Yahoo leagues
+            </Button>
+            <Button
+              variant="outline"
+              disabled={importAll.isPending}
+              onClick={() => importAll.mutate()}
+            >
+              {importAll.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Import all my leagues
+            </Button>
+          </>
         )}
       </div>
 
