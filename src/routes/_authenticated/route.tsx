@@ -41,6 +41,8 @@ function AuthenticatedLayout() {
     );
   }
 
+  if (bare) return <Outlet />;
+
   return (
     <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
@@ -59,6 +61,12 @@ function AuthenticatedLayout() {
                 <Link to="/connect">
                   <Plus className="size-4" aria-hidden="true" />
                   Add league
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/tv">
+                  <Monitor className="size-4" aria-hidden="true" />
+                  On TV
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
