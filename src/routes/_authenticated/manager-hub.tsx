@@ -86,6 +86,9 @@ type HubMove = {
   detail: string;
   titleDelta: number;
   playoffDelta: number;
+  giveValue?: number;
+  getValue?: number;
+  fairness?: "even" | "you-win" | "they-win";
 };
 
 function MoveRow({ move }: { move: HubMove }) {
