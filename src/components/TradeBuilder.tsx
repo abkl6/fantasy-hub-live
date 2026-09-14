@@ -117,7 +117,7 @@ function SideResult({ side, isDynasty }: { side: ProposalSide; isDynasty: boolea
   const dynDelta =
     side.dynastyAfter != null && side.dynastyBefore != null ? side.dynastyAfter - side.dynastyBefore : null;
   return (
-    <div className="rounded-lg border p-3 space-y-2">
+    <div className="rounded-lg bg-secondary/30 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="font-medium">{side.teamName}</p>
         <TeamBadge badge={side.badge} />

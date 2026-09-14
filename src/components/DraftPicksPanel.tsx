@@ -66,7 +66,7 @@ export function DraftPicksPanel({ leagueId }: { leagueId: string }) {
   const others = (picks.data?.picks ?? []).filter((p) => !p.isMine);
 
   return (
-    <section className="rounded-xl border bg-card p-5">
+    <section className="rounded-xl bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-bold">Draft picks</h2>

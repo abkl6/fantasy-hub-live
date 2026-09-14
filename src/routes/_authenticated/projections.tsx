@@ -140,7 +140,7 @@ function ProjectionsPage() {
           <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading players…
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-lg bg-secondary/30 border-border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
@@ -433,7 +433,7 @@ function TradeValuesPanel() {
         <p className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading values…</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-lg bg-secondary/30 border-border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
@@ -484,7 +484,7 @@ function TradeValuesPanel() {
             )}
           </div>
 
-          <div className="rounded-lg border border-border p-4">
+          <div className="rounded-lg bg-secondary/30 border-border p-4">
             <h2 className="font-display text-lg font-bold">Draft picks</h2>
             <p className="mt-1 text-xs text-muted-foreground">What future picks are worth in this format.</p>
             <ul className="mt-3 space-y-1 text-sm">

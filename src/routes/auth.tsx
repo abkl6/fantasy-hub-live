@@ -79,7 +79,7 @@ function AuthPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8">
+      <div className="w-full max-w-md rounded-2xl bg-card p-8">
         <p className="eyebrow text-primary">Gridiron Edge</p>
         <h1 className="mt-2 text-3xl font-bold">
           {mode === "signin" ? "Sign in" : "Create your account"}

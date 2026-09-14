@@ -88,7 +88,7 @@ function Landing() {
             ["5", "platforms supported"],
             ["1 tap", "from advice to decision"],
           ].map(([stat, label]) => (
-            <div key={label} className="rounded-xl border border-border bg-card/60 p-5">
+            <div key={label} className="rounded-xl bg-card/60 p-5">
               <dt className="stat-num text-4xl text-primary">{stat}</dt>
               <dd className="mt-1 text-sm text-muted-foreground">{label}</dd>
             </div>
@@ -100,7 +100,7 @@ function Landing() {
         <h2 className="text-3xl font-bold">Built for managers who want the trophy</h2>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {FEATURES.map((f) => (
-            <article key={f.title} className="rounded-xl border border-border bg-card p-6">
+            <article key={f.title} className="rounded-xl bg-card p-6">
               <f.icon className="size-6 text-primary" aria-hidden="true" />
               <h3 className="mt-4 text-xl font-semibold">{f.title}</h3>
               <p className="mt-2 text-sm text-muted-foreground">{f.body}</p>
