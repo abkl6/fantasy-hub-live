@@ -16,6 +16,7 @@ import {
   type SimTeamResult,
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
+import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
 import {
   asFormat,
