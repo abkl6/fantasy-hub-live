@@ -526,6 +526,15 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                       {p.tradeValue.toFixed(1)}
                     </span>
                   </span>
+                  {p.ktcValue !== null && (
+                    <span>
+                      Market{" "}
+                      <span className="stat-num text-foreground">{p.ktcValue.toLocaleString()}</span>
+                      {p.undervalued && (
+                        <span className="text-primary"> · worth {p.projValue.toLocaleString()}</span>
+                      )}
+                    </span>
+                  )}
                   <span>
                     Bid <span className="stat-num text-foreground">{p.bid > 0 ? `${p.bid}%` : "no bid"}</span>
                   </span>
