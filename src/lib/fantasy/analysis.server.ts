@@ -60,6 +60,18 @@ import { acceptanceBandOf, acceptanceScore } from "./proposal.server";
 
 type DB = SupabaseClient<Database>;
 
+/**
+ * Keeps every idea that clears the bar, and if fewer than five do, pads the
+ * list with the next best ones so the manager always sees five options.
+ */
+function keepTopFive<T>(sorted: T[], clears: (item: T) => boolean): T[] {
+  const good = sorted.filter(clears);
+  if (good.length >= 5) return good;
+  const rest = sorted.filter((item) => !clears(item));
+  return [...good, ...rest.slice(0, 5 - good.length)];
+}
+
+
 export interface LeagueRow {
   id: string;
   name: string;
