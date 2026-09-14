@@ -89,13 +89,24 @@ type HubMove = {
   giveValue?: number;
   getValue?: number;
   fairness?: "even" | "you-win" | "they-win";
+  strategyLabel?: string;
+  rationale?: string;
+  dynastyDelta?: number;
 };
 
 function MoveRow({ move }: { move: HubMove }) {
   return (
     <div className="py-3">
       <div className="flex items-start justify-between gap-3">
-        <div><p className="text-sm font-semibold">{move.headline}</p><p className="mt-1 text-xs text-muted-foreground">{move.detail}</p></div>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            {move.strategyLabel && <Badge variant="outline" className="uppercase">{move.strategyLabel}</Badge>}
+            {move.dynastyDelta != null && move.dynastyDelta !== 0 && <Badge variant={move.dynastyDelta > 0 ? "default" : "secondary"}>{move.dynastyDelta > 0 ? "+" : ""}{move.dynastyDelta.toLocaleString()} future value</Badge>}
+          </div>
+          <p className="mt-1 text-sm font-semibold">{move.headline}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{move.detail}</p>
+          {move.rationale && <p className="mt-1 text-xs text-muted-foreground">{move.rationale}</p>}
+        </div>
         {(move.titleDelta > 0 || move.playoffDelta > 0) && <div className="flex shrink-0 flex-col items-end gap-1">{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}{move.playoffDelta > 0 && <Badge variant="secondary">+{(move.playoffDelta * 100).toFixed(1)}% playoff</Badge>}</div>}
       </div>
       {move.giveValue != null && move.getValue != null && (

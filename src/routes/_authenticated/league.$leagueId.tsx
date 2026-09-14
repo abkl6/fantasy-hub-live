@@ -213,6 +213,20 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="moves" className="mt-6 space-y-3">
+          {data.myStrategy && data.myBadge && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="uppercase">{data.myBadge.label}</Badge>
+                <Badge variant="secondary" className="uppercase">
+                  {data.myStrategy.label}
+                </Badge>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{data.myStrategy.rationale}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Targeting {data.myStrategy.wants} and moving on from {data.myStrategy.gives}.
+              </p>
+            </div>
+          )}
           {!data.suggestions.length && (
             <p className="text-sm text-muted-foreground">
               No moves worth making right now — your lineup is already the strongest one available.
@@ -431,6 +445,12 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
         Number(b.undervalued) - Number(a.undervalued) ||
         b.projValue - (b.ktcValue ?? b.projValue) - (a.projValue - (a.ktcValue ?? a.projValue))
       );
+    // Rebuilding teams care about who is worth keeping, not this week's bump.
+    if (data?.strategy === "sell")
+      return (
+        (b.longTermValue ?? 0) - (a.longTermValue ?? 0) ||
+        (b.ktcValue ?? b.projValue) - (a.ktcValue ?? a.projValue)
+      );
     return (b.titleDelta ?? -1) - (a.titleDelta ?? -1) || b.tradeValue - a.tradeValue;
   });
 
@@ -445,6 +465,9 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
             Everyone still unowned in this league, with what they are worth and what they do to your
             title chances.
           </p>
+          {data?.strategyNote && (
+            <p className="mt-1 text-xs text-muted-foreground">{data.strategyNote}</p>
+          )}
         </div>
         <Input
           value={search}
@@ -829,6 +852,9 @@ function MoveCard({
     pointsDelta: number;
     addName?: string;
     dropName?: string;
+    strategyLabel?: string;
+    rationale?: string;
+    dynastyDelta?: number;
   };
   onApplied: () => void;
 }) {
@@ -858,11 +884,27 @@ function MoveCard({
     <article className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Badge variant="secondary" className="uppercase">
-            {suggestion.kind.replace(/_/g, " ")}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="uppercase">
+              {suggestion.kind.replace(/_/g, " ")}
+            </Badge>
+            {suggestion.strategyLabel && (
+              <Badge variant="outline" className="uppercase">
+                {suggestion.strategyLabel}
+              </Badge>
+            )}
+            {suggestion.dynastyDelta != null && suggestion.dynastyDelta !== 0 && (
+              <Badge variant={suggestion.dynastyDelta > 0 ? "default" : "secondary"}>
+                {suggestion.dynastyDelta > 0 ? "+" : ""}
+                {suggestion.dynastyDelta.toLocaleString()} future value
+              </Badge>
+            )}
+          </div>
           <h3 className="mt-2 text-xl font-semibold">{suggestion.headline}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{suggestion.detail}</p>
+          {suggestion.rationale && (
+            <p className="mt-1 text-xs text-muted-foreground">{suggestion.rationale}</p>
+          )}
         </div>
         <div className="text-right">
           <p className="eyebrow text-muted-foreground">Title odds</p>

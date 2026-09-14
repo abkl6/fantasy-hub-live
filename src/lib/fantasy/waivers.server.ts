@@ -35,6 +35,8 @@ import {
   hasLineupDecisions,
   isMultiYear,
 } from "./format";
+import { classifyTeam } from "./team-class";
+import { strategyFor, type StrategyMode } from "./strategy";
 
 type DB = SupabaseClient<Database>;
 
@@ -92,6 +94,9 @@ export interface WaiverBoard {
   showLongTerm: boolean;
   valueFormat: ValueFormat;
   valuesCovered: boolean;
+  /** My team's posture: rebuilding boards lead with keepers, not weekly bumps. */
+  strategy: StrategyMode | null;
+  strategyNote: string | null;
 }
 
 export async function buildWaiverBoard(
@@ -238,6 +243,8 @@ export async function buildWaiverBoard(
     string,
     { titleDelta: number; playoffDelta: number; winDelta: number; lineupGain: number; drop: string | null }
   >();
+  let strategy: StrategyMode | null = null;
+  let strategyNote: string | null = null;
 
   if (mine && myRoster.length) {
     const engineTeams = teams.map((t) => ({
@@ -292,6 +299,23 @@ export async function buildWaiverBoard(
 
     const baseline = simulateSeason(simInputs, simConfig, schedule, 1500, 7);
     const baseMine = baseline.find((r) => r.id === mine.id)!;
+
+    // The badge decides what a good pickup even looks like: a contender wants
+    // points this week, a rebuilding team wants someone worth keeping.
+    const oddsRank =
+      [...baseline].sort((a, b) => b.titleOdds - a.titleOdds).findIndex((r) => r.id === mine.id) + 1;
+    const badge = classifyTeam({
+      titleOdds: baseMine.titleOdds,
+      playoffOdds: baseMine.playoffOdds,
+      oddsRank: Math.max(1, oddsRank),
+      teamCount: teams.length,
+      isDynasty: showLongTerm,
+      dynastyRank: null,
+    });
+    const posture = strategyFor(badge.key, showLongTerm);
+    strategy = posture.mode;
+    strategyNote = `${badge.label} — ${posture.rationale}`;
+
     const beforeLineup = optimalLineup(myRoster, slots).total;
     const droppable = [...myRoster].sort((a, b) => a.proj - b.proj);
     const rosterCap = slots.length + 6;
@@ -386,6 +410,15 @@ export async function buildWaiverBoard(
       };
     });
 
+  // A rebuilding team should see keepers first, not a half-point weekly bump.
+  if (strategy === "sell") {
+    rows.sort(
+      (a, b) =>
+        (b.longTermValue ?? 0) - (a.longTermValue ?? 0) ||
+        (b.ktcValue ?? b.projValue) - (a.ktcValue ?? a.projValue),
+    );
+  }
+
   const estimated = spots.filter((s) => s.is_auto).length;
   const rosterSize = mine ? spots.filter((s) => s.team_id === mine.id).length : 0;
 
@@ -401,5 +434,7 @@ export async function buildWaiverBoard(
     showLongTerm,
     valueFormat: values.format,
     valuesCovered: values.covered,
+    strategy,
+    strategyNote,
   };
 }
