@@ -56,6 +56,8 @@ export interface ManagerHubPayload {
       dynastyRank: number | null;
     }[];
   }[];
+  /** Last week's recap per league, only between Tuesday and Thursday kickoff. */
+  reviews: (WeekReview & { leagueId: string; leagueName: string; teamName: string })[];
 }
 
 export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> {
