@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, ArrowRight, BellRing, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
+import { Activity, ArrowRight, BellRing, LineChart, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
