@@ -639,12 +639,14 @@ export async function evaluateTrade(
     .select("*")
     .eq("team_id", analysis.myTeam.id);
 
+  const tradeProj = await loadProjections(supabase);
+
   const roster: EnginePlayer[] = (spots ?? []).map((s) => ({
     id: s.player_id,
     name: s.player_name,
     position: s.position.toUpperCase(),
     nflTeam: s.nfl_team,
-    proj: Number(s.proj_points),
+    proj: tradeProj.week(s.player_id, s.player_name, Number(s.proj_points)),
     volatility: 0.35,
   }));
 
