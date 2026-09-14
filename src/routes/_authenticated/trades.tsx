@@ -118,6 +118,7 @@ function TradesPage() {
       <div className="mt-8 space-y-4">
         {rows.map((t) => {
           const titleDelta = t.titleOddsAfter - t.titleOddsBefore;
+          const playoffDelta = t.playoffOddsAfter - t.playoffOddsBefore;
           const up = titleDelta >= 0;
           return (
             <article key={t.id} className="rounded-xl border border-border bg-card p-5">
