@@ -86,12 +86,7 @@ function ProjectionsPage() {
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
       <header className="space-y-2">
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Stats Hub</h1>
-        <p className="max-w-2xl text-muted-foreground">
-          Every number in the app starts from a shared baseline. Disagree with one? Adjust it here and
-          it follows you into all of your leagues — start/sit, waivers, trades and title odds all use
-          your version.
-        </p>
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Stats Hub</h1>
       </header>
 
       <Tabs defaultValue="projections">

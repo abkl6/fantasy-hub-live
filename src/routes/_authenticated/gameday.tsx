@@ -26,13 +26,8 @@ export const Route = createFileRoute("/_authenticated/gameday")({
 function GameDayPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <p className="eyebrow text-primary">Sunday command centre</p>
-      <h1 className="mt-2 text-4xl font-bold uppercase">Game day</h1>
-      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Every one of your matchups in one place, with live scores, projected finals and a running log of each
-        scoring play — scored with each league&apos;s own rules.
-      </p>
-      <div className="mt-8">
+      <h1 className="text-2xl font-bold uppercase">Game day</h1>
+      <div className="mt-6">
         <GameDayBoard />
       </div>
     </main>

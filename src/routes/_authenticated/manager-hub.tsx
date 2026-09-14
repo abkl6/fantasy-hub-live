@@ -320,7 +320,7 @@ function ManagerHub() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="eyebrow text-primary">Cross-league command center</p><h1 className="mt-2 text-4xl font-bold uppercase">Manager Hub</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">The moves and risks that matter most across every team you manage.</p></div>
+        <div><h1 className="text-2xl font-bold uppercase">Manager Hub</h1></div>
         <Button asChild><Link to="/connect">Add a league</Link></Button>
       </div>
 

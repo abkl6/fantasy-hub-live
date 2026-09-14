@@ -103,7 +103,7 @@ function LeaguePage() {
   if (error || !data) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-3xl font-bold uppercase">We could not load this league</h1>
+        <h1 className="text-2xl font-bold uppercase">We could not load this league</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {error instanceof Error ? error.message : "Try refreshing in a moment."}
         </p>
@@ -121,7 +121,7 @@ function LeaguePage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-primary">Week {data.league.current_week}</p>
-          <h1 className="mt-2 text-4xl font-bold uppercase">{data.league.name}</h1>
+          <h1 className="mt-2 text-2xl font-bold uppercase">{data.league.name}</h1>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
               {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
