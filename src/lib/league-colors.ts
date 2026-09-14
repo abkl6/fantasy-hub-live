@@ -1,24 +1,24 @@
 /** Per-league accent colors. Keys are stored on `leagues.color`. */
-export const LEAGUE_COLOR_KEYS = ["lime", "sky", "amber", "violet", "rose", "teal"] as const;
+export const LEAGUE_COLOR_KEYS = ["sky", "amber", "violet", "rose", "teal", "orange"] as const;
 
 export type LeagueColorKey = (typeof LEAGUE_COLOR_KEYS)[number];
 
 const SWATCHES: Record<LeagueColorKey, string> = {
-  lime: "oklch(0.84 0.19 128)",
   sky: "oklch(0.74 0.14 235)",
   amber: "oklch(0.82 0.16 78)",
   violet: "oklch(0.72 0.16 300)",
   rose: "oklch(0.7 0.18 15)",
   teal: "oklch(0.76 0.12 190)",
+  orange: "oklch(0.75 0.17 55)",
 };
 
 export const LEAGUE_COLOR_LABELS: Record<LeagueColorKey, string> = {
-  lime: "Lime",
   sky: "Sky",
   amber: "Amber",
   violet: "Violet",
   rose: "Rose",
   teal: "Teal",
+  orange: "Orange",
 };
 
 function isKey(value: string | null | undefined): value is LeagueColorKey {
