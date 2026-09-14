@@ -67,6 +67,12 @@ export const Route = createFileRoute("/_authenticated/league/$leagueId")({
       { property: "og:description", content: "Championship odds and ranked moves for your fantasy team." },
     ],
   }),
+  // Notification deep links land here: ?tab=lineup&swap=Player&with=Replacement
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search["tab"] === "string" ? (search["tab"] as string) : undefined,
+    swap: typeof search["swap"] === "string" ? (search["swap"] as string) : undefined,
+    with: typeof search["with"] === "string" ? (search["with"] as string) : undefined,
+  }),
   component: LeaguePage,
 });
 
