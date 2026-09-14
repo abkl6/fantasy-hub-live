@@ -40,9 +40,11 @@ import {
   importSleeperDraftFn,
   setBestLineupFn,
   updateFaab,
+  updateLeagueSettings,
 
 } from "@/lib/fantasy.functions";
 import { logTrade } from "@/lib/platforms.functions";
+import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
 
 const statusTone: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   Active: "default",
@@ -1367,6 +1369,53 @@ function Stat({ label, before, after }: { label: string; before: string; after: 
         <span className="mx-2 text-muted-foreground">→</span>
         <span className="text-primary">{after}</span>
       </p>
+    </div>
+  );
+}
+
+function LeagueColorPicker({ leagueId, current }: { leagueId: string; current: string | null }) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(current);
+
+  const mutation = useMutation({
+    mutationFn: (color: string) => save({ data: { leagueId, color } }),
+    onSuccess: (_r, color) => {
+      setValue(color);
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success("League color updated");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the color"),
+  });
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label="Change league color"
+        onClick={() => setOpen((o) => !o)}
+        className="size-5 rounded-full ring-2 ring-border"
+        style={{ backgroundColor: leagueColor(value, leagueId) }}
+      />
+      {open && (
+        <div className="absolute left-0 top-7 z-30 flex gap-2 rounded-lg bg-popover p-2 shadow-lg">
+          {LEAGUE_COLOR_KEYS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              title={LEAGUE_COLOR_LABELS[key]}
+              aria-label={LEAGUE_COLOR_LABELS[key]}
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate(key)}
+              className={`size-5 rounded-full ${value === key ? "ring-2 ring-foreground" : "ring-1 ring-border"}`}
+              style={{ backgroundColor: leagueColor(key) }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
