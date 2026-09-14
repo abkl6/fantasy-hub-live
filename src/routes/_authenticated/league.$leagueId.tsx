@@ -14,7 +14,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { GameDayBoard } from "@/components/GameDayBoard";
@@ -70,11 +70,20 @@ function LeaguePage() {
   const analyze = useServerFn(getAnalysis);
   const [tab, setTab] = useState("moves");
 
+  const forceRef = useRef(false);
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: ["analysis", leagueId],
-    queryFn: () => analyze({ data: { leagueId } }),
+    queryFn: () => {
+      const force = forceRef.current;
+      forceRef.current = false;
+      return analyze({ data: { leagueId, force } });
+    },
     refetchOnWindowFocus: false,
   });
+  const hardRefresh = () => {
+    forceRef.current = true;
+    return refetch();
+  };
 
   if (isLoading) {
     return (
@@ -121,7 +130,7 @@ function LeaguePage() {
             </Badge>
           </div>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+        <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
           {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
           Refresh
         </Button>
