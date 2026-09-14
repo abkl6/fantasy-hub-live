@@ -418,6 +418,50 @@ export async function refreshLiveScoring(admin: DB): Promise<{
 
 type SpotRow = Database["public"]["Tables"]["roster_spots"]["Row"];
 
+/**
+ * "What you need" read for a live or upcoming matchup: the gap to the lead,
+ * who is still to finish on each side and what they still project to add.
+ */
+function needLine(
+  starters: LivePlayerRow[],
+  oppStarters: LivePlayerRow[],
+  myScore: number,
+  oppScore: number,
+  gameState: "pre" | "in" | "post",
+): string | null {
+  if (gameState === "post") return null;
+
+  const left = (rows: LivePlayerRow[]) => rows.filter((r) => r.gameState !== "post");
+  const toGo = (rows: LivePlayerRow[]) =>
+    round1(rows.reduce((acc, r) => acc + Math.max(0, r.projectedFinal - r.livePoints), 0));
+  const nameList = (rows: LivePlayerRow[]) => {
+    const sorted = [...rows].sort(
+      (a, b) => b.projectedFinal - b.livePoints - (a.projectedFinal - a.livePoints),
+    );
+    const shown = sorted.slice(0, 2).map((r) => r.name);
+    const extra = sorted.length - shown.length;
+    const names = shown.join(" + ");
+    return extra > 0 ? `${names} +${extra} more` : names;
+  };
+
+  const mineLeft = left(starters);
+  const theirsLeft = left(oppStarters);
+  const gap = round1(oppScore - myScore);
+
+  const head =
+    gap > 0 ? `Need ${gap.toFixed(1)}` : gap < 0 ? `Up ${Math.abs(gap).toFixed(1)}` : "Dead even";
+  const minePart = mineLeft.length
+    ? `you have ${nameList(mineLeft)} left (proj ${toGo(mineLeft).toFixed(1)})`
+    : "you have nobody left";
+  const theirsPart = oppStarters.length
+    ? theirsLeft.length
+      ? `they have ${nameList(theirsLeft)} left (proj ${toGo(theirsLeft).toFixed(1)})`
+      : "they have nobody left"
+    : null;
+
+  return [head, minePart, theirsPart].filter(Boolean).join(" · ");
+}
+
 export async function buildGameDay(
   supabase: DB,
   opts: { leagueId?: string; includeGames?: boolean } = {},
@@ -723,6 +767,13 @@ export async function buildGameDay(
       playoffOdds,
       oddsHistory,
       gameState,
+      needLine: needLine(
+        starters,
+        oppStarters,
+        sum(starters, "livePoints"),
+        sum(oppStarters, "livePoints"),
+        gameState,
+      ),
       isBestBall,
       leagueRank,
       teamCount: teams.filter((team) => team.league_id === league.id).length,
