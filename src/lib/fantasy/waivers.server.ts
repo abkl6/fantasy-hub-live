@@ -175,7 +175,7 @@ export async function buildWaiverBoard(
         nflTeam: p.nfl_team,
         byeWeek: p.bye_week,
         status: p.status,
-        projWeek: scoring.scale(p.position, proj.week(p.id, p.full_name, Number(p.proj_points_week))),
+        projWeek: proj.week(p.id, p.full_name, pos, Number(p.proj_points_week)),
         projSeason,
         volatility: Number(p.volatility),
         tradeValue: Math.round((projSeason - (replacement.get(pos) ?? 0)) * 10) / 10,
@@ -196,7 +196,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
+          proj: proj.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
           volatility: 0.35,
         }))
     : [];
@@ -217,7 +217,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
+          proj: proj.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
           volatility: 0.35,
         })),
       wins: t.wins,
