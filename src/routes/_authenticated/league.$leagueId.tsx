@@ -293,6 +293,7 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="trade" className="mt-6 space-y-6">
+          <TradeBuilder leagueId={leagueId} />
           <TradePanel leagueId={leagueId} />
           <DraftPicksPanel leagueId={leagueId} />
         </TabsContent>
