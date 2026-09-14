@@ -739,10 +739,19 @@ function YahooPanel() {
       <h2 className="text-2xl font-bold uppercase">Connect Yahoo</h2>
 
       {state.data && !state.data.configured && (
-        <p className="mt-3 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm text-warning">
-          Yahoo sign-in is built and ready, but it still needs the Yahoo app credentials before it
-          can run. Once those are saved, this button will take you to Yahoo.
-        </p>
+        <div className="mt-3 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm text-warning">
+          <p>
+            Yahoo sign-in is built and ready, but it still needs the Yahoo app credentials before it
+            can run. Once those are saved, this button will take you to Yahoo.
+          </p>
+          <p className="mt-2">
+            Redirect URL to paste into your Yahoo app:{" "}
+            <code className="break-all font-mono text-xs">
+              {typeof window !== "undefined" ? window.location.origin : ""}
+              /api/public/yahoo/callback
+            </code>
+          </p>
+        </div>
       )}
 
       <p className="mt-3 text-sm text-muted-foreground">
