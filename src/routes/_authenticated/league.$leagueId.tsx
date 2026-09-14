@@ -197,17 +197,10 @@ function LeaguePage() {
 
       <Tabs value={tab} onValueChange={setTab} className="mt-8">
         <TabsList className="flex flex-wrap">
-          <TabsTrigger value="live">Live</TabsTrigger>
-          <TabsTrigger value="moves">Moves</TabsTrigger>
           <TabsTrigger value="lineup">Lineup</TabsTrigger>
-          <TabsTrigger value="grades">Grades</TabsTrigger>
-          <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
-          <TabsTrigger value="standings">Standings</TabsTrigger>
-          <TabsTrigger value="waivers">Waivers</TabsTrigger>
-          <TabsTrigger value="trade">Trade</TabsTrigger>
-          <TabsTrigger value="playoff">Playoff</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="draft">Draft</TabsTrigger>
+          <TabsTrigger value="moves">Moves</TabsTrigger>
+          <TabsTrigger value="league">League</TabsTrigger>
+          <TabsTrigger value="live">Live</TabsTrigger>
         </TabsList>
 
         <TabsContent value="live" className="mt-6">
