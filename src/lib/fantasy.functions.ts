@@ -30,7 +30,7 @@ export const listLeagues = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("leagues")
-      .select("id, name, platform, season, current_week, team_count, last_synced_at")
+      .select("id, name, platform, season, current_week, team_count, last_synced_at, color")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
@@ -455,6 +455,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         rosterSlots: z.array(z.string()).optional(),
         scoringType: z.string().max(20).optional(),
         format: z.enum(LEAGUE_FORMATS).optional(),
+        color: z.string().max(20).optional(),
       })
       .parse(d),
   )
@@ -465,6 +466,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.rosterSlots !== undefined) patch["roster_slots"] = data.rosterSlots;
     if (data.scoringType !== undefined) patch["scoring_type"] = data.scoringType;
     if (data.format !== undefined) patch["format"] = data.format;
+    if (data.color !== undefined) patch["color"] = data.color;
     const { error } = await context.supabase
       .from("leagues")
       .update(patch as never)
