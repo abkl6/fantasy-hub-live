@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw, Share2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Sparkline } from "@/components/Sparkline";
@@ -12,6 +12,7 @@ import { getGameDayFn } from "@/lib/fantasy.functions";
 import { countdownLabel, gameWindow, nextKickoff, pollInterval } from "@/lib/fantasy/gamewindow";
 import type { LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
 import { leagueColor, leagueInitials } from "@/lib/league-colors";
+import { shareMatchupCard } from "@/lib/share-card";
 
 const stateLabel: Record<LivePlayerRow["gameState"], string> = {
   pre: "Yet to play",
