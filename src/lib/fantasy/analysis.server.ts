@@ -46,6 +46,15 @@ import {
   type TradeAsset,
   type ValueFormat,
 } from "./trade-value";
+import { leagueDynastyValues } from "./dynasty-value";
+import {
+  ageLane,
+  partnerModes,
+  strategyFor,
+  strategyMode,
+  type StrategyMode,
+  type TeamStrategy,
+} from "./strategy";
 
 type DB = SupabaseClient<Database>;
 
@@ -92,6 +101,12 @@ export interface MoveSuggestion {
   giveAssets?: string[];
   getAssets?: string[];
   valueFormat?: ValueFormat;
+  /** Which posture this idea comes from: buying now or selling for later. */
+  strategy?: StrategyMode;
+  strategyLabel?: string;
+  rationale?: string;
+  /** Future (market) value gained by the trade; negative means you paid. */
+  dynastyDelta?: number;
 }
 
 export interface ScoreboardGame {
@@ -135,6 +150,9 @@ export interface AnalysisPayload {
   mySurvival: SurvivalResult | null;
   /** Dynasty / keeper only: long-term value of my roster. */
   dynasty: DynastyRow[] | null;
+  /** My team's badge and the trading posture that follows from it. */
+  myBadge: TeamBadge | null;
+  myStrategy: TeamStrategy | null;
 }
 
 export interface Alert {
@@ -247,6 +265,41 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       })),
   }));
 
+  // --- future value and age lanes, which drive who should buy and who sells -
+  const isDynastyLeague = isMultiYear(format);
+  const dynastyRankById = new Map<string, number>();
+  if (isDynastyLeague) {
+    const rows = leagueDynastyValues(
+      engineTeams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        isMine: t.isMine,
+        players: t.roster.map((p) => ({
+          id: p.id,
+          name: p.name,
+          position: p.position,
+          projSeason: p.proj * 17,
+        })),
+        picks: pickAssets.get(t.id) ?? [],
+      })),
+      values,
+    );
+    for (const row of rows) dynastyRankById.set(row.teamId, row.rank);
+  }
+  const ageByPlayer = new Map(
+    players.map((p) => [
+      normalizeName(p.full_name),
+      {
+        age: (p as { age?: number | null }).age ?? null,
+        yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
+      },
+    ]),
+  );
+  const laneOf = (p: EnginePlayer) => {
+    const meta = ageByPlayer.get(normalizeName(p.name));
+    return ageLane(p.position, meta?.age ?? null, meta?.yearsExp ?? null);
+  };
+
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
 
@@ -302,8 +355,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           playoffOdds: r.playoffOdds,
           oddsRank: index + 1,
           teamCount: teams.length,
-          isDynasty: isMultiYear(format),
-          dynastyRank: null,
+          isDynasty: isDynastyLeague,
+          dynastyRank: dynastyRankById.get(r.id) ?? null,
         }),
       };
     });
@@ -356,6 +409,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       ...formatMeta,
       mySurvival: null,
       dynasty: null,
+      myBadge: null,
+      myStrategy: null,
     };
   }
 
@@ -454,9 +509,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     });
   }
 
-  // --- trade ideas: my surplus for another team's surplus at my weak spot --
-  // Offers are priced against the Keep Trade Cut dynasty market and balanced
-  // with bench pieces or future draft picks until both sides are close.
+  // --- trade ideas, shaped by my team's badge ------------------------------
+  // A contender buys proven production with picks and youth; a rebuilding team
+  // sells veterans to contenders for picks and young risers. Every offer is
+  // priced on the Keep Trade Cut market and balanced until both sides are close.
   const weakest = grades.filter((g) => g.verdict === "weakness").map((g) => g.position);
   const strongest = grades.filter((g) => g.verdict === "strength").map((g) => g.position);
   const assetFor = (p: EnginePlayer): TradeAsset => ({
@@ -466,60 +522,158 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     position: p.position,
     value: values.player(p.id, p.name, p.position, p.proj * 17),
   });
+  const valueOf = (p: EnginePlayer) => values.player(p.id, p.name, p.position, p.proj * 17);
   const myPicks = pickAssets.get(mine.id) ?? [];
+  const marketLabel = values.format === "sf" ? "superflex" : "one-QB";
 
-  for (const other of engineTeams.filter((t) => !t.isMine && t.roster.length)) {
-    for (const need of weakest.slice(0, 2)) {
-      const target = other.roster
-        .filter((p) => p.position === need)
-        .sort((a, b) => b.proj - a.proj)[0];
-      if (!target) continue;
-      const give = mine.roster
-        .filter((p) => strongest.includes(p.position))
-        .sort((a, b) => b.proj - a.proj)[1];
-      if (!give) continue;
-      const nextRoster = mine.roster.map((p) => (p.name === give.name ? target : p));
-      const before = optimalLineup(mine.roster, slots).total;
-      const after = optimalLineup(nextRoster, slots).total;
-      if (after - before < 0.5) continue;
-      const impact = whatIf(nextRoster);
+  const badgeById = new Map(standings.map((s) => [s.id, s.badge]));
+  const myBadge = badgeById.get(mine.id) ?? standings[0]!.badge;
+  const myStrategy = strategyFor(myBadge.key, isDynastyLeague);
+  // Selling only means something where the future is tradeable.
+  const modes: StrategyMode[] = !isDynastyLeague
+    ? ["buy"]
+    : myStrategy.mode === "pivot"
+      ? ["buy", "sell"]
+      : [myStrategy.mode];
+  const allowedPartners = partnerModes(myStrategy.mode);
+  const partners = engineTeams.filter((t) => {
+    if (t.isMine || !t.roster.length) return false;
+    const badge = badgeById.get(t.id);
+    return !badge || allowedPartners.includes(strategyMode(badge.key));
+  });
+  const beforeLineup = optimalLineup(mine.roster, slots).total;
 
-      const myPool: TradeAsset[] = [
-        ...mine.roster.filter((p) => p.name !== give.name).map(assetFor),
-        ...myPicks,
-      ].sort((a, b) => a.value - b.value);
-      const theirPool: TradeAsset[] = [
-        ...other.roster.filter((p) => p.name !== target.name).map(assetFor),
-        ...(pickAssets.get(other.id) ?? []),
-      ].sort((a, b) => a.value - b.value);
+  for (const other of partners) {
+    const otherBadge = badgeById.get(other.id);
+    const otherLabel = otherBadge?.label ?? "their team";
+    const otherPicks = [...(pickAssets.get(other.id) ?? [])].sort((a, b) => b.value - a.value);
 
-      const balanced = balanceTrade([assetFor(give)], [assetFor(target)], myPool, theirPool);
-      const giveText = balanced.give.map(assetLabel).join(" + ");
-      const getText = balanced.get.map(assetLabel).join(" + ");
+    // ---- buying: their best producer at my weakest spot -------------------
+    if (modes.includes("buy")) {
+      for (const need of weakest.slice(0, 2)) {
+        const target = other.roster
+          .filter((p) => p.position === need)
+          .sort((a, b) => b.proj - a.proj)[0];
+        if (!target) continue;
+        const surplus = mine.roster
+          .filter((p) => strongest.includes(p.position))
+          .sort((a, b) => b.proj - a.proj);
+        // Pay with youth first when the roster is built to win right now.
+        const give = surplus.filter((p) => laneOf(p) === "young")[0] ?? surplus[1];
+        if (!give) continue;
+        const nextRoster = mine.roster.map((p) => (p.name === give.name ? target : p));
+        const after = optimalLineup(nextRoster, slots).total;
+        if (after - beforeLineup < 0.5) continue;
+        const impact = whatIf(nextRoster);
 
-      suggestions.push({
-        id: `trade-${other.id}-${target.name}`,
-        kind: "trade",
-        headline: `Send ${giveText} to ${other.name} for ${getText}`,
-        detail: `Fills your ${need} hole from a position of surplus. Lineup gains ${(after - before).toFixed(1)} points a week. ${fairnessLabel(balanced.giveValue, balanced.getValue)} on the ${values.format === "sf" ? "superflex" : "one-QB"} dynasty market.`,
-        pointsDelta: Math.round((after - before) * 10) / 10,
-        winDelta: Math.round(impact.winDelta * 100) / 100,
-        titleDelta: impact.titleDelta,
-        playoffDelta: impact.playoffDelta,
-        addName: target.name,
-        dropName: give.name,
-        giveValue: balanced.giveValue,
-        getValue: balanced.getValue,
-        fairness: balanced.fairness,
-        giveAssets: balanced.give.map(assetLabel),
-        getAssets: balanced.get.map(assetLabel),
-        valueFormat: values.format,
-      });
-      break;
+        const myPool: TradeAsset[] = [
+          ...mine.roster
+            .filter((p) => p.name !== give.name && laneOf(p) !== "veteran")
+            .map(assetFor),
+          ...myPicks,
+        ].sort((a, b) => a.value - b.value);
+        const theirPool: TradeAsset[] = other.roster
+          .filter((p) => p.name !== target.name && laneOf(p) !== "young")
+          .map(assetFor)
+          .sort((a, b) => a.value - b.value);
+
+        const balanced = balanceTrade([assetFor(give)], [assetFor(target)], myPool, theirPool);
+        const giveText = balanced.give.map(assetLabel).join(" + ");
+        const getText = balanced.get.map(assetLabel).join(" + ");
+
+        suggestions.push({
+          id: `trade-${other.id}-${target.name}`,
+          kind: "trade",
+          headline: `Send ${giveText} to ${other.name} for ${getText}`,
+          detail: `Fills your ${need} hole from a position of surplus. Lineup gains ${(after - beforeLineup).toFixed(1)} points a week. ${fairnessLabel(balanced.giveValue, balanced.getValue)} on the ${marketLabel} dynasty market.`,
+          pointsDelta: Math.round((after - beforeLineup) * 10) / 10,
+          winDelta: Math.round(impact.winDelta * 100) / 100,
+          titleDelta: impact.titleDelta,
+          playoffDelta: impact.playoffDelta,
+          addName: target.name,
+          dropName: give.name,
+          giveValue: balanced.giveValue,
+          getValue: balanced.getValue,
+          fairness: balanced.fairness,
+          giveAssets: balanced.give.map(assetLabel),
+          getAssets: balanced.get.map(assetLabel),
+          valueFormat: values.format,
+          strategy: "buy",
+          strategyLabel: "Buying",
+          rationale: `You're a ${myBadge.label}: ${myStrategy.rationale} ${other.name} (${otherLabel}) should take the youth back.`,
+          dynastyDelta: balanced.getValue - balanced.giveValue,
+        });
+        break;
+      }
+    }
+
+    // ---- selling: my veterans to a contender for picks and youth ----------
+    if (modes.includes("sell") && (otherPicks.length || other.roster.length)) {
+      const send = mine.roster
+        .filter((p) => laneOf(p) !== "young")
+        .sort((a, b) => valueOf(b) - valueOf(a))[0];
+      const theirYoung = other.roster
+        .filter((p) => laneOf(p) === "young")
+        .sort((a, b) => valueOf(b) - valueOf(a))[0];
+      const back: TradeAsset[] = [];
+      if (otherPicks[0]) back.push(otherPicks[0]);
+      if (theirYoung) back.push(assetFor(theirYoung));
+
+      if (send && back.length) {
+        const nextRoster = theirYoung
+          ? mine.roster.map((p) => (p.name === send.name ? theirYoung : p))
+          : mine.roster.filter((p) => p.name !== send.name);
+        const after = optimalLineup(nextRoster, slots).total;
+        const impact = whatIf(nextRoster);
+
+        const myPool: TradeAsset[] = mine.roster
+          .filter((p) => p.name !== send.name && laneOf(p) === "veteran")
+          .map(assetFor)
+          .sort((a, b) => a.value - b.value);
+        const theirPool: TradeAsset[] = [
+          ...otherPicks.slice(1),
+          ...other.roster
+            .filter((p) => laneOf(p) === "young" && p.name !== theirYoung?.name)
+            .map(assetFor),
+        ].sort((a, b) => a.value - b.value);
+
+        const balanced = balanceTrade([assetFor(send)], back, myPool, theirPool);
+        const gained = balanced.getValue - balanced.giveValue;
+        const cost = Math.max(0, beforeLineup - after);
+        const giveText = balanced.give.map(assetLabel).join(" + ");
+        const getText = balanced.get.map(assetLabel).join(" + ");
+
+        suggestions.push({
+          id: `sell-${other.id}-${send.name}`,
+          kind: "trade",
+          headline: `Sell ${giveText} to ${other.name} for ${getText}`,
+          detail: `${other.name} are a ${otherLabel} and should pay for win-now help. You bank ${Math.abs(gained).toLocaleString()} ${gained >= 0 ? "of extra" : "less"} future value on the ${marketLabel} market and give up ${cost.toFixed(1)} points a week you don't need.`,
+          pointsDelta: Math.round((after - beforeLineup) * 10) / 10,
+          winDelta: Math.round(impact.winDelta * 100) / 100,
+          titleDelta: impact.titleDelta,
+          playoffDelta: impact.playoffDelta,
+          ...(theirYoung ? { addName: theirYoung.name } : {}),
+          dropName: send.name,
+          giveValue: balanced.giveValue,
+          getValue: balanced.getValue,
+          fairness: balanced.fairness,
+          giveAssets: balanced.give.map(assetLabel),
+          getAssets: balanced.get.map(assetLabel),
+          valueFormat: values.format,
+          strategy: "sell",
+          strategyLabel: "Selling",
+          rationale: `You're a ${myBadge.label}: ${myStrategy.rationale}`,
+          dynastyDelta: gained,
+        });
+      }
     }
   }
 
-  suggestions.sort((a, b) => b.titleDelta - a.titleDelta || b.pointsDelta - a.pointsDelta);
+  // Sell ideas are supposed to cost title odds, so they are ranked by the
+  // future value they bring back instead (5,000 market points ~ one title point).
+  const rankScore = (s: MoveSuggestion) =>
+    s.strategy === "sell" ? (s.dynastyDelta ?? 0) / 5000 : s.titleDelta;
+  suggestions.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
 
   const why: string[] = [];
   const strength = grades.filter((g) => g.verdict === "strength").map((g) => g.position);
@@ -679,6 +833,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     ...formatMeta,
     mySurvival,
     dynasty,
+    myBadge,
+    myStrategy,
   };
 }
 
