@@ -63,6 +63,7 @@ function TradesPage() {
   const rows = trades.data ?? [];
   const accepted = rows.filter((t) => t.status === "accepted");
   const netTitle = accepted.reduce((sum, t) => sum + (t.titleOddsAfter - t.titleOddsBefore), 0);
+  const netPlayoff = accepted.reduce((sum, t) => sum + (t.playoffOddsAfter - t.playoffOddsBefore), 0);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
