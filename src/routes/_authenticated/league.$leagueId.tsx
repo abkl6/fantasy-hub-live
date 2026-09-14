@@ -68,11 +68,13 @@ export const Route = createFileRoute("/_authenticated/league/$leagueId")({
     ],
   }),
   // Notification deep links land here: ?tab=lineup&swap=Player&with=Replacement
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: typeof search["tab"] === "string" ? (search["tab"] as string) : undefined,
-    swap: typeof search["swap"] === "string" ? (search["swap"] as string) : undefined,
-    with: typeof search["with"] === "string" ? (search["with"] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): LeagueSearch => {
+    const out: LeagueSearch = {};
+    if (typeof search["tab"] === "string") out.tab = search["tab"];
+    if (typeof search["swap"] === "string") out.swap = search["swap"];
+    if (typeof search["with"] === "string") out.with = search["with"];
+    return out;
+  },
   component: LeaguePage,
 });
 
