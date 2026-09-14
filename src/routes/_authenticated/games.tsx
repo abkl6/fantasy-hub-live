@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { CacheStatus } from "@/components/CacheStatus";
 import { Button } from "@/components/ui/button";
+import { useCachedQuery } from "@/hooks/useCachedQuery";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGameDayFn } from "@/lib/fantasy.functions";
 import type { LiveGame, LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
