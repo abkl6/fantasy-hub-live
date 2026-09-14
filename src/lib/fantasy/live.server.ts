@@ -125,14 +125,27 @@ interface GameInfo {
   remaining: number;
 }
 
-/** Map of NFL team abbreviation -> live game state. */
-export async function gameStates(week: number): Promise<Map<string, GameInfo>> {
-  const data = await getJson<{
+/**
+ * Map of NFL team abbreviation -> live game state. Returns an empty map only
+ * when the scoreboard could not be read; callers must not treat that as
+ * "nothing has kicked off".
+ */
+export async function gameStates(week: number, season?: number): Promise<Map<string, GameInfo>> {
+  type Board = {
     events?: {
+      date?: string;
       status?: { type?: { state?: string }; displayClock?: string; period?: number };
       competitions?: { competitors?: { team?: { abbreviation?: string } }[] }[];
     }[];
-  }>(`${ESPN_SCOREBOARD}?week=${week}`);
+  };
+
+  const year = season ?? new Date().getFullYear();
+  let data = await getJson<Board>(`${ESPN_SCOREBOARD}?week=${week}`);
+  if (!data?.events?.length) {
+    data = await getJson<Board>(
+      `${ESPN_SCOREBOARD}?dates=${year}&seasontype=2&week=${week}`,
+    );
+  }
 
   const out = new Map<string, GameInfo>();
   for (const ev of data?.events ?? []) {
@@ -154,11 +167,29 @@ export async function gameStates(week: number): Promise<Map<string, GameInfo>> {
 
     for (const abbr of teams) {
       const opponent = teams.find((t) => t !== abbr) ?? null;
-      out.set(abbr.toUpperCase(), { state, clock, opponent, remaining });
+      out.set(teamKey(abbr), { state, clock, opponent: opponent ? teamKey(opponent) : null, remaining });
     }
   }
   return out;
 }
+
+/** Earliest kickoff still in the future for a week, from the live scoreboard. */
+export async function nextKickoffAt(week: number, season?: number): Promise<string | null> {
+  const year = season ?? new Date().getFullYear();
+  let data = await getJson<{ events?: { date?: string; status?: { type?: { state?: string } } }[] }>(
+    `${ESPN_SCOREBOARD}?week=${week}`,
+  );
+  if (!data?.events?.length) {
+    data = await getJson(`${ESPN_SCOREBOARD}?dates=${year}&seasontype=2&week=${week}`);
+  }
+  const now = Date.now();
+  const upcoming = (data?.events ?? [])
+    .filter((e) => e.date && e.status?.type?.state === "pre" && Date.parse(e.date) > now)
+    .map((e) => e.date!)
+    .sort();
+  return upcoming[0] ?? null;
+}
+
 
 interface ScoreboardGame {
   home: string;
