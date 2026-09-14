@@ -64,70 +64,117 @@ export async function syncPlayerNews(supabase: DB): Promise<{ updated: number }>
     IR: 4,
   };
 
-  const { data: canonicalRows } = await supabase
-    .from("players")
-    .select("id, full_name, position, sleeper_id, status, nfl_team");
+  // The projection database is larger than one page of rows.
+  const canonicalRows = await fetchAllRows<{
+    id: string;
+    full_name: string;
+    position: string;
+    sleeper_id: string | null;
+    status: string;
+    nfl_team: string | null;
+  }>((from, to) =>
+    supabase
+      .from("players")
+      .select("id, full_name, position, sleeper_id, status, nfl_team")
+      .order("id")
+      .range(from, to),
+  );
 
   // Keep NFL teams current: a traded player on an old team breaks live game
-  // matching (we look up his game by team abbreviation).
-  for (const row of canonicalRows ?? []) {
+  // matching (we look up his game by team abbreviation). Grouped by team so
+  // this is a handful of writes rather than one per player.
+  const teamMoves = new Map<string, string[]>();
+  for (const row of canonicalRows) {
     if (!row.sleeper_id) continue;
-    const live = players[row.sleeper_id];
-    const team = live?.team ?? null;
+    const team = players[row.sleeper_id]?.team ?? null;
     if (team && team !== row.nfl_team) {
-      await supabase.from("players").update({ nfl_team: team }).eq("id", row.id);
+      const list = teamMoves.get(team) ?? [];
+      list.push(row.id);
+      teamMoves.set(team, list);
       row.nfl_team = team;
     }
   }
-  const bySleeperId = new Map((canonicalRows ?? []).filter((p) => p.sleeper_id).map((p) => [p.sleeper_id, p]));
-  const byName = new Map((canonicalRows ?? []).map((p) => [p.full_name.toLowerCase(), p]));
+  for (const [team, ids] of teamMoves) {
+    await supabase.from("players").update({ nfl_team: team }).in("id", ids);
+  }
 
-  let updated = 0;
-  const now = new Date().toISOString();
+  const bySleeperId = new Map(canonicalRows.filter((p) => p.sleeper_id).map((p) => [p.sleeper_id, p]));
+  const byName = new Map(canonicalRows.map((p) => [p.full_name.toLowerCase(), p]));
 
+  // Work out every change first, then write in batches.
+  interface Pending {
+    row: (typeof canonicalRows)[number];
+    status: string;
+    bodyPart: string | null;
+    note: string | null;
+  }
+  const pending: Pending[] = [];
   for (const [sleeperId, p] of Object.entries(players)) {
     if (!p.injury_status && p.active !== false) continue;
     const match = bySleeperId.get(sleeperId) ?? byName.get(p.full_name?.toLowerCase() ?? "");
     if (!match) continue;
+    pending.push({
+      row: match,
+      status: p.injury_status || (p.active === false ? "Out" : "Active"),
+      bodyPart: p.injury_body_part ?? null,
+      note: p.injury_notes || p.practice_description || null,
+    });
+  }
+  if (!pending.length) return { updated: 0 };
 
-    const status = p.injury_status || (p.active === false ? "Out" : "Active");
-    const bodyPart = p.injury_body_part ?? null;
-    const note = p.injury_notes || p.practice_description || null;
-
-    // Only insert a news row if status changed or there is a meaningful note.
-    const { data: latest } = await supabase
+  // Latest known note per player, in one read.
+  const ids = pending.map((p) => p.row.id);
+  const latestByPlayer = new Map<string, { status: string; news_text: string | null }>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await supabase
       .from("player_news")
-      .select("status, news_text")
-      .eq("player_id", match.id)
-      .order("published_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const changed = !latest || latest.status !== status || latest.news_text !== note;
-    if (changed) {
-      await supabase.from("player_news").insert({
-        player_id: match.id,
-        player_name: match.full_name,
-        position: match.position,
-        status,
-        injury_body_part: bodyPart,
-        news_text: note,
-        source: "sleeper",
-        published_at: now,
-      });
-      updated++;
-    }
-
-    // Always keep the players table status current.
-    const currentRank = statusOrder[match.status] ?? -1;
-    const newRank = statusOrder[status] ?? -1;
-    if (newRank > currentRank || status !== match.status) {
-      await supabase.from("players").update({ status }).eq("id", match.id);
+      .select("player_id, status, news_text, published_at")
+      .in("player_id", ids.slice(i, i + 200))
+      .order("published_at", { ascending: false });
+    for (const row of data ?? []) {
+      if (!row.player_id || latestByPlayer.has(row.player_id)) continue;
+      latestByPlayer.set(row.player_id, { status: row.status, news_text: row.news_text });
     }
   }
 
-  return { updated };
+  const now = new Date().toISOString();
+  const inserts: Record<string, unknown>[] = [];
+  const statusChanges = new Map<string, string[]>();
+  for (const p of pending) {
+    const latest = latestByPlayer.get(p.row.id);
+    if (!latest || latest.status !== p.status || latest.news_text !== p.note) {
+      inserts.push({
+        player_id: p.row.id,
+        player_name: p.row.full_name,
+        position: p.row.position,
+        status: p.status,
+        injury_body_part: p.bodyPart,
+        news_text: p.note,
+        source: "sleeper",
+        published_at: now,
+      });
+    }
+    const currentRank = statusOrder[p.row.status] ?? -1;
+    const newRank = statusOrder[p.status] ?? -1;
+    if (newRank > currentRank || p.status !== p.row.status) {
+      const list = statusChanges.get(p.status) ?? [];
+      list.push(p.row.id);
+      statusChanges.set(p.status, list);
+    }
+  }
+
+  for (let i = 0; i < inserts.length; i += 500) {
+    await supabase.from("player_news").insert(inserts.slice(i, i + 500) as never);
+  }
+  for (const [status, changed] of statusChanges) {
+    for (let i = 0; i < changed.length; i += 200) {
+      await supabase.from("players").update({ status }).in("id", changed.slice(i, i + 200));
+    }
+  }
+
+  return { updated: inserts.length };
 }
+
 
 /** Fetch a Sleeper league's draft results. */
 export async function sleeperDraft(leagueId: string) {
