@@ -167,12 +167,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const matchups = matchupRows ?? [];
   const players = playerRows ?? [];
 
-  // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase);
-
   // Every projection below is re-scored against this league's own rules, so
   // half-PPR, TE-premium or 6-point passing TDs change the numbers.
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
+
+  // The member's own projection adjustments replace the shared baseline.
+  const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
   const format = asFormat((league as { format?: string }).format);
   const bestBall = !hasLineupDecisions(format);
 
@@ -641,7 +641,14 @@ export async function evaluateTrade(
     .select("*")
     .eq("team_id", analysis.myTeam.id);
 
-  const tradeProj = await loadProjections(supabase);
+  const tradeScoring = leagueScoring(
+    analysis.league.scoring_type,
+    (analysis.league.scoring_rules ?? {}) as Record<string, number>,
+  );
+  const tradeProj = await loadProjections(supabase, {
+    scoring: tradeScoring,
+    week: analysis.league.current_week ?? 1,
+  });
 
   const roster: EnginePlayer[] = (spots ?? []).map((s) => ({
     id: s.player_id,
