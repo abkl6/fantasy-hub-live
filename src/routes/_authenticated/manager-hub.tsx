@@ -83,7 +83,7 @@ function ManagerHub() {
         <section className="mt-6">
           <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">League shortcuts</h2></div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {data.leagues.map((league) => <article key={league.id} className="rounded-xl border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><Badge variant="secondary">{PLATFORM[league.platform] ?? league.platform}</Badge><h3 className="mt-2 font-bold">{league.name}</h3><p className="text-xs text-muted-foreground">{league.teamName} · {league.record}</p></div><div className="text-right text-xs"><p className="text-muted-foreground">Title</p><Percent value={league.titleOdds} /></div></div><div className="mt-4 flex items-center justify-between"><p className="text-xs text-muted-foreground">Playoffs <Percent value={league.playoffOdds} /></p><Button asChild size="sm"><Link to="/league/$leagueId" params={{ leagueId: league.id }}>Manage</Link></Button></div></article>)}
+            {data.leagues.map((league) => <LeagueCard key={league.id} league={league} />)}
           </div>
         </section>
       </>}
