@@ -61,8 +61,13 @@ export interface ManagerHubPayload {
 }
 
 export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> {
-  const { data: leagueRows, error } = await supabase.from("leagues").select("id").order("created_at");
+  const { data: leagueRows, error } = await supabase
+    .from("leagues")
+    .select("id, user_id")
+    .order("created_at");
   if (error) throw new Error(error.message);
+  const ownerByLeague = new Map((leagueRows ?? []).map((l) => [l.id, l.user_id]));
+
 
   const analyses = await Promise.all((leagueRows ?? []).map((league) => buildAnalysis(supabase, league.id)));
   const leagues = analyses.flatMap((analysis) =>
