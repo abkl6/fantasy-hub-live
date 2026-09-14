@@ -18,6 +18,45 @@ export interface RedZoneTeam {
   opponent: string | null;
 }
 
+const ESPN_SCOREBOARD =
+  "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
+
+/** Which NFL teams currently have the ball inside the opponent's 20. */
+export async function redZoneTeams(week: number): Promise<RedZoneTeam[]> {
+  try {
+    const response = await fetch(`${ESPN_SCOREBOARD}?week=${week}`);
+    if (!response.ok) return [];
+    const data = (await response.json()) as {
+      events?: {
+        status?: { type?: { state?: string } };
+        competitions?: {
+          situation?: { isRedZone?: boolean; possession?: string };
+          competitors?: { id?: string; team?: { id?: string; abbreviation?: string } }[];
+        }[];
+      }[];
+    };
+
+    const out: RedZoneTeam[] = [];
+    for (const event of data.events ?? []) {
+      if (event.status?.type?.state !== "in") continue;
+      const competition = event.competitions?.[0];
+      if (!competition?.situation?.isRedZone) continue;
+      const possession = competition.situation.possession;
+      const teams = (competition.competitors ?? []).map((c) => ({
+        id: c.team?.id ?? c.id,
+        abbr: c.team?.abbreviation ?? null,
+      }));
+      const owner = teams.find((t) => t.id === possession) ?? teams[0];
+      const other = teams.find((t) => t.id !== owner?.id);
+      if (owner?.abbr) out.push({ team: owner.abbr, opponent: other?.abbr ?? null });
+    }
+    return out;
+  } catch (error) {
+    console.error("[push] red zone lookup failed", error);
+    return [];
+  }
+}
+
 /** Sends scoring-play, red-zone and lead-change pushes for every member. */
 export async function sendLiveAlerts(
   admin: DB,
