@@ -57,7 +57,7 @@ function Landing() {
           Gridiron<span className="text-primary">Edge</span>
         </span>
         <Button asChild variant={session ? "default" : "outline"} size="sm">
-          <Link to={session ? "/dashboard" : "/auth"}>
+          <Link to={session ? "/gameday" : "/auth"}>
             {loading ? "…" : session ? "Open dashboard" : "Sign in"}
           </Link>
         </Button>
@@ -75,7 +75,7 @@ function Landing() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link to={session ? "/dashboard" : "/auth"}>Start tracking your teams</Link>
+            <Link to={session ? "/gameday" : "/auth"}>Start tracking your teams</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link to="/auth">Create an account</Link>
