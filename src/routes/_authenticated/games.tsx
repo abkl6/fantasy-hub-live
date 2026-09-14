@@ -143,6 +143,10 @@ function GamesPage() {
         </Button>
       </div>
 
+      <div className="mt-1">
+        <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
+      </div>
+
       {showingWholeWeek && (
         <p className="mt-1 text-sm text-muted-foreground">
           No games today — here's the rest of week {data?.week}.
