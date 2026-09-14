@@ -31,6 +31,7 @@ import {
   updateBaseline,
   type BaselineRow,
 } from "@/lib/projections.functions";
+import { listTradeValues, refreshTradeValuesNow } from "@/lib/trade-values.functions";
 
 export const Route = createFileRoute("/_authenticated/projections")({
   head: () => ({
@@ -93,6 +94,15 @@ function ProjectionsPage() {
         </p>
       </header>
 
+      <Tabs defaultValue="projections">
+        <TabsList>
+          <TabsTrigger value="projections">Projections</TabsTrigger>
+          <TabsTrigger value="values">Trade values</TabsTrigger>
+        </TabsList>
+        <TabsContent value="values" className="pt-6">
+          <TradeValuesPanel />
+        </TabsContent>
+        <TabsContent value="projections" className="space-y-6 pt-6">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-56 flex-1">
           <Label htmlFor="proj-search">Find a player</Label>
@@ -217,6 +227,8 @@ function ProjectionsPage() {
           )}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }
@@ -346,5 +358,123 @@ function CsvUpload() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Trade values tab: the Keep Trade Cut dynasty market, in one-QB and superflex
+ * pricing, refreshed weekly and daily for injured players.
+ */
+function TradeValuesPanel() {
+  const load = useServerFn(listTradeValues);
+  const refresh = useServerFn(refreshTradeValuesNow);
+  const queryClient = useQueryClient();
+  const [format, setFormat] = useState<"sf" | "1qb">("sf");
+  const [search, setSearch] = useState("");
+  const [position, setPosition] = useState("ALL");
+
+  const values = useQuery({
+    queryKey: ["trade-values", format, search, position],
+    queryFn: () => load({ data: { format, search, position, limit: 150 } }),
+  });
+
+  const refreshing = useMutation({
+    mutationFn: () => refresh({}),
+    onSuccess: (r) => {
+      toast.success(`Updated ${r.players} players and ${r.picks} draft picks.`);
+      void queryClient.invalidateQueries({ queryKey: ["trade-values"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not refresh values."),
+  });
+
+  const last = values.data?.lastRefresh ?? null;
+
+  return (
+    <div className="space-y-5">
+      <p className="max-w-2xl text-sm text-muted-foreground">
+        Market prices for every player and every future draft pick. Trade ideas across the app are
+        priced and balanced with these numbers.
+      </p>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-56 flex-1">
+          <Label htmlFor="value-search">Find a player or pick</Label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input id="value-search" className="pl-9" placeholder="Search by name" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <Button size="sm" variant={format === "sf" ? "default" : "outline"} onClick={() => setFormat("sf")}>Superflex</Button>
+          <Button size="sm" variant={format === "1qb" ? "default" : "outline"} onClick={() => setFormat("1qb")}>One QB</Button>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {POSITIONS.map((p) => (
+            <Button key={p} size="sm" variant={position === p ? "default" : "outline"} onClick={() => setPosition(p)}>{p}</Button>
+          ))}
+        </div>
+        {values.data?.admin && (
+          <Button size="sm" variant="secondary" onClick={() => refreshing.mutate()} disabled={refreshing.isPending}>
+            {refreshing.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null} Refresh now
+          </Button>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {last
+          ? `Last updated ${new Date(last.at).toLocaleString()}${last.status === "ok" ? "" : ` — last run had a problem: ${last.error ?? "unknown"}`}`
+          : "No refresh has run yet."}
+      </p>
+
+      {values.isLoading ? (
+        <p className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading values…</p>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left">
+                <tr>
+                  <th className="px-4 py-3">Player</th>
+                  <th className="px-4 py-3">Pos</th>
+                  <th className="px-4 py-3">Team</th>
+                  <th className="px-4 py-3 text-right">Value</th>
+                  <th className="px-4 py-3 text-right">Rank</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(values.data?.rows ?? []).map((row) => (
+                  <tr key={`${row.name}-${row.position}`} className="border-t border-border">
+                    <td className="px-4 py-2 font-medium">{row.name}</td>
+                    <td className="px-4 py-2">{row.position}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{row.nflTeam ?? "—"}</td>
+                    <td className="px-4 py-2 text-right font-mono">{row.value.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-muted-foreground">{row.overallRank ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!values.data?.rows.length && (
+              <p className="px-4 py-6 text-muted-foreground">
+                No values yet. An admin can pull the latest market with “Refresh now”.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-border p-4">
+            <h2 className="font-display text-lg font-bold uppercase">Draft picks</h2>
+            <p className="mt-1 text-xs text-muted-foreground">What future picks are worth in this format.</p>
+            <ul className="mt-3 space-y-1 text-sm">
+              {(values.data?.picks ?? []).slice(0, 24).map((p) => (
+                <li key={`${p.season}-${p.round}-${p.slot}`} className="flex items-center justify-between gap-3">
+                  <span>{p.season} {p.slot === "unknown" ? "" : `${p.slot} `}round {p.round}</span>
+                  <span className="font-mono">{p.value.toLocaleString()}</span>
+                </li>
+              ))}
+              {!values.data?.picks.length && <li className="text-muted-foreground">No pick values yet.</li>}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

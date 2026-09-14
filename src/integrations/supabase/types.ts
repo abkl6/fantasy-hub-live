@@ -275,6 +275,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pick_values: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          format: string
+          id: string
+          round: number
+          season: number
+          slot: string
+          source: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          format: string
+          id?: string
+          round: number
+          season: number
+          slot?: string
+          source?: string
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          format?: string
+          id?: string
+          round?: number
+          season?: number
+          slot?: string
+          source?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
       platform_credentials: {
         Row: {
           created_at: string
@@ -390,6 +429,71 @@ export type Database = {
           },
         ]
       }
+      player_trade_values: {
+        Row: {
+          age: number | null
+          created_at: string
+          display_name: string
+          fetched_at: string
+          format: string
+          id: string
+          nfl_team: string | null
+          norm_name: string
+          overall_rank: number | null
+          player_id: string | null
+          position: string
+          position_rank: number | null
+          source: string
+          tier: number | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string
+          display_name: string
+          fetched_at?: string
+          format: string
+          id?: string
+          nfl_team?: string | null
+          norm_name: string
+          overall_rank?: number | null
+          player_id?: string | null
+          position: string
+          position_rank?: number | null
+          source?: string
+          tier?: number | null
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          age?: number | null
+          created_at?: string
+          display_name?: string
+          fetched_at?: string
+          format?: string
+          id?: string
+          nfl_team?: string | null
+          norm_name?: string
+          overall_rank?: number | null
+          player_id?: string | null
+          position?: string
+          position_rank?: number | null
+          source?: string
+          tier?: number | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_trade_values_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_week_stats: {
         Row: {
           created_at: string
@@ -441,6 +545,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          ir_since: string | null
           nfl_team: string | null
           position: string
           proj_points_season: number
@@ -459,6 +564,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id?: string
+          ir_since?: string | null
           nfl_team?: string | null
           position: string
           proj_points_season?: number
@@ -477,6 +583,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          ir_since?: string | null
           nfl_team?: string | null
           position?: string
           proj_points_season?: number
@@ -692,6 +799,70 @@ export type Database = {
           },
         ]
       }
+      team_draft_picks: {
+        Row: {
+          count: number
+          created_at: string
+          id: string
+          league_id: string
+          original_team_id: string | null
+          round: number
+          season: number
+          slot: string
+          team_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          id?: string
+          league_id: string
+          original_team_id?: string | null
+          round: number
+          season: number
+          slot?: string
+          team_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          id?: string
+          league_id?: string
+          original_team_id?: string | null
+          round?: number
+          season?: number
+          slot?: string
+          team_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_draft_picks_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_draft_picks_original_team_id_fkey"
+            columns: ["original_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_draft_picks_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           created_at: string
@@ -831,6 +1002,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trade_value_refresh_log: {
+        Row: {
+          error: string | null
+          id: string
+          picks_upserted: number
+          rows_upserted: number
+          run_at: string
+          scope: string
+          source: string
+          status: string
+        }
+        Insert: {
+          error?: string | null
+          id?: string
+          picks_upserted?: number
+          rows_upserted?: number
+          run_at?: string
+          scope?: string
+          source?: string
+          status?: string
+        }
+        Update: {
+          error?: string | null
+          id?: string
+          picks_upserted?: number
+          rows_upserted?: number
+          run_at?: string
+          scope?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

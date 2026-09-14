@@ -86,6 +86,9 @@ type HubMove = {
   detail: string;
   titleDelta: number;
   playoffDelta: number;
+  giveValue?: number;
+  getValue?: number;
+  fairness?: "even" | "you-win" | "they-win";
 };
 
 function MoveRow({ move }: { move: HubMove }) {
@@ -95,6 +98,15 @@ function MoveRow({ move }: { move: HubMove }) {
         <div><p className="text-sm font-semibold">{move.headline}</p><p className="mt-1 text-xs text-muted-foreground">{move.detail}</p></div>
         {(move.titleDelta > 0 || move.playoffDelta > 0) && <div className="flex shrink-0 flex-col items-end gap-1">{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}{move.playoffDelta > 0 && <Badge variant="secondary">+{(move.playoffDelta * 100).toFixed(1)}% playoff</Badge>}</div>}
       </div>
+      {move.giveValue != null && move.getValue != null && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <Badge variant="outline">You give {move.giveValue.toLocaleString()}</Badge>
+          <Badge variant="outline">You get {move.getValue.toLocaleString()}</Badge>
+          <Badge variant={move.fairness === "you-win" ? "default" : move.fairness === "they-win" ? "destructive" : "secondary"}>
+            {move.fairness === "you-win" ? "Tilts your way" : move.fairness === "they-win" ? "Tilts their way" : "Fair both ways"}
+          </Badge>
+        </div>
+      )}
       <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0"><Link to="/league/$leagueId" params={{ leagueId: move.leagueId }}>{move.leagueName}<ArrowRight className="size-3" /></Link></Button>
     </div>
   );

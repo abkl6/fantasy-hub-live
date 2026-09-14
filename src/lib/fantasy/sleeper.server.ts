@@ -170,8 +170,11 @@ export async function syncPlayerNews(supabase: DB): Promise<{ updated: number }>
     await supabase.from("player_news").insert(inserts.slice(i, i + 500) as never);
   }
   for (const [status, changed] of statusChanges) {
+    // Landing on IR starts a three-week window of daily trade-value refreshes.
+    const patch: Record<string, unknown> = { status };
+    if (status === "IR") patch['ir_since'] = now;
     for (let i = 0; i < changed.length; i += 200) {
-      await supabase.from("players").update({ status }).in("id", changed.slice(i, i + 200));
+      await supabase.from("players").update(patch as never).in("id", changed.slice(i, i + 200));
     }
   }
 

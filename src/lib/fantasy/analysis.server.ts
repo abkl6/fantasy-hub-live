@@ -33,6 +33,18 @@ import {
   type LeagueFormat,
   type SurvivalResult,
 } from "./format";
+import {
+  assetLabel,
+  balanceTrade,
+  fairnessLabel,
+  leagueValueFormat,
+  loadTradeValues,
+  pickLabel,
+  type Fairness,
+  type PickSlot,
+  type TradeAsset,
+  type ValueFormat,
+} from "./trade-value";
 
 type DB = SupabaseClient<Database>;
 
@@ -72,6 +84,13 @@ export interface MoveSuggestion {
   playoffDelta: number;
   addName?: string;
   dropName?: string;
+  /** Dynasty market pricing, present on trade suggestions. */
+  giveValue?: number;
+  getValue?: number;
+  fairness?: Fairness;
+  giveAssets?: string[];
+  getAssets?: string[];
+  valueFormat?: ValueFormat;
 }
 
 export interface ScoreboardGame {
@@ -177,6 +196,29 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
   const format = asFormat((league as { format?: string }).format);
   const bestBall = !hasLineupDecisions(format);
+
+  // Dynasty trade currency: market values plus each team's future pick stock.
+  const values = await loadTradeValues(supabase, leagueValueFormat(slots));
+  const { data: pickRows } = await supabase
+    .from("team_draft_picks")
+    .select("team_id, season, round, slot, count")
+    .eq("league_id", league.id);
+  const pickAssets = new Map<string, TradeAsset[]>();
+  for (const row of pickRows ?? []) {
+    const slot = String(row.slot) as PickSlot;
+    const list = pickAssets.get(row.team_id) ?? [];
+    for (let i = 0; i < Math.min(Number(row.count ?? 1), 4); i += 1) {
+      list.push({
+        kind: "pick",
+        season: row.season,
+        round: row.round,
+        slot,
+        label: pickLabel(row.season, row.round, slot),
+        value: values.pick(row.season, row.round, slot),
+      });
+    }
+    pickAssets.set(row.team_id, list);
+  }
 
   // Anyone held by any team in the league is off the waiver wire, whatever
   // position label the platform used for them.
@@ -404,8 +446,19 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   }
 
   // --- trade ideas: my surplus for another team's surplus at my weak spot --
+  // Offers are priced against the Keep Trade Cut dynasty market and balanced
+  // with bench pieces or future draft picks until both sides are close.
   const weakest = grades.filter((g) => g.verdict === "weakness").map((g) => g.position);
   const strongest = grades.filter((g) => g.verdict === "strength").map((g) => g.position);
+  const assetFor = (p: EnginePlayer): TradeAsset => ({
+    kind: "player",
+    id: p.id,
+    name: p.name,
+    position: p.position,
+    value: values.player(p.id, p.name, p.position, p.proj * 17),
+  });
+  const myPicks = pickAssets.get(mine.id) ?? [];
+
   for (const other of engineTeams.filter((t) => !t.isMine && t.roster.length)) {
     for (const need of weakest.slice(0, 2)) {
       const target = other.roster
@@ -421,17 +474,37 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       const after = optimalLineup(nextRoster, slots).total;
       if (after - before < 0.5) continue;
       const impact = whatIf(nextRoster);
+
+      const myPool: TradeAsset[] = [
+        ...mine.roster.filter((p) => p.name !== give.name).map(assetFor),
+        ...myPicks,
+      ].sort((a, b) => a.value - b.value);
+      const theirPool: TradeAsset[] = [
+        ...other.roster.filter((p) => p.name !== target.name).map(assetFor),
+        ...(pickAssets.get(other.id) ?? []),
+      ].sort((a, b) => a.value - b.value);
+
+      const balanced = balanceTrade([assetFor(give)], [assetFor(target)], myPool, theirPool);
+      const giveText = balanced.give.map(assetLabel).join(" + ");
+      const getText = balanced.get.map(assetLabel).join(" + ");
+
       suggestions.push({
         id: `trade-${other.id}-${target.name}`,
         kind: "trade",
-        headline: `Trade ${give.name} to ${other.name} for ${target.name}`,
-        detail: `Fills your ${need} hole from a position of surplus. Lineup gains ${(after - before).toFixed(1)} points a week.`,
+        headline: `Send ${giveText} to ${other.name} for ${getText}`,
+        detail: `Fills your ${need} hole from a position of surplus. Lineup gains ${(after - before).toFixed(1)} points a week. ${fairnessLabel(balanced.giveValue, balanced.getValue)} on the ${values.format === "sf" ? "superflex" : "one-QB"} dynasty market.`,
         pointsDelta: Math.round((after - before) * 10) / 10,
         winDelta: Math.round(impact.winDelta * 100) / 100,
         titleDelta: impact.titleDelta,
         playoffDelta: impact.playoffDelta,
         addName: target.name,
         dropName: give.name,
+        giveValue: balanced.giveValue,
+        getValue: balanced.getValue,
+        fairness: balanced.fairness,
+        giveAssets: balanced.give.map(assetLabel),
+        getAssets: balanced.get.map(assetLabel),
+        valueFormat: values.format,
       });
       break;
     }
