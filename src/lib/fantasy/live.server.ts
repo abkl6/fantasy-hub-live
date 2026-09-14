@@ -380,7 +380,7 @@ export async function buildGameDay(
       const selected = optimalLineup(
         rows.map((row) => ({ ...row, id: null, proj: row[field], volatility: 0.35 })),
         slots,
-      ).starters.flatMap((entry) => (entry.player ? [entry.player as LivePlayerRow] : []));
+      ).starters.flatMap((entry) => (entry.player ? [entry.player as unknown as LivePlayerRow] : []));
       return selected;
     };
     const starters = isBestBall ? bestBallRows(mySpots, "livePoints") : startersOf(mySpots);
@@ -505,7 +505,11 @@ export async function buildGameDay(
     }
   }
 
-  events.sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : a.occurredAt > b.occurredAt ? -1 : 0));
+  events.sort((a, b) => {
+    if (a.occurredAt < b.occurredAt) return 1;
+    if (a.occurredAt > b.occurredAt) return -1;
+    return b.id.localeCompare(a.id);
+  });
 
   matchups.sort((a, b) => ({ in: 0, pre: 1, post: 2 })[a.gameState] - ({ in: 0, pre: 1, post: 2 })[b.gameState]);
 

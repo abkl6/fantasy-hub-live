@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronUp, Loader2, RefreshCw, Radio } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,18 +49,21 @@ function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
 }
 
 function MatchupCard({ m }: { m: LiveMatchup }) {
-  const [showBench, setShowBench] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const odds = m.winProbability === null ? null : Math.round(m.winProbability * 100);
   return (
     <article className="rounded-xl border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow text-primary">
             {m.leagueName} · Week {m.week}
           </p>
-          <p className="text-xs text-muted-foreground">{m.scoringLabel}</p>
+          <p className="text-xs text-muted-foreground">
+            {m.isBestBall ? `Best ball · ${m.leagueRank ?? "—"} of ${m.teamCount}` : m.scoringLabel}
+          </p>
         </div>
         <Badge variant="secondary" className="text-[10px] uppercase">
-          {m.yetToPlay} of yours yet to play
+          {m.gameState === "in" ? "Live" : m.gameState === "post" ? "Final" : "Upcoming"}
         </Badge>
       </div>
 
@@ -72,13 +75,35 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
         </div>
         <span className="text-xs uppercase text-muted-foreground">vs</span>
         <div className="text-right">
-          <p className="truncate text-sm font-medium">{m.oppTeam ?? "No opponent this week"}</p>
+          <p className="truncate text-sm font-medium">
+            {m.isBestBall ? `${m.oppTeam ?? "—"} · leader` : m.oppTeam ?? "Opponent unavailable"}
+          </p>
           <p className="font-display text-3xl font-bold tabular-nums">{m.oppScore.toFixed(1)}</p>
           <p className="text-[11px] text-muted-foreground tabular-nums">proj {m.oppProjected.toFixed(1)}</p>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-6 md:grid-cols-2">
+      <div className="mt-4">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium">{odds === null ? "Win chance unavailable" : `${odds}% chance to win`}</span>
+          <span className="text-muted-foreground">
+            {m.yetToPlay} yours · {m.oppYetToPlay} {m.isBestBall ? "leader" : "opponent"} left
+          </span>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${odds ?? 0}%` }} />
+        </div>
+        {m.isBestBall && m.titleOdds !== null && (
+          <p className="mt-2 text-xs text-muted-foreground">Season title odds: {(m.titleOdds * 100).toFixed(1)}%</p>
+        )}
+      </div>
+
+      <Button className="mt-4 w-full" size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>
+        {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+        {expanded ? "Hide roster breakdown" : "View roster breakdown"}
+      </Button>
+
+      {expanded && <div className="mt-3 grid gap-6 border-t border-border pt-4 md:grid-cols-2">
         <div>
           <p className="eyebrow mb-1 text-muted-foreground">Your starters</p>
           <div className="divide-y divide-border">
@@ -88,7 +113,7 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
           </div>
         </div>
         <div>
-          <p className="eyebrow mb-1 text-muted-foreground">Opponent starters</p>
+            <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader lineup" : "Opponent starters"}</p>
           <div className="divide-y divide-border">
             {m.oppStarters.length ? (
               m.oppStarters.map((p) => <PlayerLine key={`o-${p.name}-${p.slot}`} p={p} />)
@@ -97,30 +122,24 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
             )}
           </div>
         </div>
-      </div>
-
-      {m.bench.length > 0 && (
-        <div className="mt-4">
-          <Button size="sm" variant="ghost" onClick={() => setShowBench((v) => !v)}>
-            {showBench ? "Hide bench" : `Show bench (${m.bench.length})`}
-          </Button>
-          {showBench && (
-            <div className="mt-2 divide-y divide-border">
-              {m.bench.map((p) => (
-                <PlayerLine key={`b-${p.name}-${p.slot}`} p={p} dim />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        {(m.bench.length > 0 || m.oppBench.length > 0) && <>
+          <div>
+            <p className="eyebrow mb-1 text-muted-foreground">Your bench</p>
+            <div className="divide-y divide-border">{m.bench.map((p) => <PlayerLine key={`b-${p.name}-${p.slot}`} p={p} dim />)}</div>
+          </div>
+          <div>
+            <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader bench" : "Opponent bench"}</p>
+            <div className="divide-y divide-border">{m.oppBench.map((p) => <PlayerLine key={`ob-${p.name}-${p.slot}`} p={p} dim />)}</div>
+          </div>
+        </>}
+      </div>}
     </article>
   );
 }
 
 export function GameDayBoard({ leagueId }: { leagueId?: string }) {
   const fetchGameDay = useServerFn(getGameDayFn);
-  const [sides, setSides] = useState<"all" | "mine">("all");
-  const [leagueFilter, setLeagueFilter] = useState<string>("all");
+  const [showAllEvents, setShowAllEvents] = useState(false);
   const window = gameWindow();
   const interval = pollInterval();
 
@@ -132,16 +151,10 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
     refetchIntervalInBackground: false,
   });
 
-  useEffect(() => {
-    if (leagueId) setLeagueFilter("all");
-  }, [leagueId]);
-
   const events = useMemo(() => {
     const rows = data?.events ?? [];
-    return rows
-      .filter((e) => (leagueFilter === "all" ? true : e.leagueId === leagueFilter))
-      .filter((e) => (sides === "all" ? true : e.side === "mine"));
-  }, [data, leagueFilter, sides]);
+    return showAllEvents ? rows : rows.slice(0, 5);
+  }, [data, showAllEvents]);
 
   if (isLoading) {
     return (
@@ -183,6 +196,31 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
         </Button>
       </div>
 
+      <section className="overflow-hidden rounded-xl border border-primary/30 bg-card">
+        <div className="flex items-center justify-between border-b border-border bg-primary/5 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Radio className="size-4 text-primary" />
+            <h2 className="font-display text-lg font-bold uppercase">Live updates</h2>
+          </div>
+          <Badge variant="outline">{data.events.length} plays</Badge>
+        </div>
+        {!events.length && <p className="p-4 text-sm text-muted-foreground">No scoring updates yet. New plays will appear here first.</p>}
+        <div className="divide-y divide-border">
+          {events.map((e) => (
+            <div key={`${e.leagueId}-${e.id}`} className="flex items-center justify-between gap-3 p-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{e.playerName} <span className="text-xs text-muted-foreground">· {e.leagueName}</span></p>
+                <p className="truncate text-xs text-muted-foreground">{e.description} · {e.side === "mine" ? "your player" : "opponent"}</p>
+              </div>
+              <p className={`font-display text-lg font-bold tabular-nums ${e.points >= 0 ? "text-primary" : "text-destructive"}`}>{e.points >= 0 ? "+" : ""}{e.points.toFixed(1)}</p>
+            </div>
+          ))}
+        </div>
+        {data.events.length > 5 && <Button className="w-full rounded-none border-t" variant="ghost" onClick={() => setShowAllEvents((value) => !value)}>
+          {showAllEvents ? "Show latest 5" : `Show all ${data.events.length} updates`}
+        </Button>}
+      </section>
+
       {!data.matchups.length && (
         <p className="text-sm text-muted-foreground">
           No matchup to track yet. Import a league and make sure your own team is marked as yours.
@@ -195,79 +233,6 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
         ))}
       </div>
 
-      <section>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-xl font-bold uppercase">Scoring log</h2>
-          <div className="flex flex-wrap gap-2">
-            {!leagueId && data.matchups.length > 1 && (
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant={leagueFilter === "all" ? "default" : "outline"}
-                  onClick={() => setLeagueFilter("all")}
-                >
-                  All leagues
-                </Button>
-                {data.matchups.map((m) => (
-                  <Button
-                    key={m.leagueId}
-                    size="sm"
-                    variant={leagueFilter === m.leagueId ? "default" : "outline"}
-                    onClick={() => setLeagueFilter(m.leagueId)}
-                  >
-                    {m.leagueName}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-1">
-              <Button size="sm" variant={sides === "all" ? "default" : "outline"} onClick={() => setSides("all")}>
-                Both sides
-              </Button>
-              <Button size="sm" variant={sides === "mine" ? "default" : "outline"} onClick={() => setSides("mine")}>
-                Mine only
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 divide-y divide-border rounded-xl border border-border">
-          {!events.length && (
-            <p className="p-4 text-sm text-muted-foreground">
-              Nothing has scored yet. Plays show up here as soon as the games start.
-            </p>
-          )}
-          {events.map((e) => (
-            <div key={e.id} className="flex items-center justify-between gap-3 p-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {e.playerName}{" "}
-                  <span className="text-xs text-muted-foreground">
-                    {e.position}
-                    {e.nflTeam ? ` · ${e.nflTeam}` : ""}
-                  </span>
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {e.description} · {e.leagueName} · {e.side === "mine" ? "your player" : "opponent"}
-                </p>
-              </div>
-              <div className="text-right">
-                <p
-                  className={`font-display text-base font-bold tabular-nums ${
-                    e.points >= 0 ? "text-primary" : "text-destructive"
-                  }`}
-                >
-                  {e.points >= 0 ? "+" : ""}
-                  {e.points.toFixed(1)}
-                </p>
-                <p className="text-[11px] text-muted-foreground tabular-nums">
-                  {e.myScore.toFixed(1)}–{e.oppScore.toFixed(1)}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
