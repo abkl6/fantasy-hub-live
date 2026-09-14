@@ -123,7 +123,10 @@ interface GameInfo {
   opponent: string | null;
   /** Rough share of the game still to be played, 0-1. */
   remaining: number;
+  /** ISO kickoff time when the scoreboard reports it. */
+  kickoff: string | null;
 }
+
 
 /**
  * Map of NFL team abbreviation -> live game state. Returns an empty map only
