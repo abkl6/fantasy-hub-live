@@ -16,6 +16,7 @@ import {
   type ScheduleGame,
 } from "./engine";
 import { normalizeName } from "./names";
+import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
 import {
   FORMAT_LABELS,
