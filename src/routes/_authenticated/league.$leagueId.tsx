@@ -1063,6 +1063,9 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
     padding + ((week - minWeek) / Math.max(maxWeek - minWeek, 1)) * (width - padding * 2);
   const yFor = (odds: number) => height - padding - (odds / maxOdds) * (height - padding * 2);
 
+  const TEAM_COLORS = ["text-primary", "text-chart-2", "text-chart-3", "text-chart-4", "text-chart-5"];
+  const colorFor = (i: number) => TEAM_COLORS[i % TEAM_COLORS.length];
+
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <h2 className="text-lg font-bold uppercase">Title odds over time</h2>
@@ -1088,8 +1091,7 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
         </text>
         {data.series.map((s, i) => {
           const d = s.points.map((p, idx) => `${idx === 0 ? "M" : "L"} ${xFor(p.week)} ${yFor(p.titleOdds)}`).join(" ");
-          const colors = ["text-primary", "text-chart-2", "text-chart-3", "text-chart-4", "text-chart-5"];
-          const color = colors[i % colors.length];
+          const color = colorFor(i);
           return (
             <g key={s.teamId}>
               <path d={d} fill="none" stroke="currentColor" strokeWidth={s.isMine ? 3 : 2} className={color} />
@@ -1107,7 +1109,7 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
           const up = end >= start;
           return (
             <div key={s.teamId} className="flex items-center gap-2 text-sm">
-              <span className={`inline-block size-2 rounded-full ${up ? "bg-primary" : "bg-destructive"}`} />
+              <span className={`inline-block size-2 rounded-full bg-current ${colorFor(i)}`} />
               <span className={s.isMine ? "font-semibold" : ""}>{s.name}</span>
               {up ? <ChevronUp className="size-3 text-primary" /> : <ChevronDown className="size-3 text-destructive" />}
               <span className="text-xs text-muted-foreground">{pct(end)}</span>
