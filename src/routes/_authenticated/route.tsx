@@ -72,6 +72,12 @@ function AuthenticatedLayout() {
               <DropdownMenuItem asChild>
                 <Link to="/trades">Trade history</Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">
+                  <Bell className="size-4" aria-hidden="true" />
+                  Notifications
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={async () => {
