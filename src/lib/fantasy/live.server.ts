@@ -420,16 +420,17 @@ type SpotRow = Database["public"]["Tables"]["roster_spots"]["Row"];
 
 export async function buildGameDay(
   supabase: DB,
-  opts: { leagueId?: string } = {},
+  opts: { leagueId?: string; includeGames?: boolean } = {},
 ): Promise<GameDayPayload> {
   const { season, week } = await currentLiveWeek();
+  const games = opts.includeGames ? await weekGames(supabase, season, week) : [];
 
   let leagueQuery = supabase.from("leagues").select("*");
   if (opts.leagueId) leagueQuery = leagueQuery.eq("id", opts.leagueId);
   const { data: leagueRows } = await leagueQuery;
   const leagues = leagueRows ?? [];
   if (!leagues.length) {
-    return { season, week, updatedAt: null, matchups: [], events: [] };
+    return { season, week, updatedAt: null, matchups: [], events: [], games };
   }
   const leagueIds = leagues.map((l) => l.id);
 
