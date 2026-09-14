@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw, Share2 } from "lucide-react";
@@ -374,6 +374,7 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
 
   return (
     <div className="space-y-5">
+      <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
       <ScoreboardStrip matchups={sortedMatchups} />
 
       <section className="overflow-hidden rounded-lg bg-card">
