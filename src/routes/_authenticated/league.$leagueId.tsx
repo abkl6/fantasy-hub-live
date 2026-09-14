@@ -230,6 +230,18 @@ function LeaguePage() {
           {data.suggestions.map((s) => (
             <MoveCard key={s.id} leagueId={leagueId} suggestion={s} onApplied={() => refetch()} />
           ))}
+
+          <Section title="Waiver wire">
+            <WaiverPanel leagueId={leagueId} onAdded={() => refetch()} />
+          </Section>
+
+          <Section title="Trades">
+            <div className="space-y-6">
+              <TradeBuilder leagueId={leagueId} />
+              <TradePanel leagueId={leagueId} />
+              <DraftPicksPanel leagueId={leagueId} />
+            </div>
+          </Section>
         </TabsContent>
 
         <TabsContent value="lineup" className="mt-6 space-y-4">
