@@ -13,9 +13,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { leagueScoring, scoreStats, type StatLine } from "./scoring";
-import { optimalLineup, slotAccepts } from "./engine";
+import {
+  optimalLineup,
+  simulateSeason,
+  slotAccepts,
+  teamDistribution,
+  type EnginePlayer,
+  type ScheduleGame,
+} from "./engine";
 import { bestBallWeekProbability, headToHeadWinProbability, type ProbabilityPlayer } from "./game-probability";
-import { asFormat } from "./format";
+import { asFormat, bestBallDistribution } from "./format";
+import { loadProjections } from "./projections.server";
 import type {
   GameDayPayload,
   LiveEventRow,
