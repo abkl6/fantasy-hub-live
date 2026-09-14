@@ -130,7 +130,7 @@ function LeaguePage() {
             </Badge>
           </div>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+        <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
           {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
           Refresh
         </Button>
