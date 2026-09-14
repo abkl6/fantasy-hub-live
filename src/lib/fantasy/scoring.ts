@@ -214,5 +214,10 @@ export function leagueScoring(scoringType: string | null | undefined, rules: Sco
       const m = multipliers[position.toUpperCase()] ?? 1;
       return Math.round(points * m * 10) / 10;
     },
+    score: (position: string, stats: StatLine | null | undefined) =>
+      stats && Object.keys(stats).length
+        ? Math.round(scoreStats(stats, merged, position) * 10) / 10
+        : 0,
   };
+
 }
