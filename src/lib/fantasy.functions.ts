@@ -148,20 +148,30 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
     z
       .object({
         sleeperLeagueId: z.string().min(1),
-        sleeperUserId: z.string().min(1),
-        season: z.string().min(4),
+        sleeperUserId: z.string().min(1).optional(),
+        sleeperUsername: z.string().min(1).max(60).optional(),
+        season: z.string().min(4).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { sleeperLeagueBundle, sleeperPlayers, sleeperCurrentWeek, normalizeSlots } = await import(
-      "./fantasy/sleeper.server"
-    );
+    const {
+      sleeperLeagueBundle,
+      sleeperPlayers,
+      sleeperCurrentWeek,
+      sleeperUserId: resolveSleeperUserId,
+      normalizeSlots,
+    } = await import("./fantasy/sleeper.server");
     const supabase = context.supabase;
     const userId = context.userId;
 
     const state = await sleeperCurrentWeek();
-    const week = Number(data.season) === Number(state.season) ? state.week : 17;
+    const season = data.season ?? state.season;
+    // "Add by ID" can pass a username instead of the numeric Sleeper id.
+    const ownerId =
+      data.sleeperUserId ??
+      (data.sleeperUsername ? await resolveSleeperUserId(data.sleeperUsername) : null);
+    const week = Number(season) === Number(state.season) ? state.week : 17;
     const [bundle, playerMap] = await Promise.all([
       sleeperLeagueBundle(data.sleeperLeagueId, week),
       sleeperPlayers(),
