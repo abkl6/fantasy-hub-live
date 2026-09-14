@@ -91,6 +91,38 @@ export const deleteLeague = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Keeps guillotine FAAB balances current for leagues that don't report them. */
+export const updateFaab = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leagueId: z.string().uuid(),
+        budget: z.number().int().min(1).max(100000).optional(),
+        teamId: z.string().uuid().optional(),
+        remaining: z.number().int().min(0).max(100000).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (data.budget != null) {
+      const { error } = await context.supabase
+        .from("leagues")
+        .update({ faab_budget: data.budget })
+        .eq("id", data.leagueId);
+      if (error) throw new Error(error.message);
+    }
+    if (data.teamId && data.remaining != null) {
+      const { error } = await context.supabase
+        .from("teams")
+        .update({ faab_remaining: data.remaining })
+        .eq("id", data.teamId)
+        .eq("league_id", data.leagueId);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
 // ---------------------------------------------------------------- sleeper
 
 export const findSleeperLeagues = createServerFn({ method: "POST" })
