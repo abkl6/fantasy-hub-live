@@ -20,7 +20,7 @@ import { loadProjections } from "./projections.server";
 import { fetchAllRows } from "./paginate";
 import { normalizeName } from "./names";
 import { leagueScoring } from "./scoring";
-import { classifyTeam, type TeamBadge } from "./team-class";
+import { classifyTeam, classifySurvivalTeam, type TeamBadge } from "./team-class";
 import {
   asFormat,
   bestBallDistribution,
@@ -371,6 +371,18 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const baseline = simulateSeason(simInputs, simConfig, schedule, 2500, 7);
   const baselineById = new Map(baseline.map((r) => [r.id, r]));
 
+  // Guillotine leagues have no playoffs: the lowest scorer is cut each week,
+  // so survival odds drive both the badges and the bidding advice.
+  const weeksLeft = Math.max(1, league.regular_season_weeks - league.current_week + 1);
+  const survival = isSurvival(format)
+    ? simulateGuillotine(
+        simInputs.map((t) => ({ id: t.id, name: t.name, isMine: t.isMine, mean: t.mean, sd: t.sd })),
+        weeksLeft,
+      )
+    : null;
+  const survivalById = new Map((survival ?? []).map((r) => [r.id, r]));
+  const leagueFaabBudget = Number((league as { faab_budget?: number }).faab_budget ?? 100) || 100;
+
   const mine = engineTeams.find((t) => t.isMine) ?? null;
   const teamById = new Map(teams.map((t) => [t.id, t]));
 
@@ -382,7 +394,16 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         ...r,
         record: row ? recordOf(row) : "0-0",
         pointsFor: row ? Number(row.points_for) : 0,
-        badge: classifyTeam({
+        badge: survivalById.get(r.id)
+          ? classifySurvivalTeam({
+              surviveWeekOdds: survivalById.get(r.id)!.surviveWeekOdds,
+              winOdds: survivalById.get(r.id)!.winOdds,
+              powerRank: survivalById.get(r.id)!.powerRank,
+              teamCount: teams.length,
+              faabRemaining: row?.faab_remaining ?? null,
+              faabBudget: leagueFaabBudget,
+            })
+          : classifyTeam({
           titleOdds: r.titleOdds,
           playoffOdds: r.playoffOdds,
           oddsRank: index + 1,
