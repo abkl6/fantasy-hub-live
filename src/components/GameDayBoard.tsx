@@ -52,7 +52,7 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
   const [expanded, setExpanded] = useState(false);
   const odds = m.winProbability === null ? null : Math.round(m.winProbability * 100);
   return (
-    <article className="rounded-xl border border-border bg-card p-5">
+    <article id={`matchup-${m.leagueId}`} className="scroll-mt-24 rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow text-primary">
