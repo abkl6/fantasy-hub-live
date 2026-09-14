@@ -6,24 +6,52 @@
  * through these helpers so the same human is never treated as two players
  * (which used to put a rostered player back on the waiver wire).
  *
+ * NEVER compare player names with raw `.toLowerCase()` — always go through
+ * `normalizeName` / `playerKey` / `playerIndex`.
+ *
  * Mirrors the SQL function public.norm_player_name.
  */
 
-const SUFFIX = / (jr|sr|ii|iii|iv|v)$/;
+/** Generational suffixes, including numeric spellings some feeds use. */
+const SUFFIX = /\s+(jr|sr|ii|iii|iv|vi{0,3}|2nd|3rd|4th|5th)$/;
 
-/** Lowercase, strip punctuation, collapse spaces, drop a generational suffix. */
+/** Common defense aliases so "Ravens D/ST" and "Baltimore Defense" agree. */
+const DEFENSE = /\b(dst|d st|def|defense|defence|special teams)\b/g;
+
+/** Lowercase, fold accents, strip punctuation, drop generational suffixes. */
 export function normalizeName(name: string | null | undefined): string {
-  const base = (name ?? "")
+  let base = (name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // accents: José -> Jose
     .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/[.,'`’]/g, "") // A.J. -> aj, O'Neal -> oneal
+    .replace(/[-/\\]/g, " ") // Amon-Ra -> amon ra, D/ST -> d st
+    .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return base.replace(SUFFIX, "").trim();
+
+  base = base.replace(DEFENSE, "dst").replace(/\s+/g, " ").trim();
+
+  // Strip stacked suffixes ("Walker Jr II") until none remain.
+  let prev = "";
+  while (prev !== base) {
+    prev = base;
+    base = base.replace(SUFFIX, "").trim();
+  }
+  return base;
 }
 
 /** Normalised name plus position — the strongest match we can make offline. */
 export function playerKey(name: string | null | undefined, position: string | null | undefined): string {
-  return `${normalizeName(name)}|${(position ?? "").toUpperCase()}`;
+  return `${normalizeName(name)}|${normalizePosition(position)}`;
+}
+
+/** Position labels differ across platforms; fold the equivalent ones. */
+export function normalizePosition(position: string | null | undefined): string {
+  const p = (position ?? "").toUpperCase().trim();
+  if (p === "DST" || p === "D/ST" || p === "DEF") return "DEF";
+  if (p === "PK") return "K";
+  return p;
 }
 
 /**

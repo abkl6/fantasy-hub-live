@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
+import { normalizeName, playerKey } from "@/lib/fantasy/names";
 
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
@@ -169,7 +170,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
 
     const { data: canonical } = await supabase.from("players").select("id, full_name, position, proj_points_week");
     const canonicalMap = new Map(
-      (canonical ?? []).map((p) => [`${p.full_name.toLowerCase()}|${p.position.toUpperCase()}`, p]),
+      (canonical ?? []).map((p) => [playerKey(p.full_name, p.position), p]),
     );
 
     const userById = new Map(bundle.users.map((u) => [u.user_id, u]));
@@ -207,7 +208,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
       for (const pid of r.players ?? []) {
         const sp = playerMap[pid];
         if (!sp?.full_name || !sp.position) continue;
-        const key = `${sp.full_name.toLowerCase()}|${sp.position.toUpperCase()}`;
+        const key = playerKey(sp.full_name, sp.position);
         const match = canonicalMap.get(key);
         spotInserts.push({
           team_id: teamId,
@@ -352,16 +353,16 @@ export const saveRoster = createServerFn({ method: "POST" })
       .from("players")
       .select("id, full_name, position, proj_points_week, nfl_team");
     const byKey = new Map(
-      (canonical ?? []).map((p) => [`${p.full_name.toLowerCase()}|${p.position.toUpperCase()}`, p]),
+      (canonical ?? []).map((p) => [playerKey(p.full_name, p.position), p]),
     );
-    const byName = new Map((canonical ?? []).map((p) => [p.full_name.toLowerCase(), p]));
+    const byName = new Map((canonical ?? []).map((p) => [normalizeName(p.full_name), p]));
 
     await supabase.from("roster_spots").delete().eq("team_id", data.teamId);
 
     if (data.players.length) {
       const rows = data.players.map((p) => {
         const match =
-          byKey.get(`${p.name.toLowerCase()}|${p.position.toUpperCase()}`) ?? byName.get(p.name.toLowerCase());
+          byKey.get(playerKey(p.name, p.position)) ?? byName.get(normalizeName(p.name));
         return {
           team_id: data.teamId,
           league_id: data.leagueId,
@@ -487,12 +488,12 @@ export const evaluateTradeFn = createServerFn({ method: "POST" })
     ]);
 
     const incoming = data.getNames.map((raw) => {
-      const key = raw.trim().toLowerCase();
-      const spot = (spots ?? []).find((s) => s.player_name.toLowerCase() === key);
+      const key = normalizeName(raw);
+      const spot = (spots ?? []).find((s) => normalizeName(s.player_name) === key);
       if (spot) {
         return { name: spot.player_name, position: spot.position.toUpperCase(), proj: Number(spot.proj_points) };
       }
-      const player = (canonical ?? []).find((p) => p.full_name.toLowerCase() === key);
+      const player = (canonical ?? []).find((p) => normalizeName(p.full_name) === key);
       if (player) {
         return {
           name: player.full_name,
@@ -722,14 +723,14 @@ export const importSleeperDraftFn = createServerFn({ method: "POST" })
     const playerMap = await sleeperPlayers();
     const { data: canonical } = await supabase.from("players").select("id, full_name, position, proj_points_season, sleeper_id");
     const bySleeperId = new Map((canonical ?? []).filter((p) => p.sleeper_id).map((p) => [p.sleeper_id, p]));
-    const byName = new Map((canonical ?? []).map((p) => [p.full_name.toLowerCase(), p]));
+    const byName = new Map((canonical ?? []).map((p) => [normalizeName(p.full_name), p]));
 
     const picks = draft.picks.map((pick) => {
       const meta = pick.metadata ?? {};
       const name = [meta.first_name, meta.last_name].filter(Boolean).join(" ") || "Unknown";
       const position = (meta.position ?? "-").toUpperCase();
       const sleeperPlayer = playerMap[pick.player_id];
-      const match = bySleeperId.get(pick.player_id) ?? byName.get(name.toLowerCase()) ?? byName.get(sleeperPlayer?.full_name?.toLowerCase() ?? "");
+      const match = bySleeperId.get(pick.player_id) ?? byName.get(normalizeName(name)) ?? byName.get(normalizeName(sleeperPlayer?.full_name));
       return {
         user_id: league.user_id,
         league_id: data.leagueId,
@@ -890,11 +891,11 @@ export const setBestLineupFn = createServerFn({ method: "POST" })
       .single();
     if (!myTeam) throw new Error("Team not found.");
 
-    const starterNames = new Set(analysis.lineup.map((p) => p.name.toLowerCase()));
+    const starterNames = new Set(analysis.lineup.map((p) => normalizeName(p.name)));
 
     const { data: spots } = await supabase.from("roster_spots").select("id, player_name").eq("team_id", myTeam.id);
     for (const s of spots ?? []) {
-      const isStarter = starterNames.has(s.player_name.toLowerCase());
+      const isStarter = starterNames.has(normalizeName(s.player_name));
       await supabase
         .from("roster_spots")
         .update({ slot: isStarter ? "START" : "BN", is_starter: isStarter })

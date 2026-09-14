@@ -18,6 +18,7 @@ import {
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
 import { loadProjections } from "./projections.server";
 import { fetchAllRows } from "./paginate";
+import { normalizeName } from "./names";
 import { leagueScoring } from "./scoring";
 import {
   asFormat,
@@ -179,7 +180,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // Anyone held by any team in the league is off the waiver wire, whatever
   // position label the platform used for them.
-  const rosteredNames = new Set(spots.map((s) => s.player_name.trim().toLowerCase()));
+  const rosteredNames = new Set(spots.map((s) => normalizeName(s.player_name)));
   const usablePosition = (position: string) =>
     slots.some((slot) => slotAccepts(slot, position)) || ["QB", "RB", "WR", "TE"].includes(position);
 
@@ -366,7 +367,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // --- waiver targets -----------------------------------------------------
   const freeAgents = players
-    .filter((p) => !rosteredNames.has(p.full_name.trim().toLowerCase()))
+    .filter((p) => !rosteredNames.has(normalizeName(p.full_name)))
     .filter((p) => usablePosition(p.position.toUpperCase()))
     .map<EnginePlayer>((p) => ({
       id: p.id,
@@ -463,7 +464,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   if (isMultiYear(format)) {
     const ageByName = new Map(
       players.map((p) => [
-        p.full_name.trim().toLowerCase(),
+        normalizeName(p.full_name),
         {
           age: (p as { age?: number | null }).age ?? null,
           yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
@@ -474,7 +475,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     const bestSeason = Math.max(1, ...[...ageByName.values()].map((v) => v.season));
     dynasty = mine.roster
       .map((p) => {
-        const meta = ageByName.get(p.name.trim().toLowerCase());
+        const meta = ageByName.get(normalizeName(p.name));
         const season = meta?.season ?? p.proj * 17;
         const longTerm = dynastyValue(p.position, season, bestSeason, meta?.age ?? null, meta?.yearsExp ?? null);
         return {
@@ -493,11 +494,11 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // Player metadata for status badges and alerts.
   const playerMeta = new Map(
     players.map((p) => [
-      p.full_name.trim().toLowerCase(),
+      normalizeName(p.full_name),
       { status: p.status ?? "Active", nflTeam: p.nfl_team ?? null, byeWeek: p.bye_week ?? null },
     ]),
   );
-  const metaFor = (name: string) => playerMeta.get(name.trim().toLowerCase()) ?? { status: "Active", nflTeam: null, byeWeek: null };
+  const metaFor = (name: string) => playerMeta.get(normalizeName(name)) ?? { status: "Active", nflTeam: null, byeWeek: null };
 
   const alerts: Alert[] = [];
   for (const s of best.starters) {

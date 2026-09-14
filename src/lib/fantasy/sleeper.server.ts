@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { fetchAllRows } from "./paginate";
+import { normalizeName } from "./names";
 
 
 type DB = SupabaseClient<Database>;
@@ -101,7 +102,7 @@ export async function syncPlayerNews(supabase: DB): Promise<{ updated: number }>
   }
 
   const bySleeperId = new Map(canonicalRows.filter((p) => p.sleeper_id).map((p) => [p.sleeper_id, p]));
-  const byName = new Map(canonicalRows.map((p) => [p.full_name.toLowerCase(), p]));
+  const byName = new Map(canonicalRows.map((p) => [normalizeName(p.full_name), p]));
 
   // Work out every change first, then write in batches.
   interface Pending {
@@ -113,7 +114,7 @@ export async function syncPlayerNews(supabase: DB): Promise<{ updated: number }>
   const pending: Pending[] = [];
   for (const [sleeperId, p] of Object.entries(players)) {
     if (!p.injury_status && p.active !== false) continue;
-    const match = bySleeperId.get(sleeperId) ?? byName.get(p.full_name?.toLowerCase() ?? "");
+    const match = bySleeperId.get(sleeperId) ?? byName.get(normalizeName(p.full_name));
     if (!match) continue;
     pending.push({
       row: match,
