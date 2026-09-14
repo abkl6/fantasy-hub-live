@@ -13,9 +13,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { leagueScoring, scoreStats, type StatLine } from "./scoring";
-import { optimalLineup, slotAccepts } from "./engine";
+import {
+  optimalLineup,
+  simulateSeason,
+  slotAccepts,
+  teamDistribution,
+  type EnginePlayer,
+  type ScheduleGame,
+} from "./engine";
 import { bestBallWeekProbability, headToHeadWinProbability, type ProbabilityPlayer } from "./game-probability";
-import { asFormat } from "./format";
+import { asFormat, bestBallDistribution } from "./format";
+import { loadProjections } from "./projections.server";
 import type {
   GameDayPayload,
   LiveEventRow,
@@ -341,10 +349,22 @@ export async function buildGameDay(
       : [];
     const startable = (position: string) => slots.some((s) => slotAccepts(s, position.toUpperCase()));
 
+    // Projections come from the shared player database plus this member's own
+    // adjustments, not the value frozen into the roster at import time.
+    const projections = await loadProjections(supabase, {
+      scoring,
+      week: league.current_week ?? liveWeek,
+    });
+
     const toRow = (s: SpotRow): LivePlayerRow => {
       const snap = s.player_id ? live.get(s.player_id) : undefined;
       const livePoints = snap ? round1(scoreStats(snap.stats, scoring.rules, s.position)) : 0;
-      const proj = scoring.scale(s.position, Number(s.proj_points));
+      const proj = projections.week(
+        s.player_id,
+        s.player_name,
+        s.position.toUpperCase(),
+        Number(s.proj_points),
+      );
       const state = snap?.state ?? "pre";
       const projectedFinal =
         state === "post" ? livePoints : state === "in" ? round1(livePoints + proj * 0.4) : round1(proj);
@@ -447,6 +467,92 @@ export async function buildGameDay(
       (row) => row.league_id === league.id && row.team_id === mine.id,
     );
 
+    // Season chances, recomputed from the same full-database projections.
+    const leagueTeams = teams.filter((team) => team.league_id === league.id);
+    const rosterOf = (teamId: string): EnginePlayer[] =>
+      spots
+        .filter((s) => s.team_id === teamId)
+        .map((s) => ({
+          id: s.player_id,
+          name: s.player_name,
+          position: s.position.toUpperCase(),
+          nflTeam: s.nfl_team,
+          proj: projections.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
+          volatility: 0.35,
+        }));
+    const schedule: ScheduleGame[] = (matchupRows ?? [])
+      .filter((m) => m.league_id === league.id && m.home_team_id && m.away_team_id)
+      .map((m) => ({ week: m.week, homeTeamId: m.home_team_id!, awayTeamId: m.away_team_id! }));
+
+    let titleOdds = latestSnapshot ? Number(latestSnapshot.title_odds) : null;
+    let playoffOdds = latestSnapshot ? Number(latestSnapshot.playoff_odds) : null;
+
+    if (schedule.length && leagueTeams.length > 1) {
+      const simInputs = leagueTeams.map((team) => {
+        const roster = rosterOf(team.id);
+        const games = team.wins + team.losses + team.ties;
+        const dist = roster.length
+          ? (isBestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots))
+          : { mean: games > 0 ? Number(team.points_for) / games : 100, sd: 22 };
+        return {
+          id: team.id,
+          name: team.name,
+          isMine: team.is_mine,
+          wins: team.wins,
+          losses: team.losses,
+          ties: team.ties,
+          pointsFor: Number(team.points_for),
+          mean: dist.mean,
+          sd: dist.sd,
+        };
+      });
+      const simulated = simulateSeason(
+        simInputs,
+        {
+          playoffTeams: league.playoff_teams,
+          regularSeasonWeeks: league.regular_season_weeks,
+          currentWeek: league.current_week,
+        },
+        schedule,
+        1500,
+        7,
+      );
+      const mineResult = simulated.find((r) => r.id === mine.id);
+      if (mineResult) {
+        titleOdds = mineResult.titleOdds;
+        playoffOdds = mineResult.playoffOdds;
+        await supabase.from("weekly_snapshots").upsert(
+          simulated.map((r) => ({
+            user_id: league.user_id,
+            league_id: league.id,
+            team_id: r.id,
+            week: league.current_week,
+            title_odds: r.titleOdds,
+            playoff_odds: r.playoffOdds,
+            proj_wins: r.projWins,
+            proj_losses: r.projLosses,
+            power_score: r.projPointsPerWeek,
+          })),
+          { onConflict: "league_id,team_id,week" },
+        );
+      }
+    }
+
+    const historyMap = new Map<number, { week: number; titleOdds: number; playoffOdds: number }>();
+    for (const row of snapshotRows ?? []) {
+      if (row.league_id !== league.id || row.team_id !== mine.id) continue;
+      if (historyMap.has(row.week)) continue;
+      historyMap.set(row.week, {
+        week: row.week,
+        titleOdds: Number(row.title_odds),
+        playoffOdds: Number(row.playoff_odds),
+      });
+    }
+    if (titleOdds !== null && playoffOdds !== null) {
+      historyMap.set(league.current_week, { week: league.current_week, titleOdds, playoffOdds });
+    }
+    const oddsHistory = [...historyMap.values()].sort((a, b) => a.week - b.week);
+
     matchups.push({
       leagueId: league.id,
       leagueName: league.name,
@@ -462,8 +568,9 @@ export async function buildGameDay(
       yetToPlay: starters.filter((r) => r.gameState === "pre").length,
       oppYetToPlay: oppStarters.filter((r) => r.gameState === "pre").length,
       winProbability,
-      titleOdds: latestSnapshot ? Number(latestSnapshot.title_odds) : null,
-      playoffOdds: latestSnapshot ? Number(latestSnapshot.playoff_odds) : null,
+      titleOdds,
+      playoffOdds,
+      oddsHistory,
       gameState,
       isBestBall,
       leagueRank,

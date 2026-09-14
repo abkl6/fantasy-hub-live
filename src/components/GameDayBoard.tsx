@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronUp, Loader2, RefreshCw, Radio } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, RefreshCw, Radio, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +52,7 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
   const [expanded, setExpanded] = useState(false);
   const odds = m.winProbability === null ? null : Math.round(m.winProbability * 100);
   return (
-    <article className="rounded-xl border border-border bg-card p-5">
+    <article id={`matchup-${m.leagueId}`} className="scroll-mt-24 rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow text-primary">
@@ -141,6 +141,74 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
   );
 }
 
+function pct(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function OddsRow({ m }: { m: LiveMatchup }) {
+  const win = m.winProbability === null ? null : Math.round(m.winProbability * 100);
+  const history = m.oddsHistory;
+  const previous = history.length > 1 ? history[history.length - 2] : null;
+  const swing = previous && m.titleOdds !== null ? m.titleOdds - previous.titleOdds : null;
+
+  return (
+    <a href={`#matchup-${m.leagueId}`} className="block rounded-lg border border-border p-3 transition-colors hover:bg-secondary/40">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{m.leagueName}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {m.isBestBall ? `vs league leader ${m.oppTeam ?? "—"}` : `vs ${m.oppTeam ?? "opponent TBD"}`} · week {m.week}
+          </p>
+        </div>
+        <div className="flex items-center gap-4 text-right text-xs">
+          <div>
+            <p className="text-muted-foreground">Playoffs</p>
+            <p className="font-display font-bold tabular-nums">{m.playoffOdds === null ? "—" : pct(m.playoffOdds)}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Title</p>
+            <p className="font-display font-bold tabular-nums">{m.titleOdds === null ? "—" : pct(m.titleOdds)}</p>
+          </div>
+          {swing !== null && (
+            <Badge variant={swing >= 0 ? "default" : "destructive"}>
+              {swing >= 0 ? "+" : ""}{(swing * 100).toFixed(1)}% wk
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium">{win === null ? "Win chance unavailable" : `${win}% chance to win this week`}</span>
+          <span className="text-muted-foreground tabular-nums">
+            {m.myProjected.toFixed(1)} – {m.oppProjected.toFixed(1)} projected
+          </span>
+        </div>
+        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-secondary">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${win ?? 0}%` }} />
+        </div>
+      </div>
+
+      {history.length > 1 && (
+        <div className="mt-3">
+          <div className="flex items-end gap-1">
+            {history.map((point) => (
+              <div key={point.week} className="flex-1">
+                <div className="flex h-12 items-end gap-[2px]">
+                  <div className="w-1/2 rounded-t bg-primary" style={{ height: `${Math.max(2, point.titleOdds * 100)}%` }} />
+                  <div className="w-1/2 rounded-t bg-muted-foreground/40" style={{ height: `${Math.max(2, point.playoffOdds * 100)}%` }} />
+                </div>
+                <p className="mt-1 text-center text-[10px] text-muted-foreground">{point.week}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-[10px] uppercase text-muted-foreground">Solid = title · faded = playoffs, by week</p>
+        </div>
+      )}
+    </a>
+  );
+}
+
 export function GameDayBoard({ leagueId }: { leagueId?: string }) {
   const fetchGameDay = useServerFn(getGameDayFn);
   const [showAllEvents, setShowAllEvents] = useState(false);
@@ -224,6 +292,23 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
           {showAllEvents ? "Show latest 5" : `Show all ${data.events.length} updates`}
         </Button>}
       </section>
+
+      {!!data.matchups.length && (
+        <section className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="size-4 text-primary" />
+              <h2 className="font-display text-lg font-bold uppercase">Weekly odds</h2>
+            </div>
+            <Badge variant="outline">{data.matchups.length} {data.matchups.length === 1 ? "league" : "leagues"}</Badge>
+          </div>
+          <div className="space-y-2 p-3">
+            {data.matchups.map((m) => (
+              <OddsRow key={`odds-${m.leagueId}`} m={m} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {!data.matchups.length && (
         <p className="text-sm text-muted-foreground">
