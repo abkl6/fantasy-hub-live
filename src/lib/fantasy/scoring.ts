@@ -187,7 +187,10 @@ export interface LeagueScoring {
   label: string;
   /** Scales a baseline projection into this league's points. */
   scale: (position: string, points: number) => number;
+  /** Scores a real stat line (a projected week or season) in this league. */
+  score: (position: string, stats: StatLine | null | undefined) => number;
 }
+
 
 function labelFor(rules: ScoringRules): string {
   const rec = rules['rec'] ?? 0;
