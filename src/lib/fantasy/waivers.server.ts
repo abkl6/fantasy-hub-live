@@ -115,17 +115,22 @@ export async function buildWaiverBoard(
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
   // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase);
+  const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
   const seasonOf = (p: {
     id?: string;
     full_name?: string;
     position: string;
     proj_points_season: number | string;
+    stat_projections?: unknown;
   }) =>
-    scoring.scale(
-      p.position,
-      proj.season(p.id ?? null, p.full_name ?? null, Number(p.proj_points_season)),
+    proj.season(
+      p.id ?? null,
+      p.full_name ?? null,
+      p.position.toUpperCase(),
+      Number(p.proj_points_season),
+      p.stat_projections,
     );
+
 
   // --- replacement level: the Nth best season projection at each position ---
   const startersNeeded = (pos: string) => {

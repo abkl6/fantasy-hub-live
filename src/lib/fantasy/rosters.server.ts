@@ -198,7 +198,7 @@ export async function leagueWaiverWire(
       name: p.full_name,
       position: p.position.toUpperCase(),
       nflTeam: p.nfl_team,
-      proj: proj.week(p.id, p.full_name, Number(p.proj_points_week)),
+      proj: proj.week(p.id, p.full_name, p.position.toUpperCase(), Number(p.proj_points_week)),
       byeWeek: p.bye_week,
       status: p.status,
     }));
