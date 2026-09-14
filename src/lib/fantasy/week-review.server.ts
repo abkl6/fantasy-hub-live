@@ -177,3 +177,21 @@ export async function buildWeekReview(
     recommendation: input.recommendation,
   };
 }
+
+/** The most recent finished week for this team, used as the recap's cache key. */
+export async function latestFinalWeek(
+  supabase: DB,
+  leagueId: string,
+  teamId: string,
+): Promise<number | null> {
+  const { data } = await supabase
+    .from("matchups")
+    .select("week")
+    .eq("league_id", leagueId)
+    .eq("is_final", true)
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+    .order("week", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.week ?? null;
+}
