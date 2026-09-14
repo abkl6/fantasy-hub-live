@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, ArrowRight, BellRing, ShieldAlert, Sparkles, Trophy, Users } from "lucide-react";
+import { Activity, ArrowRight, BellRing, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getManagerHubFn } from "@/lib/fantasy.functions";
+import { deleteLeague, getManagerHubFn } from "@/lib/fantasy.functions";
 
 export const Route = createFileRoute("/_authenticated/manager-hub")({
   head: () => ({
@@ -22,6 +24,58 @@ const PLATFORM: Record<string, string> = { sleeper: "Sleeper", yahoo: "Yahoo", e
 
 function Percent({ value }: { value: number }) {
   return <span className="font-display font-bold tabular-nums">{(value * 100).toFixed(1)}%</span>;
+}
+
+type HubLeague = {
+  id: string;
+  name: string;
+  platform: string;
+  teamName: string;
+  record: string;
+  titleOdds: number;
+  playoffOdds: number;
+};
+
+function LeagueCard({ league }: { league: HubLeague }) {
+  const queryClient = useQueryClient();
+  const runDelete = useServerFn(deleteLeague);
+  const [confirming, setConfirming] = useState(false);
+  const mutation = useMutation({
+    mutationFn: () => runDelete({ data: { leagueId: league.id } }),
+    onSuccess: () => {
+      toast.success(`${league.name} deleted`);
+      queryClient.invalidateQueries();
+    },
+    onError: (err) => {
+      setConfirming(false);
+      toast.error(err instanceof Error ? err.message : "Could not delete the league.");
+    },
+  });
+
+  return (
+    <article className="rounded-xl border bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div><Badge variant="secondary">{PLATFORM[league.platform] ?? league.platform}</Badge><h3 className="mt-2 font-bold">{league.name}</h3><p className="text-xs text-muted-foreground">{league.teamName} · {league.record}</p></div>
+        <div className="text-right text-xs"><p className="text-muted-foreground">Title</p><Percent value={league.titleOdds} /></div>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">Playoffs <Percent value={league.playoffOdds} /></p>
+        <div className="flex items-center gap-2">
+          {confirming ? (
+            <>
+              <Button size="sm" variant="destructive" disabled={mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? "Deleting…" : "Confirm delete"}</Button>
+              <Button size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => setConfirming(false)}>Keep</Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setConfirming(true)} aria-label={`Delete ${league.name}`}><Trash2 className="size-4" /></Button>
+              <Button asChild size="sm"><Link to="/league/$leagueId" params={{ leagueId: league.id }}>Manage</Link></Button>
+            </>
+          )}
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function ManagerHub() {
@@ -81,7 +135,7 @@ function ManagerHub() {
         <section className="mt-6">
           <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">League shortcuts</h2></div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {data.leagues.map((league) => <article key={league.id} className="rounded-xl border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><Badge variant="secondary">{PLATFORM[league.platform] ?? league.platform}</Badge><h3 className="mt-2 font-bold">{league.name}</h3><p className="text-xs text-muted-foreground">{league.teamName} · {league.record}</p></div><div className="text-right text-xs"><p className="text-muted-foreground">Title</p><Percent value={league.titleOdds} /></div></div><div className="mt-4 flex items-center justify-between"><p className="text-xs text-muted-foreground">Playoffs <Percent value={league.playoffOdds} /></p><Button asChild size="sm"><Link to="/league/$leagueId" params={{ leagueId: league.id }}>Manage</Link></Button></div></article>)}
+            {data.leagues.map((league) => <LeagueCard key={league.id} league={league} />)}
           </div>
         </section>
       </>}
