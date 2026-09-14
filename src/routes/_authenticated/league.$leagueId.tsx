@@ -1091,8 +1091,7 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
         </text>
         {data.series.map((s, i) => {
           const d = s.points.map((p, idx) => `${idx === 0 ? "M" : "L"} ${xFor(p.week)} ${yFor(p.titleOdds)}`).join(" ");
-          const colors = ["text-primary", "text-chart-2", "text-chart-3", "text-chart-4", "text-chart-5"];
-          const color = colors[i % colors.length];
+          const color = colorFor(i);
           return (
             <g key={s.teamId}>
               <path d={d} fill="none" stroke="currentColor" strokeWidth={s.isMine ? 3 : 2} className={color} />
