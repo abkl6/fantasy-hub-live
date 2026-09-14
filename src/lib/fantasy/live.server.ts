@@ -27,11 +27,12 @@ import { loadProjections } from "./projections.server";
 import type {
   GameDayPayload,
   LiveEventRow,
+  LiveGame,
   LiveMatchup,
   LivePlayerRow,
 } from "./live-types";
 
-export type { GameDayPayload, LiveEventRow, LiveMatchup, LivePlayerRow };
+export type { GameDayPayload, LiveEventRow, LiveGame, LiveMatchup, LivePlayerRow };
 
 type DB = SupabaseClient<Database>;
 
