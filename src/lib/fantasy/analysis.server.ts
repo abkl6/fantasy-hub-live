@@ -167,6 +167,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const matchups = matchupRows ?? [];
   const players = playerRows ?? [];
 
+  // The member's own projection adjustments replace the shared baseline.
+  const proj = await loadProjections(supabase);
+
   // Every projection below is re-scored against this league's own rules, so
   // half-PPR, TE-premium or 6-point passing TDs change the numbers.
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
