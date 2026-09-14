@@ -26,7 +26,7 @@ function statusLabel(status: string): string {
 export async function runInactiveSweep(admin: DB): Promise<{ sent: number; checked: number }> {
   const [{ data: leagueRows }, { data: spotRows }, { data: newsRows }, { data: playerRows }] =
     await Promise.all([
-      admin.from("leagues").select("id, name, user_id, current_week"),
+      admin.from("leagues").select("id, name, user_id, current_week, season"),
       admin.from("roster_spots").select("*"),
       admin
         .from("player_news")
