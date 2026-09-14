@@ -81,7 +81,7 @@ function AuthPage() {
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8">
         <p className="eyebrow text-primary">Gridiron Edge</p>
-        <h1 className="mt-2 text-3xl font-bold uppercase">
+        <h1 className="mt-2 text-3xl font-bold">
           {mode === "signin" ? "Sign in" : "Create your account"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -95,7 +95,7 @@ function AuthPage() {
           Continue with Google
         </Button>
 
-        <div className="my-6 flex items-center gap-3 text-xs uppercase text-muted-foreground">
+        <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
           <span className="h-px flex-1 bg-border" />
           or
           <span className="h-px flex-1 bg-border" />

@@ -79,7 +79,7 @@ function readFiles(files: FileList): Promise<string[]> {
 function ConnectPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
-      <h1 className="text-2xl font-bold uppercase">Add a league</h1>
+      <h1 className="text-2xl font-bold">Add a league</h1>
 
       <Tabs defaultValue="sleeper" className="mt-8">
         <TabsList>
@@ -128,7 +128,7 @@ function SleeperPanel() {
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Connect Sleeper</h2>
+      <h2 className="text-2xl font-bold">Connect Sleeper</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Enter your Sleeper username and pick the league to track. Scores refresh every time you open
         it.
@@ -312,7 +312,7 @@ function ManualPanel() {
   if (step === 2 && leagueId && teamId) {
     return (
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-2xl font-bold uppercase">Your roster</h2>
+        <h2 className="text-2xl font-bold">Your roster</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Upload a screenshot of your roster and we will fill this in. Anything we were unsure about
           is flagged — fix it and save.
@@ -412,7 +412,7 @@ function ManualPanel() {
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">League settings</h2>
+      <h2 className="text-2xl font-bold">League settings</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Got unusual scoring? Upload a screenshot of your league's scoring page and we will read the
         rules for you.
@@ -575,7 +575,7 @@ function EspnPanel() {
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Connect ESPN</h2>
+      <h2 className="text-2xl font-bold">Connect ESPN</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Your league ID is the number in the ESPN league URL after <code>leagueId=</code>. Public
         leagues need nothing else.
@@ -605,7 +605,7 @@ function EspnPanel() {
 
       <button
         type="button"
-        className="mt-4 text-xs uppercase tracking-wider text-primary underline-offset-4 hover:underline"
+        className="mt-4 text-xs tracking-wider text-primary underline-offset-4 hover:underline"
         onClick={() => setShowPrivate((v) => !v)}
       >
         {showPrivate ? "Hide private league settings" : "My league is private"}
@@ -767,7 +767,7 @@ function YahooPanel() {
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Yahoo</h2>
+      <h2 className="text-2xl font-bold">Yahoo</h2>
 
       <div className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-4 text-sm">
         <p className="font-semibold text-foreground">Add your Yahoo league from a screenshot</p>

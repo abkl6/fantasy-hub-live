@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/gameday")({
 function GameDayPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <h1 className="text-2xl font-bold uppercase">Game day</h1>
+      <h1 className="text-2xl font-bold">Game day</h1>
       <div className="mt-6">
         <GameDayBoard />
       </div>

@@ -86,7 +86,7 @@ function ProjectionsPage() {
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
       <header className="space-y-2">
-        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Stats Hub</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wide">Stats Hub</h1>
       </header>
 
       <Tabs defaultValue="projections">
@@ -452,7 +452,7 @@ function TradeValuesPanel() {
                     <td className="px-4 py-2 font-medium">
                       {row.name}
                       {row.undervalued && (
-                        <Badge className="ml-2 text-[10px] uppercase">Undervalued</Badge>
+                        <Badge className="ml-2 text-[10px]">Undervalued</Badge>
                       )}
                     </td>
                     <td className="px-4 py-2">{row.position}</td>
@@ -485,7 +485,7 @@ function TradeValuesPanel() {
           </div>
 
           <div className="rounded-lg border border-border p-4">
-            <h2 className="font-display text-lg font-bold uppercase">Draft picks</h2>
+            <h2 className="font-display text-lg font-bold">Draft picks</h2>
             <p className="mt-1 text-xs text-muted-foreground">What future picks are worth in this format.</p>
             <ul className="mt-3 space-y-1 text-sm">
               {(values.data?.picks ?? []).slice(0, 24).map((p) => (

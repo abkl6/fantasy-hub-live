@@ -103,7 +103,7 @@ function LeaguePage() {
   if (error || !data) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-2xl font-bold uppercase">We could not load this league</h1>
+        <h1 className="text-2xl font-bold">We could not load this league</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {error instanceof Error ? error.message : "Try refreshing in a moment."}
         </p>
@@ -121,17 +121,17 @@ function LeaguePage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-primary">Week {data.league.current_week}</p>
-          <h1 className="mt-2 text-2xl font-bold uppercase">{data.league.name}</h1>
+          <h1 className="mt-2 text-2xl font-bold">{data.league.name}</h1>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
               {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="secondary" className="text-[10px] uppercase">
+            <Badge variant="secondary" className="text-[10px]">
               {data.formatLabel}
             </Badge>
-            <Badge variant="outline" className="text-[10px] uppercase">
+            <Badge variant="outline" className="text-[10px]">
               {data.scoringLabel}
             </Badge>
           </div>
@@ -168,7 +168,7 @@ function LeaguePage() {
         <section className="mt-6 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-4 text-destructive" />
-            <h2 className="text-sm font-bold uppercase text-destructive">Alerts</h2>
+            <h2 className="text-sm font-bold text-destructive">Alerts</h2>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {data.alerts.map((a) => (
@@ -211,8 +211,8 @@ function LeaguePage() {
           {data.myStrategy && data.myBadge && (
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="uppercase">{data.myBadge.label}</Badge>
-                <Badge variant="secondary" className="uppercase">
+                <Badge className="">{data.myBadge.label}</Badge>
+                <Badge variant="secondary" className="">
                   {data.myStrategy.label}
                 </Badge>
               </div>
@@ -279,7 +279,7 @@ function LeaguePage() {
                     points={m.home.score}
                     winning={m.home.score >= m.away.score}
                   />
-                  <span className="px-4 text-xs uppercase text-muted-foreground">vs</span>
+                  <span className="px-4 text-xs text-muted-foreground">vs</span>
                   <TeamScore
                     name={m.away.name}
                     points={m.away.score}
@@ -297,14 +297,14 @@ function LeaguePage() {
                 <div key={g.position} className="rounded-xl border border-border bg-card p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold uppercase">{g.position}</p>
+                      <p className="text-lg font-semibold">{g.position}</p>
                       <p className="text-xs text-muted-foreground">
                         {g.myPoints.toFixed(1)} proj pts vs {g.leagueAverage.toFixed(1)} league average
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="stat-num text-3xl text-primary">{g.grade}</p>
-                      <p className="text-xs uppercase text-muted-foreground">{g.verdict}</p>
+                      <p className="text-xs text-muted-foreground">{g.verdict}</p>
                     </div>
                   </div>
                   <Progress
@@ -339,7 +339,7 @@ function LeaguePage() {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      <h2 className="text-sm font-bold tracking-wide text-muted-foreground">{title}</h2>
       {children}
     </section>
   );
@@ -384,7 +384,7 @@ function PlayerList({
 }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="text-lg font-bold uppercase">{title}</h2>
+      <h2 className="text-lg font-bold">{title}</h2>
       <ul className="mt-3 space-y-2">
         {players.map((p, i) => (
           <li key={`${p.name}-${i}`} className="flex items-center justify-between text-sm">
@@ -392,7 +392,7 @@ function PlayerList({
               <span className="eyebrow text-muted-foreground">{p.slot ?? p.position}</span>
               <span>{p.name}</span>
               {p.status && p.status !== "Active" && (
-                <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px] uppercase">
+                <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px]">
                   {p.status}
                 </Badge>
               )}
@@ -542,7 +542,7 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold uppercase">Waiver wire</h2>
+          <h2 className="text-lg font-bold">Waiver wire</h2>
           <p className="text-xs text-muted-foreground">
             Everyone still unowned in this league, with what they are worth and what they do to your
             title chances.
@@ -616,10 +616,10 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   <span className="eyebrow text-muted-foreground">{p.position}</span>
                   <span className="font-medium">{p.name}</span>
                   {p.undervalued && (
-                    <Badge className="text-[10px] uppercase">Undervalued</Badge>
+                    <Badge className="text-[10px]">Undervalued</Badge>
                   )}
                   {p.status && p.status !== "Active" && (
-                    <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px] uppercase">
+                    <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px]">
                       {p.status}
                     </Badge>
                   )}
@@ -772,7 +772,7 @@ function TradePanel({ leagueId }: { leagueId: string }) {
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Evaluate a trade</h2>
+      <h2 className="text-2xl font-bold">Evaluate a trade</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Enter the players on each side and we will re-run the rest of the season to see what it does
         to your title odds.
@@ -801,7 +801,7 @@ function TradePanel({ leagueId }: { leagueId: string }) {
       {run.data && (
         <div className="mt-6 rounded-lg border border-border bg-background/50 p-5">
           <Badge
-            className="uppercase"
+            className=""
             variant={run.data.verdict === "accept" ? "default" : "secondary"}
           >
             {run.data.verdict}
@@ -889,7 +889,7 @@ function StandingsTable({
 
   return (
     <table className="w-full text-sm">
-      <thead className="text-left text-xs uppercase text-muted-foreground">
+      <thead className="text-left text-xs text-muted-foreground">
         <tr>
           <th className="py-2">Team</th>
           <th className="py-2">Record</th>
@@ -1004,11 +1004,11 @@ function MoveCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="uppercase">
+            <Badge variant="secondary" className="">
               {suggestion.kind.replace(/_/g, " ")}
             </Badge>
             {suggestion.strategyLabel && (
-              <Badge variant="outline" className="uppercase">
+              <Badge variant="outline" className="">
                 {suggestion.strategyLabel}
               </Badge>
             )}
@@ -1103,7 +1103,7 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
     <div className="space-y-6">
       {data.myScenario && (
         <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase flex items-center gap-2">
+          <h2 className="text-lg font-bold flex items-center gap-2">
             <Trophy className="size-5 text-primary" />
             Your playoff path
           </h2>
@@ -1117,13 +1117,13 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
       )}
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-bold uppercase flex items-center gap-2">
+        <h2 className="text-lg font-bold flex items-center gap-2">
           <Shield className="size-5 text-primary" />
           Projected seeds
         </h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-muted-foreground">
+            <thead className="text-left text-xs text-muted-foreground">
               <tr>
                 <th className="py-2">Seed</th>
                 <th className="py-2">Team</th>
@@ -1149,7 +1149,7 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
 
       {!!data.rootingInterests?.length && (
         <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase flex items-center gap-2">
+          <h2 className="text-lg font-bold flex items-center gap-2">
             <Users className="size-5 text-primary" />
             Rooting interests
           </h2>
@@ -1206,7 +1206,7 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
 
   return (
     <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="text-lg font-bold uppercase">Title odds over time</h2>
+      <h2 className="text-lg font-bold">Title odds over time</h2>
       <p className="text-xs text-muted-foreground">Tracked each week when you load this league.</p>
       <svg viewBox={`0 0 ${width} ${height}`} className="mt-4 w-full">
         {data.weeks.map((w) => (
@@ -1283,7 +1283,7 @@ function DraftPanel({ leagueId }: { leagueId: string }) {
     <div className="space-y-6">
       {!data?.picks?.length && (
         <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase">Import draft results</h2>
+          <h2 className="text-lg font-bold">Import draft results</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             For Sleeper leagues, paste the Sleeper league ID to pull the full draft board.
           </p>
@@ -1306,7 +1306,7 @@ function DraftPanel({ leagueId }: { leagueId: string }) {
 
       {!!data?.grades?.length && (
         <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase">Draft grades</h2>
+          <h2 className="text-lg font-bold">Draft grades</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.grades.map((g) => (
               <div key={g.teamId} className={`rounded-lg border border-border p-4 ${g.isMine ? "bg-primary/5" : ""}`}>
@@ -1325,10 +1325,10 @@ function DraftPanel({ leagueId }: { leagueId: string }) {
 
       {!!data?.picks?.length && (
         <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase">Draft board</h2>
+          <h2 className="text-lg font-bold">Draft board</h2>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-muted-foreground">
+              <thead className="text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="py-2">Pick</th>
                   <th className="py-2">Team</th>
