@@ -82,9 +82,9 @@ function ConnectPage() {
       <p className="eyebrow text-primary">Add a league</p>
       <h1 className="mt-2 text-4xl font-bold uppercase">Bring your teams in</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Sleeper connects from your username, ESPN from your league ID, and Yahoo by signing in with
-        your Yahoo account. NFL.com and FFPC have no public way to read a league, so add those from a
-        screenshot of your roster — the scoring settings can come from a screenshot too.
+        Sleeper connects from your username and ESPN from your league ID. Yahoo, NFL.com and FFPC
+        have no public way to read a league right now, so add those from a screenshot of your roster
+        — the scoring settings can come from a screenshot too.
       </p>
 
       <Tabs defaultValue="sleeper" className="mt-8">
@@ -773,37 +773,26 @@ function YahooPanel() {
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Connect Yahoo</h2>
+      <h2 className="text-2xl font-bold uppercase">Yahoo</h2>
 
-      {state.data && !state.data.configured && (
-        <div className="mt-3 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm text-warning">
-          <p>
-            Yahoo sign-in is built and ready, but it still needs the Yahoo app credentials before it
-            can run. Once those are saved, this button will take you to Yahoo.
-          </p>
-        </div>
-      )}
-
-      <div className="mt-3 rounded-lg border border-border bg-background/50 p-4 text-sm text-muted-foreground">
-        <p className="font-semibold text-foreground">If Yahoo turns the sign-in down</p>
-        <p className="mt-2">
-          In your Yahoo app settings, set the API permission to{" "}
-          <span className="font-semibold text-foreground">Fantasy Sports · Read</span>, and list this
-          exact web address as a redirect URL:
-        </p>
-        <code className="mt-2 block break-all font-mono text-xs text-foreground">
-          {typeof window !== "undefined" ? window.location.origin : ""}
-          /api/public/yahoo/callback
-        </code>
-        <p className="mt-2">
-          Yahoo changes take a couple of minutes to take effect before the sign-in will work.
+      <div className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-4 text-sm">
+        <p className="font-semibold text-foreground">Add your Yahoo league from a screenshot</p>
+        <p className="mt-1 text-muted-foreground">
+          Yahoo has paused new Fantasy Sports access for apps like this one, so for now the reliable
+          way in is the <span className="font-semibold text-foreground">Screenshot or manual</span>{" "}
+          tab — pick Yahoo as the platform and upload your roster (and scoring page, if it's
+          unusual). Everything else works the same: live scores, waivers, trades and projections.
         </p>
       </div>
 
-      <p className="mt-3 text-sm text-muted-foreground">
-        Sign in with your Yahoo account and every Yahoo football league on it can be imported —
-        rosters, standings and the full schedule.
-      </p>
+      <details className="mt-4 rounded-lg border border-border bg-background/50 p-4 text-sm text-muted-foreground">
+        <summary className="cursor-pointer font-semibold text-foreground">
+          Direct Yahoo sign-in (waiting on Yahoo approval)
+        </summary>
+        <p className="mt-3">
+          We've applied to Yahoo for Fantasy Sports access. Until they approve it, sign-in can
+          prove who you are but can't read your leagues — use the screenshot route above meanwhile.
+        </p>
 
       <div className="mt-5 flex flex-wrap gap-3">
         <Button
