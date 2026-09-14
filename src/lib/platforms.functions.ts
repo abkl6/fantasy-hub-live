@@ -104,8 +104,9 @@ export const yahooStatus = createServerFn({ method: "GET" })
       .maybeSingle();
     const payload = (data?.payload ?? {}) as Record<string, unknown>;
     return {
-      configured: yahooConfigured(),
+      configured,
       connected: Boolean(payload["refresh_token"]),
+      notice: configured ? null : YAHOO_NOT_CONFIGURED,
     };
   });
 
