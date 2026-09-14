@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis, type Alert, type MoveSuggestion } from "./analysis.server";
+import { normalizeName } from "./names";
 
 type DB = SupabaseClient<Database>;
 
@@ -82,7 +83,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
   for (const analysis of analyses) {
     const roster = [...analysis.lineup, ...analysis.bench].filter((player) => player.name !== "Empty");
     for (const player of roster) {
-      const key = `${player.name.toLowerCase()}::${player.position}`;
+      const key = `${normalizeName(player.name)}::${player.position}`;
       const current = exposureMap.get(key);
       if (current) {
         current.leagues += 1;
