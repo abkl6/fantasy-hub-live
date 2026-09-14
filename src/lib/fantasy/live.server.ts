@@ -170,28 +170,29 @@ export async function gameStates(week: number, season?: number): Promise<Map<str
 
     for (const abbr of teams) {
       const opponent = teams.find((t) => t !== abbr) ?? null;
-      out.set(teamKey(abbr), { state, clock, opponent: opponent ? teamKey(opponent) : null, remaining });
+      out.set(teamKey(abbr), {
+        state,
+        clock,
+        opponent: opponent ? teamKey(opponent) : null,
+        remaining,
+        kickoff: ev.date ?? null,
+      });
     }
   }
   return out;
 }
 
-/** Earliest kickoff still in the future for a week, from the live scoreboard. */
-export async function nextKickoffAt(week: number, season?: number): Promise<string | null> {
-  const year = season ?? new Date().getFullYear();
-  let data = await getJson<{ events?: { date?: string; status?: { type?: { state?: string } } }[] }>(
-    `${ESPN_SCOREBOARD}?week=${week}`,
-  );
-  if (!data?.events?.length) {
-    data = await getJson(`${ESPN_SCOREBOARD}?dates=${year}&seasontype=2&week=${week}`);
-  }
+/** Earliest kickoff still ahead of us this week, from the live scoreboard. */
+export function nextKickoffFrom(board: Map<string, GameInfo>): string | null {
   const now = Date.now();
-  const upcoming = (data?.events ?? [])
-    .filter((e) => e.date && e.status?.type?.state === "pre" && Date.parse(e.date) > now)
-    .map((e) => e.date!)
+  const upcoming = [...board.values()]
+    .filter((g) => g.state === "pre" && g.kickoff && Date.parse(g.kickoff) > now)
+    .map((g) => g.kickoff!)
     .sort();
   return upcoming[0] ?? null;
 }
+
+
 
 
 interface ScoreboardGame {
