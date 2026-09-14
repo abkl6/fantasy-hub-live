@@ -13,6 +13,9 @@ const ROOTS = ["src"];
 const SKIP = new Set(["names.ts", "names.test.ts"]);
 const PATTERN = /(player_name|full_name|\bp\.name|player\.name)[^\n]{0,40}\.toLowerCase\(\)/;
 
+// Free-text search filters are fine: they match substrings, not identities.
+const ALLOW = /\.includes\(/;
+
 const offenders = [];
 function walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -20,7 +23,7 @@ function walk(dir) {
     if (statSync(p).isDirectory()) walk(p);
     else if (/\.(ts|tsx)$/.test(entry) && !SKIP.has(entry)) {
       readFileSync(p, "utf8").split("\n").forEach((line, i) => {
-        if (PATTERN.test(line)) offenders.push(`${p}:${i + 1}: ${line.trim()}`);
+        if (PATTERN.test(line) && !ALLOW.test(line)) offenders.push(`${p}:${i + 1}: ${line.trim()}`);
       });
     }
   }
