@@ -156,7 +156,7 @@ interface PlayerRow {
 export async function saveKtcValues(
   admin: DB,
   data: { players: KtcPlayerValue[]; picks: KtcPickValue[] },
-  options: { onlyNames?: Set<string>; scope?: string } = {},
+  options: { onlyNames?: Set<string> | undefined; scope?: string } = {},
 ) {
   const { data: existing } = await admin.from("players").select("id, full_name, position");
   const byKey = new Map<string, string>();
