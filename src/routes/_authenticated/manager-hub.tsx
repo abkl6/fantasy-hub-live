@@ -273,6 +273,98 @@ function StandingsCard({ league }: { league: HubStandings }) {
   );
 }
 
+type HubReview = {
+  leagueId: string;
+  leagueName: string;
+  teamName: string;
+  week: number;
+  result: "win" | "loss" | "tie";
+  myScore: number;
+  oppScore: number;
+  margin: number;
+  oppName: string;
+  benchPoints: number;
+  bestPossible: number;
+  worstCall: {
+    started: string;
+    startedPoints: number;
+    benched: string;
+    benchedPoints: number;
+    slot: string;
+    cost: number;
+  } | null;
+  median: number;
+  beatMedian: boolean;
+  luck: "lucky" | "unlucky" | "deserved";
+  recommendation: { headline: string; detail: string } | null;
+};
+
+function ReviewCard({ review }: { review: HubReview }) {
+  const [open, setOpen] = useState(false);
+  const resultWord = review.result === "win" ? "Won" : review.result === "loss" ? "Lost" : "Tied";
+
+  return (
+    <article className="rounded-xl bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-3 p-4 text-left"
+        aria-expanded={open}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">{review.leagueName}</span>
+          <span className="block text-xs text-muted-foreground">
+            Week {review.week} · {resultWord} {review.myScore.toFixed(1)}–{review.oppScore.toFixed(1)} vs {review.oppName}
+          </span>
+        </span>
+        <span className={`shrink-0 text-xs tabular-nums ${review.benchPoints > 0 ? "text-muted-foreground" : "text-muted-foreground"}`}>
+          {review.benchPoints.toFixed(1)} left on bench
+        </span>
+        {open ? <ChevronUp className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground" />}
+      </button>
+
+      {open && (
+        <div className="space-y-3 border-t border-border p-4 text-xs">
+          <p>
+            <span className="font-semibold text-foreground">Result</span> · {resultWord} by{" "}
+            <span className="tabular-nums">{review.margin.toFixed(1)}</span> as {review.teamName}.
+          </p>
+          <p>
+            <span className="font-semibold text-foreground">Bench points</span> ·{" "}
+            <span className="tabular-nums">{review.benchPoints.toFixed(1)}</span> left behind — your best
+            possible lineup scored <span className="tabular-nums">{review.bestPossible.toFixed(1)}</span>.
+          </p>
+          <p>
+            <span className="font-semibold text-foreground">Worst call</span> ·{" "}
+            {review.worstCall
+              ? `Started ${review.worstCall.started} (${review.worstCall.startedPoints.toFixed(1)}) over ${review.worstCall.benched} (${review.worstCall.benchedPoints.toFixed(1)}) at ${review.worstCall.slot} — cost ${review.worstCall.cost.toFixed(1)}.`
+              : "You started the right side of every close call."}
+          </p>
+          <p>
+            <span className="font-semibold text-foreground">Luck</span> · League median was{" "}
+            <span className="tabular-nums">{review.median.toFixed(1)}</span>, so you{" "}
+            {review.beatMedian ? "would have beaten" : "would have lost to"} an average opponent
+            {review.luck === "lucky"
+              ? " — you got away with one."
+              : review.luck === "unlucky"
+                ? " — unlucky draw."
+                : "."}
+          </p>
+          {review.recommendation && (
+            <div className="rounded-lg bg-secondary/30 p-3">
+              <p className="font-semibold text-foreground">Do this next: {review.recommendation.headline}</p>
+              <p className="mt-1 text-muted-foreground">{review.recommendation.detail}</p>
+            </div>
+          )}
+          <Button asChild size="sm" variant="outline">
+            <Link to="/league/$leagueId" params={{ leagueId: review.leagueId }}>Open league</Link>
+          </Button>
+        </div>
+      )}
+    </article>
+  );
+}
+
 function ordinal(rank: number | null) {
   if (!rank) return "";
   const mod10 = rank % 10;
