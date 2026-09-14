@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronUp, Clock, Loader2, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Sparkline } from "@/components/Sparkline";
@@ -386,10 +387,18 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
           Week {data.week} · stats updated {timeAgo(data.updatedAt)}
           {window.live ? " · refreshing every 45s" : ""}
         </p>
-        <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
-          {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" asChild>
+            <Link to="/tv">
+              <Monitor className="size-4" aria-hidden="true" />
+              On TV
+            </Link>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {!data.matchups.length && (
