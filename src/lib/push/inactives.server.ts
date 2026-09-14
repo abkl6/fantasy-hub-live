@@ -66,6 +66,24 @@ export async function runInactiveSweep(admin: DB): Promise<{ sent: number; check
     spotsByLeague.set(spot.league_id, list);
   }
 
+  // Only alert on players whose NFL team is actually scheduled this week.
+  const { data: scheduleRows } = await admin
+    .from("nfl_schedule")
+    .select("season, week, nfl_team, opponent");
+  const scheduled = new Set(
+    (scheduleRows ?? [])
+      .filter((r) => r.opponent)
+      .map((r) => `${r.season}:${r.week}:${r.nfl_team.toUpperCase()}`),
+  );
+  const playsThisWeek = (
+    league: { season: number; current_week: number },
+    team: string | null,
+  ) => {
+    if (!scheduled.size) return true;
+    if (!team) return true;
+    return scheduled.has(`${league.season}:${league.current_week}:${team.toUpperCase()}`);
+  };
+
   let sent = 0;
   let checked = 0;
 
@@ -78,6 +96,7 @@ export async function runInactiveSweep(admin: DB): Promise<{ sent: number; check
     for (const starter of mine) {
       const status = statusFor(starter);
       if (!BAD_STATUS.test(status.trim())) continue;
+      if (!playsThisWeek(league, starter.nfl_team)) continue;
 
       const replacement = bench
         .filter((b) => slotAccepts(starter.slot as never, b.position))
