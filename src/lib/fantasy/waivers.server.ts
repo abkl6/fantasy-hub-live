@@ -19,6 +19,7 @@ import { normalizeName } from "./names";
 import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
+import { fallbackValue, leagueValueFormat, loadTradeValues, type ValueFormat } from "./trade-value";
 import {
   FORMAT_LABELS,
   asFormat,
@@ -54,6 +55,12 @@ export interface WaiverBoardRow {
   projSeason: number;
   /** Season points above the replacement-level starter at this position. */
   tradeValue: number;
+  /** Keep Trade Cut dynasty market price; null when the market has not loaded. */
+  ktcValue: number | null;
+  /** What our projections imply this player should be worth on the market. */
+  projValue: number;
+  /** True when our projections price this player well above the market. */
+  undervalued: boolean;
   /** Suggested bid as a percentage of a $100 FAAB budget. */
   bid: number;
   /** Points your best starting lineup gains this week, if scored. */
@@ -77,6 +84,8 @@ export interface WaiverBoard {
   formatLabel: string;
   scoringLabel: string;
   showLongTerm: boolean;
+  valueFormat: ValueFormat;
+  valuesCovered: boolean;
 }
 
 export async function buildWaiverBoard(
