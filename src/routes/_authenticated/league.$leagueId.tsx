@@ -265,6 +265,22 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="lineup" className="mt-6 space-y-4">
+          {search.swap && (
+            <div className="flex items-start gap-3 rounded-xl bg-card p-4">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+              <p className="text-sm">
+                <span className="font-medium">{search.swap}</span> can't play this week.
+                {search.with ? (
+                  <>
+                    {" "}
+                    Best replacement: <span className="font-medium">{search.with}</span>.
+                  </>
+                ) : (
+                  " No bench replacement is available at that spot."
+                )}
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Starters are based on projected points for this week.
