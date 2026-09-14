@@ -55,6 +55,8 @@ import {
   type StrategyMode,
   type TeamStrategy,
 } from "./strategy";
+import { acceptanceBandOf, acceptanceScore } from "./proposal.server";
+
 
 type DB = SupabaseClient<Database>;
 
