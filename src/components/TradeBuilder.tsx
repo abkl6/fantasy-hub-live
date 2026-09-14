@@ -183,7 +183,7 @@ export function TradeBuilder({ leagueId }: { leagueId: string }) {
   useEffect(() => {
     const teams = board.data?.teams ?? [];
     if (!teams.length) return;
-    const mine = teams.find((t) => t.isMine) ?? teams[0];
+    const mine = teams.find((t) => t.isMine) ?? teams[0]!;
     const other = teams.find((t) => t.id !== mine.id);
     setTeamAId((cur) => (teams.some((t) => t.id === cur) ? cur : mine.id));
     setTeamBId((cur) => (teams.some((t) => t.id === cur) && cur !== mine.id ? cur : (other?.id ?? "")));
