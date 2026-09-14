@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
+import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
@@ -148,20 +149,30 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
     z
       .object({
         sleeperLeagueId: z.string().min(1),
-        sleeperUserId: z.string().min(1),
-        season: z.string().min(4),
+        sleeperUserId: z.string().min(1).optional(),
+        sleeperUsername: z.string().min(1).max(60).optional(),
+        season: z.string().min(4).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { sleeperLeagueBundle, sleeperPlayers, sleeperCurrentWeek, normalizeSlots } = await import(
-      "./fantasy/sleeper.server"
-    );
+    const {
+      sleeperLeagueBundle,
+      sleeperPlayers,
+      sleeperCurrentWeek,
+      sleeperUserId: resolveSleeperUserId,
+      normalizeSlots,
+    } = await import("./fantasy/sleeper.server");
     const supabase = context.supabase;
     const userId = context.userId;
 
     const state = await sleeperCurrentWeek();
-    const week = Number(data.season) === Number(state.season) ? state.week : 17;
+    const season = data.season ?? state.season;
+    // "Add by ID" can pass a username instead of the numeric Sleeper id.
+    const ownerId =
+      data.sleeperUserId ??
+      (data.sleeperUsername ? await resolveSleeperUserId(data.sleeperUsername) : null);
+    const week = Number(season) === Number(state.season) ? state.week : 17;
     const [bundle, playerMap] = await Promise.all([
       sleeperLeagueBundle(data.sleeperLeagueId, week),
       sleeperPlayers(),
@@ -178,6 +189,14 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
       .eq("platform", "sleeper")
       .eq("external_id", data.sleeperLeagueId);
 
+    // Give each league its own accent: pick the least-used color so far.
+    const { data: existingLeagues } = await supabase.from("leagues").select("color");
+    const used = new Map<string, number>(LEAGUE_COLOR_KEYS.map((key) => [key, 0]));
+    for (const row of existingLeagues ?? []) {
+      if (row.color && used.has(row.color)) used.set(row.color, used.get(row.color)! + 1);
+    }
+    const color = [...used.entries()].sort((a, b) => a[1] - b[1])[0]![0];
+
     const { data: league, error: leagueError } = await supabase
       .from("leagues")
       .insert({
@@ -185,7 +204,8 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         platform: "sleeper",
         external_id: data.sleeperLeagueId,
         name: bundle.league.name,
-        season: Number(data.season),
+        season: Number(season),
+        color,
         current_week: week,
         team_count: bundle.league.total_rosters,
         playoff_teams: playoffTeams,
@@ -215,7 +235,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         external_id: String(r.roster_id),
         name: owner?.metadata?.team_name || owner?.display_name || `Team ${r.roster_id}`,
         owner_name: owner?.display_name ?? null,
-        is_mine: r.owner_id === data.sleeperUserId,
+        is_mine: !!ownerId && r.owner_id === ownerId,
         wins: s.wins ?? 0,
         losses: s.losses ?? 0,
         ties: s.ties ?? 0,
