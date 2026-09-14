@@ -121,7 +121,10 @@ function LeaguePage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-primary">Week {data.league.current_week}</p>
-          <h1 className="mt-2 text-2xl font-bold">{data.league.name}</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{data.league.name}</h1>
+            <LeagueColorPicker leagueId={leagueId} current={(data.league as { color?: string | null }).color ?? null} />
+          </div>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
               {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
