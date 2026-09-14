@@ -123,16 +123,32 @@ interface GameInfo {
   opponent: string | null;
   /** Rough share of the game still to be played, 0-1. */
   remaining: number;
+  /** ISO kickoff time when the scoreboard reports it. */
+  kickoff: string | null;
 }
 
-/** Map of NFL team abbreviation -> live game state. */
-export async function gameStates(week: number): Promise<Map<string, GameInfo>> {
-  const data = await getJson<{
+
+/**
+ * Map of NFL team abbreviation -> live game state. Returns an empty map only
+ * when the scoreboard could not be read; callers must not treat that as
+ * "nothing has kicked off".
+ */
+export async function gameStates(week: number, season?: number): Promise<Map<string, GameInfo>> {
+  type Board = {
     events?: {
+      date?: string;
       status?: { type?: { state?: string }; displayClock?: string; period?: number };
       competitions?: { competitors?: { team?: { abbreviation?: string } }[] }[];
     }[];
-  }>(`${ESPN_SCOREBOARD}?week=${week}`);
+  };
+
+  const year = season ?? new Date().getFullYear();
+  let data = await getJson<Board>(`${ESPN_SCOREBOARD}?week=${week}`);
+  if (!data?.events?.length) {
+    data = await getJson<Board>(
+      `${ESPN_SCOREBOARD}?dates=${year}&seasontype=2&week=${week}`,
+    );
+  }
 
   const out = new Map<string, GameInfo>();
   for (const ev of data?.events ?? []) {
@@ -154,11 +170,30 @@ export async function gameStates(week: number): Promise<Map<string, GameInfo>> {
 
     for (const abbr of teams) {
       const opponent = teams.find((t) => t !== abbr) ?? null;
-      out.set(abbr.toUpperCase(), { state, clock, opponent, remaining });
+      out.set(teamKey(abbr), {
+        state,
+        clock,
+        opponent: opponent ? teamKey(opponent) : null,
+        remaining,
+        kickoff: ev.date ?? null,
+      });
     }
   }
   return out;
 }
+
+/** Earliest kickoff still ahead of us this week, from the live scoreboard. */
+export function nextKickoffFrom(board: Map<string, GameInfo>): string | null {
+  const now = Date.now();
+  const upcoming = [...board.values()]
+    .filter((g) => g.state === "pre" && g.kickoff && Date.parse(g.kickoff) > now)
+    .map((g) => g.kickoff!)
+    .sort();
+  return upcoming[0] ?? null;
+}
+
+
+
 
 interface ScoreboardGame {
   home: string;
@@ -337,9 +372,13 @@ export async function refreshLiveScoring(admin: DB): Promise<{
 
   const [stats, games, { data: playerRows }, { data: snapshotRows }] = await Promise.all([
     getJson<Record<string, Record<string, number>>>(`${SLEEPER}/stats/nfl/regular/${season}/${week}`),
-    gameStates(week),
+    gameStates(week, season),
     admin.from("players").select("id, full_name, position, nfl_team, sleeper_id"),
-    admin.from("live_player_stats").select("player_id, stats").eq("season", season).eq("week", week),
+    admin
+      .from("live_player_stats")
+      .select("player_id, stats, game_state, game_clock, opponent")
+      .eq("season", season)
+      .eq("week", week),
   ]);
 
   if (!stats) return { season, week, players: 0, events: 0 };
@@ -347,6 +386,15 @@ export async function refreshLiveScoring(admin: DB): Promise<{
   const previous = new Map(
     (snapshotRows ?? []).map((r) => [r.player_id, (r.stats ?? {}) as StatLine]),
   );
+  // Keep the last known game status when the scoreboard could not be read, so a
+  // failed fetch never rewinds finished games back to "not started".
+  const previousGame = new Map(
+    (snapshotRows ?? []).map((r) => [
+      r.player_id,
+      { state: r.game_state ?? "pre", clock: r.game_clock ?? null, opponent: r.opponent ?? null },
+    ]),
+  );
+  const boardOk = games.size > 0;
 
   const snapshots: Record<string, unknown>[] = [];
   const events: Record<string, unknown>[] = [];
@@ -362,18 +410,23 @@ export async function refreshLiveScoring(admin: DB): Promise<{
       if (typeof v === "number" && Number.isFinite(v)) current[k] = v;
     }
 
-    const game = games.get(teamKey(player.nfl_team));
+    const board = games.get(teamKey(player.nfl_team));
+    const kept = previousGame.get(player.id);
+    const game = boardOk
+      ? { state: board?.state ?? "pre", clock: board?.clock ?? null, opponent: board?.opponent ?? null }
+      : (kept ?? { state: "pre", clock: null, opponent: null });
     snapshots.push({
       player_id: player.id,
       sleeper_id: player.sleeper_id,
       season,
       week,
       stats: current,
-      game_state: game?.state ?? "pre",
-      game_clock: game?.clock ?? null,
-      opponent: game?.opponent ?? null,
+      game_state: game.state,
+      game_clock: game.clock,
+      opponent: game.opponent,
       updated_at: now,
     });
+
 
     const before = previous.get(player.id);
     if (!before) continue; // first snapshot of the week is the baseline
@@ -467,14 +520,27 @@ export async function buildGameDay(
   opts: { leagueId?: string; includeGames?: boolean } = {},
 ): Promise<GameDayPayload> {
   const { season, week } = await currentLiveWeek();
+  // The live scoreboard is the source of truth for game status; stored rows can
+  // be stale or written while the scoreboard was unreachable.
+  const board = await gameStates(week, season);
   const games = opts.includeGames ? await weekGames(supabase, season, week) : [];
+
 
   let leagueQuery = supabase.from("leagues").select("*");
   if (opts.leagueId) leagueQuery = leagueQuery.eq("id", opts.leagueId);
   const { data: leagueRows } = await leagueQuery;
   const leagues = leagueRows ?? [];
   if (!leagues.length) {
-    return { season, week, updatedAt: null, matchups: [], events: [], games };
+    return {
+      season,
+      week,
+      updatedAt: null,
+      matchups: [],
+      events: [],
+      games,
+      nextKickoff: nextKickoffFrom(board),
+    };
+
   }
   const leagueIds = leagues.map((l) => l.id);
 
@@ -559,7 +625,8 @@ export async function buildGameDay(
         s.position.toUpperCase(),
         Number(s.proj_points),
       );
-      const state = snap?.state ?? "pre";
+      const game = board.get(teamKey(s.nfl_team));
+      const state = game?.state ?? snap?.state ?? "pre";
       const projectedFinal =
         state === "post" ? livePoints : state === "in" ? round1(livePoints + proj * 0.4) : round1(proj);
       return {
@@ -572,8 +639,9 @@ export async function buildGameDay(
         projPoints: proj,
         projectedFinal,
         gameState: state,
-        gameClock: snap?.clock ?? null,
-        opponent: snap?.opponent ?? null,
+        gameClock: game?.clock ?? snap?.clock ?? null,
+        opponent: game?.opponent ?? snap?.opponent ?? null,
+
       };
     };
 
@@ -823,5 +891,14 @@ export async function buildGameDay(
 
   matchups.sort((a, b) => ({ in: 0, pre: 1, post: 2 })[a.gameState] - ({ in: 0, pre: 1, post: 2 })[b.gameState]);
 
-  return { season, week, updatedAt, matchups, events: events.slice(0, 120), games };
+  return {
+    season,
+    week,
+    updatedAt,
+    matchups,
+    events: events.slice(0, 120),
+    games,
+    nextKickoff: nextKickoffFrom(board),
+  };
+
 }

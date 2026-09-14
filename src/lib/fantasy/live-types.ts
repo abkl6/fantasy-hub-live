@@ -84,6 +84,9 @@ export interface GameDayPayload {
   updatedAt: string | null;
   matchups: LiveMatchup[];
   events: LiveEventRow[];
+  /** ISO time of the next kickoff still ahead this week, when known. */
+  nextKickoff?: string | null;
   /** Only filled when the caller asks for the game slate. */
   games: LiveGame[];
+
 }
