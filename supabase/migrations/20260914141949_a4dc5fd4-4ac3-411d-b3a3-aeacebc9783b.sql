@@ -1,0 +1,1 @@
+UPDATE public.leagues SET color = 'orange' WHERE color = 'lime';
