@@ -368,9 +368,13 @@ export async function refreshLiveScoring(admin: DB): Promise<{
 
   const [stats, games, { data: playerRows }, { data: snapshotRows }] = await Promise.all([
     getJson<Record<string, Record<string, number>>>(`${SLEEPER}/stats/nfl/regular/${season}/${week}`),
-    gameStates(week),
+    gameStates(week, season),
     admin.from("players").select("id, full_name, position, nfl_team, sleeper_id"),
-    admin.from("live_player_stats").select("player_id, stats").eq("season", season).eq("week", week),
+    admin
+      .from("live_player_stats")
+      .select("player_id, stats, game_state, game_clock, opponent")
+      .eq("season", season)
+      .eq("week", week),
   ]);
 
   if (!stats) return { season, week, players: 0, events: 0 };
@@ -378,6 +382,15 @@ export async function refreshLiveScoring(admin: DB): Promise<{
   const previous = new Map(
     (snapshotRows ?? []).map((r) => [r.player_id, (r.stats ?? {}) as StatLine]),
   );
+  // Keep the last known game status when the scoreboard could not be read, so a
+  // failed fetch never rewinds finished games back to "not started".
+  const previousGame = new Map(
+    (snapshotRows ?? []).map((r) => [
+      r.player_id,
+      { state: r.game_state ?? "pre", clock: r.game_clock ?? null, opponent: r.opponent ?? null },
+    ]),
+  );
+  const boardOk = games.size > 0;
 
   const snapshots: Record<string, unknown>[] = [];
   const events: Record<string, unknown>[] = [];
@@ -393,18 +406,23 @@ export async function refreshLiveScoring(admin: DB): Promise<{
       if (typeof v === "number" && Number.isFinite(v)) current[k] = v;
     }
 
-    const game = games.get(teamKey(player.nfl_team));
+    const board = games.get(teamKey(player.nfl_team));
+    const kept = previousGame.get(player.id);
+    const game = boardOk
+      ? { state: board?.state ?? "pre", clock: board?.clock ?? null, opponent: board?.opponent ?? null }
+      : (kept ?? { state: "pre", clock: null, opponent: null });
     snapshots.push({
       player_id: player.id,
       sleeper_id: player.sleeper_id,
       season,
       week,
       stats: current,
-      game_state: game?.state ?? "pre",
-      game_clock: game?.clock ?? null,
-      opponent: game?.opponent ?? null,
+      game_state: game.state,
+      game_clock: game.clock,
+      opponent: game.opponent,
       updated_at: now,
     });
+
 
     const before = previous.get(player.id);
     if (!before) continue; // first snapshot of the week is the baseline
