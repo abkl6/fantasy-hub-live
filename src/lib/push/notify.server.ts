@@ -103,8 +103,8 @@ export async function notifyUser(
       const result = await sendWebPush(sub, {
         title: options.title,
         body: options.body,
-        url: options.url,
-        tag: options.tag,
+        url: options.url ?? "/gameday",
+        tag: options.tag ?? options.kind,
         kind: options.kind,
       });
       if (result.expired) dead.push(sub.id);
