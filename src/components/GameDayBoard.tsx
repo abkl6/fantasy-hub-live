@@ -149,6 +149,10 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
         </div>
       </div>
 
+      {m.needLine && (
+        <p className="mt-3 text-center text-[12px] text-muted-foreground">{m.needLine}</p>
+      )}
+
       <Button className="mt-4 w-full" size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>
         {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         {expanded ? "Hide details" : "Details"}
