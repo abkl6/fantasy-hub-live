@@ -235,6 +235,8 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
         </Button>
       </div>
 
+      <ReadinessBar matchups={sortedMatchups} />
+
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex items-center gap-2 px-3 py-1.5">
           <Radio className={`size-3.5 shrink-0 ${window.live ? "animate-pulse text-primary" : "text-muted-foreground"}`} />
