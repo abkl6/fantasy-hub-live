@@ -772,5 +772,5 @@ export async function buildGameDay(
 
   matchups.sort((a, b) => ({ in: 0, pre: 1, post: 2 })[a.gameState] - ({ in: 0, pre: 1, post: 2 })[b.gameState]);
 
-  return { season, week, updatedAt, matchups, events: events.slice(0, 120) };
+  return { season, week, updatedAt, matchups, events: events.slice(0, 120), games };
 }
