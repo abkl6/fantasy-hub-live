@@ -44,7 +44,7 @@ function AuthenticatedLayout() {
               <Link to="/trades">Trades</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
-              <Link to="/projections">Projections</Link>
+              <Link to="/projections">Stats Hub</Link>
             </Button>
             <Button asChild size="sm">
               <Link to="/connect">
