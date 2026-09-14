@@ -100,7 +100,8 @@ const stateRank = (state: LiveGame["gameState"]) => ({ in: 0, pre: 1, post: 2 })
 
 function GamesPage() {
   const fetchGameDay = useServerFn(getGameDayFn);
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch, updating, stale, lastUpdated } = useCachedQuery({
+    cacheKey: "gameday:games",
     queryKey: ["gameday", "games"],
     queryFn: () => fetchGameDay({ data: { games: true } }),
     refetchInterval: pollInterval() || false,
