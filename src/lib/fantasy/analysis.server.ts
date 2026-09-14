@@ -197,7 +197,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         name: s.player_name,
         position: s.position.toUpperCase(),
         nflTeam: s.nfl_team,
-        proj: scoring.scale(s.position, Number(s.proj_points)),
+        proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
         volatility: 0.35,
       })),
   }));
@@ -339,7 +339,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         .filter((c) => slotAccepts(s.slot, c.position.toUpperCase()) && !bestNames.has(c.player_name))
         .sort((a, b) => Number(a.proj_points) - Number(b.proj_points))[0];
       if (!benched) continue;
-      const benchedProj = scoring.scale(benched.position, Number(benched.proj_points));
+      const benchedProj = scoring.scale(
+        benched.position,
+        proj.week(benched.player_id, benched.player_name, Number(benched.proj_points)),
+      );
       const gain = s.player.proj - benchedProj;
       if (gain < 0.6) continue;
       const impact = whatIf(mine.roster);
