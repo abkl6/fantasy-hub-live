@@ -34,7 +34,10 @@ import {
   dynastyValue,
   hasLineupDecisions,
   isMultiYear,
+  isSurvival,
+  simulateGuillotine,
 } from "./format";
+import { bidLadder, type BidLadder, type FaabRival } from "./faab";
 import { classifyTeam } from "./team-class";
 import { strategyFor, type StrategyMode } from "./strategy";
 
@@ -71,6 +74,8 @@ export interface WaiverBoardRow {
   undervalued: boolean;
   /** Suggested bid as a percentage of a $100 FAAB budget. */
   bid: number;
+  /** Guillotine only: aggressive / optimal / passive dollar bids. */
+  bids: BidLadder | null;
   /** Points your best starting lineup gains this week, if scored. */
   lineupGain: number | null;
   titleDelta: number | null;
@@ -97,6 +102,10 @@ export interface WaiverBoard {
   /** My team's posture: rebuilding boards lead with keepers, not weekly bumps. */
   strategy: StrategyMode | null;
   strategyNote: string | null;
+  /** True in guillotine leagues, where the three-tier bid ladder is shown. */
+  isSurvivalLeague: boolean;
+  faabBudget: number;
+  myFaabRemaining: number | null;
 }
 
 export async function buildWaiverBoard(
@@ -243,6 +252,13 @@ export async function buildWaiverBoard(
     string,
     { titleDelta: number; playoffDelta: number; winDelta: number; lineupGain: number; drop: string | null }
   >();
+  const bidLadders = new Map<string, BidLadder>();
+  const survivalLeague = isSurvival(format);
+  const faabBudget = Number((league as { faab_budget?: number }).faab_budget ?? 100) || 100;
+  const myFaabRemaining =
+    mine && (mine as { faab_remaining?: number | null }).faab_remaining != null
+      ? Number((mine as { faab_remaining?: number | null }).faab_remaining)
+      : null;
   let strategy: StrategyMode | null = null;
   let strategyNote: string | null = null;
 
@@ -297,6 +313,15 @@ export async function buildWaiverBoard(
       currentWeek: league.current_week,
     };
 
+    const survivalInputs = simInputs.map((t) => ({
+      id: t.id,
+      name: t.name,
+      isMine: t.isMine,
+      mean: t.mean,
+      sd: t.sd,
+    }));
+    const weeksLeft = Math.max(1, league.regular_season_weeks - league.current_week + 1);
+    const survivalBase = survivalLeague ? simulateGuillotine(survivalInputs, weeksLeft, 1200, 7) : null;
     const baseline = simulateSeason(simInputs, simConfig, schedule, 1500, 7);
     const baseMine = baseline.find((r) => r.id === mine.id)!;
 
