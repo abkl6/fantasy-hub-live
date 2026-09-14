@@ -18,6 +18,8 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { DraftPicksPanel } from "@/components/DraftPicksPanel";
+import type { TeamBadge as TeamBadgeValue } from "@/lib/fantasy/team-class";
+import { TeamBadge } from "@/components/TeamBadge";
 import { TradeBuilder } from "@/components/TradeBuilder";
 import { GameDayBoard } from "@/components/GameDayBoard";
 import { Badge } from "@/components/ui/badge";
@@ -708,7 +710,16 @@ function StandingsTable({
   standings,
 }: {
   leagueId: string;
-  standings: { id: string; name: string; isMine: boolean; record: string; pointsFor: number; playoffOdds: number; titleOdds: number }[];
+  standings: {
+    id: string;
+    name: string;
+    isMine: boolean;
+    record: string;
+    pointsFor: number;
+    playoffOdds: number;
+    titleOdds: number;
+    badge?: TeamBadgeValue;
+  }[];
 }) {
   const load = useServerFn(getTrendsFn);
   const { data: trends } = useQuery({
@@ -739,7 +750,12 @@ function StandingsTable({
           const up = end >= start;
           return (
             <tr key={t.id} className={`border-t border-border ${t.isMine ? "bg-primary/5 font-semibold" : ""}`}>
-              <td className="py-3">{t.name}</td>
+              <td className="py-3">
+                <span className="flex flex-wrap items-center gap-2">
+                  {t.name}
+                  <TeamBadge badge={t.badge} />
+                </span>
+              </td>
               <td className="stat-num py-3">{t.record}</td>
               <td className="stat-num py-3">{t.pointsFor.toFixed(1)}</td>
               <td className="stat-num py-3">{pct(t.playoffOdds)}</td>
