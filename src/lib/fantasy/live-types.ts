@@ -51,6 +51,8 @@ export interface LiveMatchup {
   /** Title and playoff odds recorded for each completed week. */
   oddsHistory: { week: number; titleOdds: number; playoffOdds: number }[];
   gameState: "pre" | "in" | "post";
+  /** One-line "what you need" read, null once the matchup is final. */
+  needLine: string | null;
   isBestBall: boolean;
   leagueRank: number | null;
   teamCount: number;
