@@ -418,6 +418,9 @@ function TradeValuesPanel() {
             <Button key={p} size="sm" variant={position === p ? "default" : "outline"} onClick={() => setPosition(p)}>{p}</Button>
           ))}
         </div>
+        <Button size="sm" variant={gemsFirst ? "secondary" : "outline"} onClick={() => setGemsFirst((v) => !v)}>
+          Undervalued first
+        </Button>
         {values.data?.admin && (
           <Button size="sm" variant="secondary" onClick={() => refreshing.mutate()} disabled={refreshing.isPending}>
             {refreshing.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null} Refresh now
