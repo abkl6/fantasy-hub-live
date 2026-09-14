@@ -706,17 +706,23 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
     // ---- selling: my veterans to a contender for picks and youth ----------
     if (modes.includes("sell") && (otherPicks.length || other.roster.length)) {
-      const send = mine.roster
+      // A selling team (especially a Donator) should be shopping every veteran
+      // it has, so offer up its two most valuable non-young pieces.
+      const sellables = mine.roster
         .filter((p) => laneOf(p) !== "young")
-        .sort((a, b) => valueOf(b) - valueOf(a))[0];
-      const theirYoung = other.roster
+        .sort((a, b) => valueOf(b) - valueOf(a))
+        .slice(0, 2);
+      const theirYoungPool = other.roster
         .filter((p) => laneOf(p) === "young")
-        .sort((a, b) => valueOf(b) - valueOf(a))[0];
-      const back: TradeAsset[] = [];
-      if (otherPicks[0]) back.push(otherPicks[0]);
-      if (theirYoung) back.push(assetFor(theirYoung));
+        .sort((a, b) => valueOf(b) - valueOf(a));
 
-      if (send && back.length) {
+      for (const [i, send] of sellables.entries()) {
+        const theirYoung = theirYoungPool[i] ?? theirYoungPool[0];
+        const back: TradeAsset[] = [];
+        if (otherPicks[i] ?? otherPicks[0]) back.push((otherPicks[i] ?? otherPicks[0])!);
+        if (theirYoung) back.push(assetFor(theirYoung));
+        if (!back.length) continue;
+
         const nextRoster = theirYoung
           ? mine.roster.map((p) => (p.name === send.name ? theirYoung : p))
           : mine.roster.filter((p) => p.name !== send.name);
@@ -728,7 +734,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           .map(assetFor)
           .sort((a, b) => a.value - b.value);
         const theirPool: TradeAsset[] = [
-          ...otherPicks.slice(1),
+          ...otherPicks.filter((pk) => !back.includes(pk)),
           ...other.roster
             .filter((p) => laneOf(p) === "young" && p.name !== theirYoung?.name)
             .map(assetFor),
@@ -739,12 +745,19 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         const cost = Math.max(0, beforeLineup - after);
         const giveText = balanced.give.map(assetLabel).join(" + ");
         const getText = balanced.get.map(assetLabel).join(" + ");
+        const read = partnerRead(
+          other,
+          theirYoung ? [theirYoung] : [],
+          [send],
+          balanced.getValue,
+          balanced.giveValue,
+        );
 
-        suggestions.push({
+        tradeIdeas.push({
           id: `sell-${other.id}-${send.name}`,
           kind: "trade",
           headline: `Sell ${giveText} to ${other.name} for ${getText}`,
-          detail: `${other.name} are a ${otherLabel} and should pay for win-now help. You bank ${Math.abs(gained).toLocaleString()} ${gained >= 0 ? "of extra" : "less"} future value on the ${marketLabel} market and give up ${cost.toFixed(1)} points a week you don't need.`,
+          detail: `${other.name} are a ${otherLabel} and should pay for win-now help. You bank ${Math.abs(gained).toLocaleString()} ${gained >= 0 ? "of extra" : "less"} future value on the ${marketLabel} market and give up ${cost.toFixed(1)} points a week you don't need. ${read.band} they accept — ${read.reason}`,
           pointsDelta: Math.round((after - beforeLineup) * 10) / 10,
           winDelta: Math.round(impact.winDelta * 100) / 100,
           titleDelta: impact.titleDelta,
@@ -761,9 +774,14 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           strategyLabel: "Selling",
           rationale: `You're a ${myBadge.label}: ${myStrategy.rationale}`,
           dynastyDelta: gained,
+          partnerPointsDelta: Math.round(read.pointsDelta * 10) / 10,
+          acceptance: read.acceptance,
+          acceptanceBand: read.band,
+          acceptanceReason: read.reason,
         });
       }
     }
+
   }
 
   // Sell ideas are supposed to cost title odds, so they are ranked by the
