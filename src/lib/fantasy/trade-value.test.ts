@@ -27,7 +27,7 @@ describe("pick names", () => {
   });
 
   it("reads numbered picks", () => {
-    expect(parsePickName("2026 Pick 1.05")).toEqual({ season: 2026, round: 1, slot: "early" });
+    expect(parsePickName("2026 Pick 1.03")).toEqual({ season: 2026, round: 1, slot: "early" });
   });
 
   it("ignores real players", () => {
