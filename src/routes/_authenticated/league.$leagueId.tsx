@@ -70,11 +70,20 @@ function LeaguePage() {
   const analyze = useServerFn(getAnalysis);
   const [tab, setTab] = useState("moves");
 
+  const forceRef = useRef(false);
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: ["analysis", leagueId],
-    queryFn: () => analyze({ data: { leagueId } }),
+    queryFn: () => {
+      const force = forceRef.current;
+      forceRef.current = false;
+      return analyze({ data: { leagueId, force } });
+    },
     refetchOnWindowFocus: false,
   });
+  const hardRefresh = () => {
+    forceRef.current = true;
+    return refetch();
+  };
 
   if (isLoading) {
     return (
