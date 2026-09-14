@@ -274,7 +274,7 @@ export function TradeBuilder({ leagueId }: { leagueId: string }) {
         {run.error && <span className="text-sm text-destructive">{(run.error as Error).message}</span>}
         {board.data && (
           <span className="text-xs text-muted-foreground">
-            Values: {board.data.valueFormat === "superflex" ? "Superflex" : "One-QB"} market
+            Values: {board.data.valueFormat === "sf" ? "Superflex" : "One-QB"} market
           </span>
         )}
       </div>
