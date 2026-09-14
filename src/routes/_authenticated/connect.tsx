@@ -762,6 +762,15 @@ function YahooPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The sign-in finishes in a separate tab, so pick the result up on return.
+  useEffect(() => {
+    const onFocus = () => void state.refetch();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   return (
     <section className="rounded-xl border border-border bg-card p-6">
       <h2 className="text-2xl font-bold uppercase">Connect Yahoo</h2>
