@@ -114,7 +114,7 @@ export async function runInactiveSweep(admin: DB): Promise<{ sent: number; check
           : `${starter.player_name} is ${statusLabel(status)} — tap to swap`,
         url: `/league/${league.id}?${params.toString()}`,
         tag: `inactive-${league.id}`,
-        dedupeKey: `inactive:${league.id}:${league.current_week}:${playerKey(starter.player_name)}:${statusLabel(status)}`,
+        dedupeKey: `inactive:${league.id}:${league.current_week}:${playerKey(starter.player_name, starter.position)}:${statusLabel(status)}`,
         ref: league.id,
         detail: starter.player_name,
       });
