@@ -612,7 +612,8 @@ export async function buildGameDay(
         s.position.toUpperCase(),
         Number(s.proj_points),
       );
-      const state = snap?.state ?? "pre";
+      const game = board.get(teamKey(s.nfl_team));
+      const state = game?.state ?? snap?.state ?? "pre";
       const projectedFinal =
         state === "post" ? livePoints : state === "in" ? round1(livePoints + proj * 0.4) : round1(proj);
       return {
@@ -625,8 +626,9 @@ export async function buildGameDay(
         projPoints: proj,
         projectedFinal,
         gameState: state,
-        gameClock: snap?.clock ?? null,
-        opponent: snap?.opponent ?? null,
+        gameClock: game?.clock ?? snap?.clock ?? null,
+        opponent: game?.opponent ?? snap?.opponent ?? null,
+
       };
     };
 
