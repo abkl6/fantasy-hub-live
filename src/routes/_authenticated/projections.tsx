@@ -372,11 +372,16 @@ function TradeValuesPanel() {
   const [format, setFormat] = useState<"sf" | "1qb">("sf");
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("ALL");
+  const [gemsFirst, setGemsFirst] = useState(false);
 
   const values = useQuery({
     queryKey: ["trade-values", format, search, position],
     queryFn: () => load({ data: { format, search, position, limit: 150 } }),
   });
+
+  const rows = [...(values.data?.rows ?? [])].sort((a, b) =>
+    gemsFirst ? Number(b.undervalued) - Number(a.undervalued) || (b.gap ?? 0) - (a.gap ?? 0) : 0,
+  );
 
   const refreshing = useMutation({
     mutationFn: () => refresh({}),
