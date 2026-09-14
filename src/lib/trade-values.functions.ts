@@ -105,7 +105,8 @@ export const listTradeValues = createServerFn({ method: "POST" })
       .slice(0, data.limit ?? 150)
       .map((r) => {
         const value = Number(r.value ?? 0);
-        const projValue = projByName.get(normalizeName(String(r.display_name))) ?? null;
+        const rawProj = projByName.get(normalizeName(String(r.display_name)));
+        const projValue = rawProj == null ? null : Math.round(rawProj * scale);
         const gap = projValue === null ? null : projValue - value;
         return {
           name: String(r.display_name),
