@@ -126,6 +126,8 @@ export async function buildWaiverBoard(
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
   // The member's own projection adjustments replace the shared baseline.
   const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
+  // Dynasty market prices, matched by the same normalized names as everywhere else.
+  const values = await loadTradeValues(supabase, leagueValueFormat(slots));
   const seasonOf = (p: {
     id?: string;
     full_name?: string;
