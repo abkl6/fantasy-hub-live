@@ -206,7 +206,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
               if (review) {
                 await supabase.from("weekly_snapshots").upsert(
                   {
-                    user_id: analysis.league.user_id,
+                    user_id: ownerByLeague.get(analysis.league.id)!,
                     league_id: analysis.league.id,
                     team_id: mine.id,
                     week,
@@ -215,7 +215,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
                     proj_wins: mine.projWins,
                     proj_losses: mine.projLosses,
                     power_score: mine.projPointsPerWeek,
-                    review,
+                    review: review as unknown as Database["public"]["Tables"]["weekly_snapshots"]["Insert"]["review"],
                   },
                   { onConflict: "league_id,team_id,week" },
                 );
