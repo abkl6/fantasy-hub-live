@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis, type Alert, type MoveSuggestion } from "./analysis.server";
+import type { Slot } from "./engine";
 import { isMultiYear } from "./format";
 import { normalizeName } from "./names";
+import { buildWeekReview, inReviewWindow, latestFinalWeek, type WeekReview } from "./week-review.server";
 
 type DB = SupabaseClient<Database>;
 
