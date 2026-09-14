@@ -1,6 +1,17 @@
 import { Link, Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { BarChart3, Bell, LogOut, Menu, Monitor, Plus, Radio, Repeat2, Users } from "lucide-react";
+import {
+  BarChart3,
+  Bell,
+  CalendarDays,
+  LogOut,
+  Menu,
+  Monitor,
+  Plus,
+  Radio,
+  Repeat2,
+  Users,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +30,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 const TABS = [
   { to: "/gameday", label: "Game Day", icon: Radio },
+  { to: "/games", label: "Games", icon: CalendarDays },
   { to: "/manager-hub", label: "Hub", icon: BarChart3 },
   { to: "/trade-desk", label: "Trades", icon: Repeat2 },
   { to: "/projections", label: "Players", icon: Users },

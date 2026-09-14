@@ -944,7 +944,13 @@ export const setBestLineupFn = createServerFn({ method: "POST" })
 export const getGameDayFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ leagueId: z.string().uuid().optional(), refresh: z.boolean().optional() }).parse(d ?? {}),
+    z
+      .object({
+        leagueId: z.string().uuid().optional(),
+        refresh: z.boolean().optional(),
+        games: z.boolean().optional(),
+      })
+      .parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { buildGameDay, refreshLiveScoring } = await import("./fantasy/live.server");
@@ -958,7 +964,10 @@ export const getGameDayFn = createServerFn({ method: "POST" })
       }
     }
 
-    return buildGameDay(context.supabase, data.leagueId ? { leagueId: data.leagueId } : {});
+    return buildGameDay(context.supabase, {
+      ...(data.leagueId ? { leagueId: data.leagueId } : {}),
+      ...(data.games ? { includeGames: true } : {}),
+    });
   });
 
 export const getManagerHubFn = createServerFn({ method: "GET" })
