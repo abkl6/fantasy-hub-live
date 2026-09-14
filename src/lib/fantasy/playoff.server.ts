@@ -175,10 +175,20 @@ export function buildPlayoffPicture(
   });
 
   // Rooting interests: for each remaining game not involving the user's team,
-  // which result helps the user's playoff odds the most?
+  // which result helps the user's playoff odds the most? Only relevant once
+  // the playoff race is real: the final 4 weeks of the regular season, or the
+  // user's team is within 2 wins of clinching (or 2 of elimination).
   const mine = teams.find((t) => t.isMine);
+  const myScenarioRow = mine ? scenarios.find((s) => s.teamId === mine.id) : undefined;
+  const closeToClinch =
+    myScenarioRow != null &&
+    ((myScenarioRow.magicNumberPlayoff != null && myScenarioRow.magicNumberPlayoff <= 2) ||
+      (myScenarioRow.magicNumberBye != null && myScenarioRow.magicNumberBye <= 2) ||
+      (myScenarioRow.eliminationNumber != null && myScenarioRow.eliminationNumber <= 2));
+  const lateSeason = config.currentWeek > config.regularSeasonWeeks - 4;
+  const playoffRaceRelevant = lateSeason || closeToClinch;
   const rooting: RootingInterest[] = [];
-  if (mine) {
+  if (mine && playoffRaceRelevant) {
     for (const g of schedule.filter((x) => x.week > config.currentWeek)) {
       if (g.homeTeamId === mine.id || g.awayTeamId === mine.id) continue;
       const home = teamById.get(g.homeTeamId);
