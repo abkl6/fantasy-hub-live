@@ -123,42 +123,99 @@ function MoveRow({ move }: { move: HubMove }) {
   );
 }
 
-type OddsSeries = {
+type HubStandings = {
   leagueId: string;
   leagueName: string;
-  teamName: string;
-  points: { week: number; titleOdds: number; playoffOdds: number }[];
+  platform: string;
+  isDynasty: boolean;
+  myTeamId: string | null;
+  swing: number | null;
+  swingFromWeek: number | null;
+  teams: {
+    id: string;
+    name: string;
+    isMine: boolean;
+    record: string;
+    titleOdds: number;
+    playoffOdds: number;
+    badge: import("@/lib/fantasy/team-class").TeamBadge;
+    dynastyValue: number | null;
+    dynastyRank: number | null;
+  }[];
 };
 
-function OddsRow({ row }: { row: OddsSeries }) {
-  const latest = row.points[row.points.length - 1];
-  const first = row.points[0];
-  if (!latest || !first) return null;
-  const swing = latest.titleOdds - first.titleOdds;
+function StandingsCard({ league }: { league: HubStandings }) {
+  const myTeam = league.teams.find((t) => t.isMine);
   return (
-    <div className="rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div><p className="text-sm font-semibold">{row.leagueName}</p><p className="text-xs text-muted-foreground">{row.teamName} · week {latest.week}</p></div>
-        <div className="flex items-center gap-4 text-right text-xs">
-          <div><p className="text-muted-foreground">Title</p><Percent value={latest.titleOdds} /></div>
-          <div><p className="text-muted-foreground">Playoffs</p><Percent value={latest.playoffOdds} /></div>
-          {row.points.length > 1 && <Badge variant={swing >= 0 ? "default" : "destructive"}>{swing >= 0 ? "+" : ""}{(swing * 100).toFixed(1)}% since wk {first.week}</Badge>}
+    <div className="rounded-lg border">
+      <Link to="/league/$leagueId" params={{ leagueId: league.leagueId }} className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 transition-colors hover:bg-secondary/40">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-semibold">{league.leagueName}</p>
+          <Badge variant="secondary" className="text-[10px]">{PLATFORM[league.platform] ?? league.platform}</Badge>
         </div>
-      </div>
-      <div className="mt-3 flex items-end gap-1" aria-hidden>
-        {row.points.map((point) => (
-          <div key={point.week} className="flex-1" title={`Week ${point.week}`}>
-            <div className="flex h-16 items-end gap-[2px]">
-              <div className="w-1/2 rounded-t bg-primary" style={{ height: `${Math.max(2, point.titleOdds * 100)}%` }} />
-              <div className="w-1/2 rounded-t bg-muted-foreground/40" style={{ height: `${Math.max(2, point.playoffOdds * 100)}%` }} />
-            </div>
-            <p className="mt-1 text-center text-[10px] text-muted-foreground">{point.week}</p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-1 text-[10px] uppercase text-muted-foreground">Solid = title odds · faded = playoff odds</p>
+        {league.swing !== null && league.swingFromWeek !== null && (
+          <Badge variant={league.swing >= 0 ? "default" : "destructive"}>
+            {league.swing >= 0 ? "+" : ""}{(league.swing * 100).toFixed(1)}% title since wk {league.swingFromWeek}
+          </Badge>
+        )}
+      </Link>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border text-left text-[10px] uppercase text-muted-foreground">
+            <th className="px-3 py-1.5 font-medium">#</th>
+            <th className="py-1.5 pr-2 font-medium">Team</th>
+            <th className="py-1.5 pr-2 font-medium">Record</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Title</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Playoffs</th>
+            {league.isDynasty && <th className="py-1.5 pr-3 text-right font-medium">Dynasty value</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {league.teams.map((team, index) => {
+            const playoffCut = league.teams.filter((t) => t.playoffOdds >= 0.5).length;
+            const bubble = !team.isMine && index < league.teams.length && team.playoffOdds > 0.05 && team.playoffOdds < 0.5 && playoffCut > 0 && Math.abs(team.playoffOdds - 0.5) <= 0.15;
+            return (
+              <tr key={team.id} className={`border-b border-border/60 last:border-0 ${team.isMine ? "bg-primary/10" : ""}`}>
+                <td className="px-3 py-1.5 tabular-nums text-muted-foreground">{index + 1}</td>
+                <td className="max-w-0 py-1.5 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate font-medium">{team.name}</span>
+                    {team.isMine && <Badge className="text-[9px] uppercase">You</Badge>}
+                    <TeamBadge badge={team.badge} />
+                    {bubble && <span className="text-[9px] uppercase text-muted-foreground">Bubble</span>}
+                  </div>
+                </td>
+                <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">{team.record}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{(team.titleOdds * 100).toFixed(1)}%</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{(team.playoffOdds * 100).toFixed(0)}%</td>
+                {league.isDynasty && (
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {team.dynastyValue === null ? "—" : <>{team.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {team.dynastyRank}{ordinal(team.dynastyRank)}</span></>}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {myTeam && (
+        <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+          Your team: {myTeam.record} · {(myTeam.titleOdds * 100).toFixed(1)}% title · {(myTeam.playoffOdds * 100).toFixed(0)}% playoffs
+          {league.isDynasty && myTeam.dynastyValue !== null && ` · dynasty value ${myTeam.dynastyValue.toLocaleString()} (${myTeam.dynastyRank}${ordinal(myTeam.dynastyRank)})`}
+        </p>
+      )}
     </div>
   );
+}
+
+function ordinal(rank: number | null) {
+  if (!rank) return "";
+  const mod10 = rank % 10;
+  const mod100 = rank % 100;
+  if (mod10 === 1 && mod100 !== 11) return "st";
+  if (mod10 === 2 && mod100 !== 12) return "nd";
+  if (mod10 === 3 && mod100 !== 13) return "rd";
+  return "th";
 }
 
 function ManagerHub() {
