@@ -14,6 +14,8 @@ import type { Database } from "@/integrations/supabase/types";
 import { slotAccepts } from "./engine";
 import { normalizeName } from "./names";
 import { loadProjections } from "./projections.server";
+import { leagueScoring } from "./scoring";
+
 
 type DB = SupabaseClient<Database>;
 
