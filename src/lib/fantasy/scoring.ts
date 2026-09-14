@@ -141,9 +141,13 @@ const ARCHETYPES: Record<string, StatLine> = {
   RB: { rush_yd: 950, rush_td: 7, rec: 45, rec_yd: 340, rec_td: 2, fum_lost: 2 },
   WR: { rec: 85, rec_yd: 1150, rec_td: 8, rush_yd: 30, fum_lost: 1 },
   TE: { rec: 70, rec_yd: 780, rec_td: 6, fum_lost: 1 },
-  K: {},
-  DEF: {},
+  K: { fg_made: 28, fg_40_49: 9, fg_50p: 5, fg_miss: 5, xp_made: 32, xp_miss: 2 },
+  DEF: { def_sack: 40, def_int: 13, def_fr: 9, def_td: 3, def_saf: 1, def_ff: 11, pa_14_20: 6, pa_21_27: 5, pa_7_13: 4 },
+  DL: { idp_solo: 40, idp_ast: 20, idp_sack: 7, idp_ff: 2, idp_fr: 1 },
+  LB: { idp_solo: 80, idp_ast: 45, idp_sack: 3, idp_int: 1, idp_ff: 2, idp_fr: 1 },
+  DB: { idp_solo: 65, idp_ast: 25, idp_sack: 1, idp_int: 3, idp_ff: 1, idp_fr: 1 },
 };
+
 
 /** Applies a rule set to a stat line, including position-specific bonuses. */
 export function scoreStats(stats: StatLine, rules: ScoringRules, position?: string): number {
