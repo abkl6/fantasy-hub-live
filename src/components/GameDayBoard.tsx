@@ -283,7 +283,7 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
             )}
             {events.map((e) => (
               <p key={`${e.leagueId}-${e.id}`} className="flex items-baseline gap-1.5 truncate py-1 text-xs leading-tight">
-                <span className={`shrink-0 font-display font-bold tabular-nums ${e.points >= 0 ? "text-primary" : "text-destructive"}`}>
+                <span className={`shrink-0 font-display font-bold tabular-nums ${e.side === "opponent" ? "text-destructive" : e.points >= 0 ? "text-primary" : "text-destructive"}`}>
                   {e.points >= 0 ? "+" : ""}{e.points.toFixed(1)}
                 </span>
                 <span className="shrink-0 font-medium">{e.playerName}</span>
