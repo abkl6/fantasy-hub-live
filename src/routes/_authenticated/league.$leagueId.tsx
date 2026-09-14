@@ -1063,6 +1063,9 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
     padding + ((week - minWeek) / Math.max(maxWeek - minWeek, 1)) * (width - padding * 2);
   const yFor = (odds: number) => height - padding - (odds / maxOdds) * (height - padding * 2);
 
+  const TEAM_COLORS = ["text-primary", "text-chart-2", "text-chart-3", "text-chart-4", "text-chart-5"];
+  const colorFor = (i: number) => TEAM_COLORS[i % TEAM_COLORS.length];
+
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <h2 className="text-lg font-bold uppercase">Title odds over time</h2>
