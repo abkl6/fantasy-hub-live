@@ -465,6 +465,9 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
             Everyone still unowned in this league, with what they are worth and what they do to your
             title chances.
           </p>
+          {data?.strategyNote && (
+            <p className="mt-1 text-xs text-muted-foreground">{data.strategyNote}</p>
+          )}
         </div>
         <Input
           value={search}
