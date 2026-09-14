@@ -1,6 +1,6 @@
 import { Link, Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { BarChart3, LogOut, Menu, Monitor, Plus, Radio, Repeat2, Users } from "lucide-react";
+import { BarChart3, Bell, LogOut, Menu, Monitor, Plus, Radio, Repeat2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
