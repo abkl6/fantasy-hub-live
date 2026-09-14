@@ -359,6 +359,9 @@ export async function buildWaiverBoard(
         projWeek: p.projWeek,
         projSeason: Math.round(p.projSeason * 10) / 10,
         tradeValue: p.tradeValue,
+        ktcValue: p.ktcValue,
+        projValue: p.projValue,
+        undervalued: p.undervalued,
         bid,
         lineupGain: impact ? impact.lineupGain : null,
         titleDelta: impact ? impact.titleDelta : null,
@@ -383,5 +386,7 @@ export async function buildWaiverBoard(
     formatLabel: FORMAT_LABELS[format],
     scoringLabel: scoring.label,
     showLongTerm,
+    valueFormat: values.format,
+    valuesCovered: values.covered,
   };
 }
