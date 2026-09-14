@@ -60,10 +60,28 @@ export interface LiveMatchup {
   oppBench: LivePlayerRow[];
 }
 
+/** One NFL game this week, with its live score when the scoreboard has it. */
+export interface LiveGame {
+  id: string;
+  home: string;
+  away: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  gameState: "pre" | "in" | "post";
+  gameClock: string | null;
+  /** ISO kickoff time when the scoreboard knows it. */
+  kickoff: string | null;
+  /** "Thursday night", "Sunday early", "Sunday night", and so on. */
+  window: string;
+  today: boolean;
+}
+
 export interface GameDayPayload {
   season: number;
   week: number;
   updatedAt: string | null;
   matchups: LiveMatchup[];
   events: LiveEventRow[];
+  /** Only filled when the caller asks for the game slate. */
+  games: LiveGame[];
 }
