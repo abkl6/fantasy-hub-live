@@ -111,7 +111,6 @@ function MoveRow({ move }: { move: HubMove }) {
           <p className="mt-1 text-sm font-semibold">{move.headline}</p>
           <p className="mt-1 text-xs text-muted-foreground">{move.detail}</p>
           {move.rationale && <p className="mt-1 text-xs text-muted-foreground">{move.rationale}</p>}
-        </div>
           {move.acceptanceBand && (
             <p className="mt-1 text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">
