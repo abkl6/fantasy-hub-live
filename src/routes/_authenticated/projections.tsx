@@ -226,6 +226,8 @@ function ProjectionsPage() {
           )}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }
