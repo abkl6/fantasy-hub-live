@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGameDayFn } from "@/lib/fantasy.functions";
-import { gameWindow, pollInterval } from "@/lib/fantasy/gamewindow";
+import { countdownLabel, gameWindow, nextKickoff, pollInterval } from "@/lib/fantasy/gamewindow";
 import type { LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
 
 const stateLabel: Record<LivePlayerRow["gameState"], string> = {
