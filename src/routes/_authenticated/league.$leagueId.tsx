@@ -398,6 +398,74 @@ function PlayerList({
   );
 }
 
+
+/** Guillotine bidding needs real balances, so let managers keep them current. */
+function FaabBudgetStrip({
+  leagueId,
+  budget,
+  remaining,
+  teamId,
+}: {
+  leagueId: string;
+  budget: number;
+  remaining: number | null;
+  teamId: string | null;
+}) {
+  const save = useServerFn(updateFaab);
+  const queryClient = useQueryClient();
+  const [budgetValue, setBudgetValue] = useState(String(budget));
+  const [remainingValue, setRemainingValue] = useState(remaining == null ? "" : String(remaining));
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      save({
+        data: {
+          leagueId,
+          budget: Number(budgetValue) || budget,
+          ...(teamId && remainingValue !== ""
+            ? { teamId, remaining: Math.max(0, Math.round(Number(remainingValue))) }
+            : {}),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Budget saved.");
+      queryClient.invalidateQueries({ queryKey: ["waivers", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the budget."),
+  });
+
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/30 p-3">
+      <div>
+        <label className="eyebrow text-muted-foreground">League budget</label>
+        <Input
+          value={budgetValue}
+          onChange={(e) => setBudgetValue(e.target.value)}
+          inputMode="numeric"
+          className="mt-1 w-28"
+        />
+      </div>
+      <div>
+        <label className="eyebrow text-muted-foreground">Your money left</label>
+        <Input
+          value={remainingValue}
+          onChange={(e) => setRemainingValue(e.target.value)}
+          inputMode="numeric"
+          placeholder={String(budget)}
+          className="mt-1 w-28"
+        />
+      </div>
+      <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+        {mutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Save"}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Sleeper leagues fill this in automatically on each sync.
+      </p>
+    </div>
+  );
+}
+
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"];
 
 const SORTS = [
@@ -515,6 +583,15 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
         </p>
       )}
 
+      {data?.isSurvivalLeague && (
+        <FaabBudgetStrip
+          leagueId={leagueId}
+          budget={data.faabBudget}
+          remaining={data.myFaabRemaining}
+          teamId={data.myTeamId}
+        />
+      )}
+
       <ul className="mt-4 space-y-1">
         {isFetching && !data && <li className="text-sm text-muted-foreground">Loading…</li>}
         {rows.map((p) => (
@@ -558,9 +635,14 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                       )}
                     </span>
                   )}
-                  <span>
-                    Bid <span className="stat-num text-foreground">{p.bid > 0 ? `${p.bid}%` : "no bid"}</span>
-                  </span>
+                  {!p.bids && (
+                    <span>
+                      Bid{" "}
+                      <span className="stat-num text-foreground">
+                        {p.bid > 0 ? `${p.bid}%` : "no bid"}
+                      </span>
+                    </span>
+                  )}
                   {p.longTermValue !== null && (
                     <span>
                       Keep value{" "}
@@ -576,6 +658,24 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   )}
                   {p.suggestedDrop && <span>Drop {p.suggestedDrop}</span>}
                 </div>
+                {p.bids && (
+                  <div className="mt-2 rounded-lg border border-border bg-muted/30 p-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-md border border-border px-2 py-1">
+                        Passive{" "}
+                        <span className="stat-num text-foreground">${p.bids.passive}</span>
+                      </span>
+                      <span className="rounded-md bg-primary px-2 py-1 text-primary-foreground">
+                        Optimal <span className="stat-num">${p.bids.optimal}</span>
+                      </span>
+                      <span className="rounded-md border border-border px-2 py-1">
+                        Aggressive{" "}
+                        <span className="stat-num text-foreground">${p.bids.aggressive}</span>
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{p.bids.reason}</p>
+                  </div>
+                )}
               </div>
               <Button
                 size="sm"
