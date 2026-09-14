@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -701,13 +701,41 @@ function YahooPanel() {
 
   const state = useQuery({ queryKey: ["yahoo-status"], queryFn: () => status({}) });
 
+  const popupRef = useRef<Window | null>(null);
+
   const signIn = useMutation({
     mutationFn: () => start({ data: { origin: window.location.origin } }),
     onSuccess: (res) => {
-      window.location.href = res.url;
+      // Inside the preview the app runs in an iframe and Yahoo refuses to be framed,
+      // so send the sign-in to a separate tab that was opened on the click itself.
+      if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.location.href = res.url;
+        toast.info("Finish signing in on the Yahoo tab, then come back here.");
+        return;
+      }
+      const opened = window.open(res.url, "_blank", "noopener,noreferrer");
+      if (opened) {
+        toast.info("Finish signing in on the Yahoo tab, then come back here.");
+        return;
+      }
+      try {
+        (window.top ?? window).location.href = res.url;
+      } catch {
+        window.location.href = res.url;
+      }
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not start Yahoo sign-in."),
+    onError: (e) => {
+      popupRef.current?.close();
+      popupRef.current = null;
+      toast.error(e instanceof Error ? e.message : "Could not start Yahoo sign-in.");
+    },
   });
+
+  const beginSignIn = () => {
+    // Opened synchronously so browsers don't treat it as a blocked pop-up.
+    popupRef.current = window.open("about:blank", "_blank");
+    signIn.mutate();
+  };
 
   const find = useMutation({
     mutationFn: () => leagues({}),
@@ -733,6 +761,15 @@ function YahooPanel() {
     void state.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The sign-in finishes in a separate tab, so pick the result up on return.
+  useEffect(() => {
+    const onFocus = () => void state.refetch();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
@@ -762,7 +799,7 @@ function YahooPanel() {
       <div className="mt-5 flex flex-wrap gap-3">
         <Button
           disabled={signIn.isPending || state.isLoading || state.data?.configured === false}
-          onClick={() => signIn.mutate()}
+          onClick={beginSignIn}
         >
           {signIn.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
           {state.data?.connected ? "Reconnect Yahoo" : "Sign in with Yahoo"}
