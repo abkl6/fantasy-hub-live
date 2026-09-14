@@ -41,6 +41,9 @@ function AuthenticatedLayout() {
               <Link to="/manager-hub">Manager Hub</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
+              <Link to="/trade-desk">Trade Desk</Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost">
               <Link to="/trades">Trades</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
