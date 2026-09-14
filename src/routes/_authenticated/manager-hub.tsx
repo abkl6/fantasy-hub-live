@@ -126,6 +126,17 @@ function MoveRow({ move }: { move: HubMove }) {
         {(move.titleDelta > 0 || move.playoffDelta > 0) && <div className="flex shrink-0 flex-col items-end gap-1">{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}{move.playoffDelta > 0 && <Badge variant="secondary">+{(move.playoffDelta * 100).toFixed(1)}% playoff</Badge>}</div>}
       </div>
 
+      {move.bids && (
+        <div className="mt-2 rounded-lg border border-border bg-muted/30 p-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-md border border-border px-2 py-1">Passive <span className="stat-num text-foreground">${move.bids.passive}</span></span>
+            <span className="rounded-md bg-primary px-2 py-1 text-primary-foreground">Optimal <span className="stat-num">${move.bids.optimal}</span></span>
+            <span className="rounded-md border border-border px-2 py-1">Aggressive <span className="stat-num text-foreground">${move.bids.aggressive}</span></span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{move.bids.reason}</p>
+        </div>
+      )}
+
       {move.giveValue != null && move.getValue != null && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="outline">You give {move.giveValue.toLocaleString()}</Badge>
