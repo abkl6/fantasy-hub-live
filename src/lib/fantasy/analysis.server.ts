@@ -786,9 +786,17 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // Sell ideas are supposed to cost title odds, so they are ranked by the
   // future value they bring back instead (5,000 market points ~ one title point).
-  const rankScore = (s: MoveSuggestion) =>
-    s.strategy === "sell" ? (s.dynastyDelta ?? 0) / 5000 : s.titleDelta;
+  // Deals the other manager would actually take are worth more than perfect
+  // ones they would laugh at, so acceptance is part of the ranking.
+  const rankScore = (s: MoveSuggestion) => {
+    const core = s.strategy === "sell" ? (s.dynastyDelta ?? 0) / 5000 : s.titleDelta;
+    return core * (0.4 + 1.2 * (s.acceptance ?? 0.5));
+  };
+  tradeIdeas.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
+  // Always show five trade ideas, even when the best of them still costs points.
+  suggestions.push(...keepTopFive(tradeIdeas, (s) => rankScore(s) > 0));
   suggestions.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
+
 
   const why: string[] = [];
   const strength = grades.filter((g) => g.verdict === "strength").map((g) => g.position);
