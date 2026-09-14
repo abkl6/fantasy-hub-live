@@ -63,6 +63,7 @@ function TradesPage() {
   const rows = trades.data ?? [];
   const accepted = rows.filter((t) => t.status === "accepted");
   const netTitle = accepted.reduce((sum, t) => sum + (t.titleOddsAfter - t.titleOddsBefore), 0);
+  const netPlayoff = accepted.reduce((sum, t) => sum + (t.playoffOddsAfter - t.playoffOddsBefore), 0);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -74,13 +75,25 @@ function TradesPage() {
       </p>
 
       {accepted.length > 0 && (
-        <div className="mt-6 inline-flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4">
-          <span className="eyebrow text-muted-foreground">Net title odds from accepted trades</span>
-          <span
-            className={`stat-num text-2xl font-bold ${netTitle >= 0 ? "text-primary" : "text-destructive"}`}
-          >
-            {netTitle >= 0 ? "+" : ""}
-            {(netTitle * 100).toFixed(1)}%
+        <div className="mt-6 inline-flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-5 py-4">
+          <span className="eyebrow text-muted-foreground">Net odds from accepted trades</span>
+          <span className="flex items-baseline gap-2">
+            <span className="eyebrow text-muted-foreground">Title</span>
+            <span
+              className={`stat-num text-2xl font-bold ${netTitle >= 0 ? "text-primary" : "text-destructive"}`}
+            >
+              {netTitle >= 0 ? "+" : ""}
+              {(netTitle * 100).toFixed(1)}%
+            </span>
+          </span>
+          <span className="flex items-baseline gap-2">
+            <span className="eyebrow text-muted-foreground">Playoff</span>
+            <span
+              className={`stat-num text-2xl font-bold ${netPlayoff >= 0 ? "text-primary" : "text-destructive"}`}
+            >
+              {netPlayoff >= 0 ? "+" : ""}
+              {(netPlayoff * 100).toFixed(1)}%
+            </span>
           </span>
         </div>
       )}
@@ -105,6 +118,7 @@ function TradesPage() {
       <div className="mt-8 space-y-4">
         {rows.map((t) => {
           const titleDelta = t.titleOddsAfter - t.titleOddsBefore;
+          const playoffDelta = t.playoffOddsAfter - t.playoffOddsBefore;
           const up = titleDelta >= 0;
           return (
             <article key={t.id} className="rounded-xl border border-border bg-card p-5">
@@ -137,6 +151,13 @@ function TradesPage() {
                     {(titleDelta * 100).toFixed(1)}%
                   </p>
                   <p className="eyebrow text-muted-foreground">title odds</p>
+                  <p
+                    className={`stat-num mt-1 text-sm font-semibold ${playoffDelta >= 0 ? "text-primary" : "text-destructive"}`}
+                  >
+                    {playoffDelta >= 0 ? "+" : ""}
+                    {(playoffDelta * 100).toFixed(1)}%
+                  </p>
+                  <p className="eyebrow text-muted-foreground">playoff odds</p>
                 </div>
               </div>
 

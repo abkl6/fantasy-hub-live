@@ -45,6 +45,7 @@ export interface LiveMatchup {
   oppYetToPlay: number;
   winProbability: number | null;
   titleOdds: number | null;
+  playoffOdds: number | null;
   gameState: "pre" | "in" | "post";
   isBestBall: boolean;
   leagueRank: number | null;

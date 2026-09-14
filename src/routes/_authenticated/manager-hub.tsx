@@ -107,7 +107,7 @@ function ManagerHub() {
             <div className="mt-3 divide-y divide-border">
               {!data.moves.length && <p className="py-4 text-sm text-muted-foreground">No lineup or waiver upgrade is currently projected.</p>}
               {data.moves.slice(0, 6).map((move) => <div key={`${move.leagueId}-${move.id}`} className="py-3">
-                <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{move.headline}</p><p className="mt-1 text-xs text-muted-foreground">{move.detail}</p></div>{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}</div>
+                <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{move.headline}</p><p className="mt-1 text-xs text-muted-foreground">{move.detail}</p></div>{(move.titleDelta > 0 || move.playoffDelta > 0) && <div className="flex shrink-0 flex-col items-end gap-1">{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}{move.playoffDelta > 0 && <Badge variant="secondary">+{(move.playoffDelta * 100).toFixed(1)}% playoff</Badge>}</div>}</div>
                 <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0"><Link to="/league/$leagueId" params={{ leagueId: move.leagueId }}>{move.leagueName}<ArrowRight className="size-3" /></Link></Button>
               </div>)}
             </div>

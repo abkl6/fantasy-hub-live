@@ -291,7 +291,7 @@ export async function buildGameDay(
         .limit(300),
       supabase
         .from("weekly_snapshots")
-        .select("league_id, team_id, title_odds, week, created_at")
+        .select("league_id, team_id, title_odds, playoff_odds, week, created_at")
         .in("league_id", leagueIds)
         .order("created_at", { ascending: false }),
     ]);
@@ -463,6 +463,7 @@ export async function buildGameDay(
       oppYetToPlay: oppStarters.filter((r) => r.gameState === "pre").length,
       winProbability,
       titleOdds: latestSnapshot ? Number(latestSnapshot.title_odds) : null,
+      playoffOdds: latestSnapshot ? Number(latestSnapshot.playoff_odds) : null,
       gameState,
       isBestBall,
       leagueRank,
