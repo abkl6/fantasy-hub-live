@@ -38,26 +38,28 @@ export async function sendLiveAlerts(
     const day = await buildGameDay(scoped);
 
     for (const matchup of day.matchups) {
+      const matchupRef = `${matchup.leagueId}:${matchup.week}`;
+
       // ---- lead change
-      if (wants.lead_change && matchup.state !== "pre") {
+      if (wants.lead_change && matchup.gameState !== "pre") {
         const leader =
-          matchup.myScore === matchup.theirScore
+          matchup.myScore === matchup.oppScore
             ? "tie"
-            : matchup.myScore > matchup.theirScore
+            : matchup.myScore > matchup.oppScore
               ? "me"
               : "them";
-        const previous = await lastDetail(admin, userId, "lead_change", matchup.id);
+        const previous = await lastDetail(admin, userId, "lead_change", matchupRef);
         if (leader !== "tie" && previous && previous !== leader) {
           const ok = await notifyUser(admin, userId, wants, {
             kind: "lead_change",
             title: matchup.leagueName,
             body:
               leader === "me"
-                ? `You just took the lead ${matchup.myScore.toFixed(1)}–${matchup.theirScore.toFixed(1)}`
-                : `${matchup.opponentName} just took the lead ${matchup.theirScore.toFixed(1)}–${matchup.myScore.toFixed(1)}`,
+                ? `You just took the lead ${matchup.myScore.toFixed(1)}–${matchup.oppScore.toFixed(1)}`
+                : `${matchup.oppTeam ?? "Your opponent"} just took the lead ${matchup.oppScore.toFixed(1)}–${matchup.myScore.toFixed(1)}`,
             url: `/league/${matchup.leagueId}?tab=live`,
-            tag: `lead-${matchup.id}`,
-            ref: matchup.id,
+            tag: `lead-${matchupRef}`,
+            ref: matchupRef,
             detail: leader,
           });
           if (ok) counts.leadChange += 1;
@@ -65,11 +67,11 @@ export async function sendLiveAlerts(
           await notifyUser(admin, userId, wants, {
             kind: "lead_change",
             title: matchup.leagueName,
-            body: leader === "me" ? "You're ahead" : `${matchup.opponentName} is ahead`,
+            body: leader === "me" ? "You're ahead" : `${matchup.oppTeam ?? "Your opponent"} is ahead`,
             url: `/league/${matchup.leagueId}?tab=live`,
-            ref: matchup.id,
+            ref: matchupRef,
             detail: leader,
-            dedupeKey: `lead-first:${matchup.id}:${day.week}`,
+            dedupeKey: `lead-first:${matchupRef}`,
           });
         }
       }
@@ -77,7 +79,7 @@ export async function sendLiveAlerts(
       // ---- red zone for my starters
       if (wants.red_zone && opts.redZone?.length) {
         const zones = new Map(opts.redZone.map((z) => [z.team.toUpperCase(), z]));
-        for (const player of matchup.myPlayers.filter((p) => p.isStarter)) {
+        for (const player of matchup.starters) {
           const zone = player.nflTeam ? zones.get(player.nflTeam.toUpperCase()) : undefined;
           if (!zone) continue;
           const ok = await notifyUser(admin, userId, wants, {
@@ -86,8 +88,8 @@ export async function sendLiveAlerts(
             body: `${player.name} is in the red zone vs ${zone.opponent ?? "their opponent"}`,
             url: `/league/${matchup.leagueId}?tab=live`,
             tag: `rz-${player.name}`,
-            dedupeKey: `rz:${userId}:${day.week}:${player.name}:${Math.floor(Date.now() / 600_000)}`,
-            ref: matchup.id,
+            dedupeKey: `rz:${day.week}:${player.name}:${Math.floor(Date.now() / 600_000)}`,
+            ref: matchupRef,
           });
           if (ok) counts.redZone += 1;
         }
@@ -97,7 +99,7 @@ export async function sendLiveAlerts(
     // ---- scoring plays by my starters
     if (wants.scoring_plays) {
       const mine = new Set(
-        day.matchups.flatMap((m) => m.myPlayers.filter((p) => p.isStarter).map((p) => p.name)),
+        day.matchups.flatMap((m) => m.starters.map((p) => p.name)),
       );
       const recent = day.events.filter(
         (e) => mine.has(e.playerName) && Date.now() - new Date(e.occurredAt).getTime() < 10 * 60_000,
