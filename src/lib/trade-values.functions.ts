@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeName } from "@/lib/fantasy/names";
-import { fallbackValue } from "@/lib/fantasy/trade-value";
+import { calibratedScale, fallbackValue } from "@/lib/fantasy/trade-value";
 
 export interface TradeValueRow {
   name: string;
@@ -78,7 +78,8 @@ export const listTradeValues = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     // Projection-implied market worth, so the table can flag who our numbers
-    // like more than the dynasty market does.
+    // like more than the dynasty market does. Calibrated onto the KTC scale
+    // with the median market/projection ratio across players in both tables.
     const projByName = new Map<string, number>();
     for (const p of playerRows ?? []) {
       const projValue = fallbackValue(
@@ -88,6 +89,12 @@ export const listTradeValues = createServerFn({ method: "POST" })
       const nameKey = String(p.search_name);
       projByName.set(nameKey, Math.max(projByName.get(nameKey) ?? 0, projValue));
     }
+    const scale = calibratedScale(
+      (values ?? []).map((r) => ({
+        market: Number(r.value ?? 0),
+        proj: projByName.get(normalizeName(String(r.display_name))) ?? 0,
+      })),
+    );
 
     const search = normalizeName(data.search ?? "");
     const position = (data.position ?? "ALL").toUpperCase();
