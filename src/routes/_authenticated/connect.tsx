@@ -2,11 +2,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, ImageUp, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -105,20 +106,92 @@ function ConnectPage() {
   );
 }
 
+type ImportState = "waiting" | "importing" | "done" | "failed";
+
+interface ImportStep {
+  leagueId: string;
+  name: string;
+  state: ImportState;
+  error?: string;
+}
+
 function SleeperPanel() {
   const navigate = useNavigate();
   const find = useServerFn(findSleeperLeagues);
   const doImport = useServerFn(importSleeperLeague);
+
   const [username, setUsername] = useState("");
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [steps, setSteps] = useState<ImportStep[] | null>(null);
+  const [byIdOpen, setByIdOpen] = useState(false);
+  const [byId, setById] = useState("");
 
   const search = useMutation({
     mutationFn: (name: string) => find({ data: { username: name } }),
+    onSuccess: (res) => {
+      // Everything the account owns starts checked.
+      setSelected(Object.fromEntries(res.leagues.map((l) => [l.league_id, true])));
+      setSteps(null);
+      if (!res.leagues.length) toast.info("No leagues found on that account.");
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not reach Sleeper."),
   });
 
-  const importer = useMutation({
-    mutationFn: (vars: { sleeperLeagueId: string; sleeperUserId: string; season: string }) =>
-      doImport({ data: vars }),
+  const importSelected = useMutation({
+    mutationFn: async () => {
+      const res = search.data;
+      if (!res) return null;
+      const queue = res.leagues.filter((l) => selected[l.league_id]);
+      setSteps(
+        queue.map((l) => ({ leagueId: l.league_id, name: l.name, state: "waiting" as ImportState })),
+      );
+
+      let firstImported: string | null = null;
+      for (const league of queue) {
+        setSteps((prev) =>
+          (prev ?? []).map((s) => (s.leagueId === league.league_id ? { ...s, state: "importing" } : s)),
+        );
+        try {
+          const out = await doImport({
+            data: {
+              sleeperLeagueId: league.league_id,
+              sleeperUserId: res.userId,
+              season: res.season,
+            },
+          });
+          firstImported ??= out.leagueId;
+          setSteps((prev) =>
+            (prev ?? []).map((s) => (s.leagueId === league.league_id ? { ...s, state: "done" } : s)),
+          );
+        } catch (e) {
+          setSteps((prev) =>
+            (prev ?? []).map((s) =>
+              s.leagueId === league.league_id
+                ? { ...s, state: "failed", error: e instanceof Error ? e.message : "Import failed." }
+                : s,
+            ),
+          );
+        }
+      }
+      return firstImported;
+    },
+    onSuccess: (leagueId) => {
+      if (leagueId) {
+        toast.success("Leagues imported.");
+        navigate({ to: "/league/$leagueId", params: { leagueId } });
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
+  });
+
+  const importById = useMutation({
+    mutationFn: (sleeperLeagueId: string) =>
+      doImport({
+        data: {
+          sleeperLeagueId,
+          ...(username.trim() ? { sleeperUsername: username.trim() } : {}),
+        },
+      }),
     onSuccess: (res) => {
       toast.success(`${res.name} imported.`);
       navigate({ to: "/league/$leagueId", params: { leagueId: res.leagueId } });
@@ -126,13 +199,18 @@ function SleeperPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
   });
 
+  const leagues = search.data?.leagues ?? [];
+  const checkedCount = leagues.filter((l) => selected[l.league_id]).length;
+  const busy = importSelected.isPending;
+
   return (
     <section className="rounded-xl bg-card p-6">
       <h2 className="text-2xl font-bold">Connect Sleeper</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Enter your Sleeper username and pick the league to track. Scores refresh every time you open
-        it.
+        Enter your Sleeper username and we'll pull in every league on the account. Your own team is
+        picked out automatically.
       </p>
+
       <form
         className="mt-5 flex flex-wrap gap-3"
         onSubmit={(e) => {
@@ -153,40 +231,105 @@ function SleeperPanel() {
         </Button>
       </form>
 
-      {search.data && (
-        <div className="mt-6 space-y-3">
-          {!search.data.leagues.length && (
-            <p className="text-sm text-muted-foreground">No leagues found on that account.</p>
-          )}
-          {search.data.leagues.map((l) => (
-            <div
-              key={l.league_id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background/50 p-4"
-            >
-              <div>
-                <p className="font-semibold">{l.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {l.total_rosters} teams · {search.data!.season} season
-                </p>
-              </div>
-              <Button
-                size="sm"
-                disabled={importer.isPending}
-                onClick={() =>
-                  importer.mutate({
-                    sleeperLeagueId: l.league_id,
-                    sleeperUserId: search.data!.userId,
-                    season: search.data!.season,
-                  })
-                }
+      {!!leagues.length && !steps && (
+        <div className="mt-6">
+          <div className="divide-y divide-border overflow-hidden rounded-lg bg-background/50">
+            {leagues.map((l) => (
+              <label
+                key={l.league_id}
+                className="flex cursor-pointer items-center gap-3 p-4"
+                htmlFor={`league-${l.league_id}`}
               >
-                {importer.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-                Import
-              </Button>
-            </div>
-          ))}
+                <Checkbox
+                  id={`league-${l.league_id}`}
+                  checked={!!selected[l.league_id]}
+                  onCheckedChange={(v) =>
+                    setSelected((prev) => ({ ...prev, [l.league_id]: v === true }))
+                  }
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{l.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {l.total_rosters} teams · {search.data!.season} season
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <Button
+            className="mt-4"
+            disabled={busy || !checkedCount}
+            onClick={() => importSelected.mutate()}
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+            Import {checkedCount} {checkedCount === 1 ? "league" : "leagues"}
+          </Button>
         </div>
       )}
+
+      {steps && (
+        <ul className="mt-6 divide-y divide-border overflow-hidden rounded-lg bg-background/50">
+          {steps.map((s) => (
+            <li key={s.leagueId} className="flex items-center gap-3 p-3 text-sm">
+              {s.state === "importing" && <Loader2 className="size-4 animate-spin text-primary" />}
+              {s.state === "done" && <Check className="size-4 text-success" aria-hidden="true" />}
+              {s.state === "failed" && <X className="size-4 text-destructive" aria-hidden="true" />}
+              {s.state === "waiting" && <span className="size-4" aria-hidden="true" />}
+              <span className="min-w-0 flex-1 truncate">{s.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {s.state === "waiting"
+                  ? "Waiting"
+                  : s.state === "importing"
+                    ? "Importing…"
+                    : s.state === "done"
+                      ? "Imported"
+                      : (s.error ?? "Failed")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-6 border-t border-border pt-4">
+        {!byIdOpen ? (
+          <button
+            type="button"
+            className="text-sm text-primary underline-offset-4 hover:underline"
+            onClick={() => setByIdOpen(true)}
+          >
+            Add by ID
+          </button>
+        ) : (
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (byId.trim()) importById.mutate(byId.trim());
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="sleeper-league-id">Sleeper league ID</Label>
+              <Input
+                id="sleeper-league-id"
+                className="max-w-xs"
+                placeholder="1049283746501234567"
+                value={byId}
+                onChange={(e) => setById(e.target.value)}
+              />
+            </div>
+            <Button type="submit" variant="outline" disabled={importById.isPending}>
+              {importById.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Import
+            </Button>
+          </form>
+        )}
+        {byIdOpen && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Fill in your username above too and we'll still find your team in that league.
+          </p>
+        )}
+      </div>
     </section>
   );
 }
