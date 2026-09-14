@@ -93,6 +93,10 @@ type HubMove = {
   strategyLabel?: string;
   rationale?: string;
   dynastyDelta?: number;
+  acceptance?: number;
+  acceptanceBand?: string;
+  partnerPointsDelta?: number;
+
 };
 
 function MoveRow({ move }: { move: HubMove }) {
