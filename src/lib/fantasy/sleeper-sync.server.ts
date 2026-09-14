@@ -44,12 +44,19 @@ export async function refreshSleeperLeague(
     sleeperPlayers(),
   ]);
 
+  // Sleeper reports the league's FAAB budget and each roster's spend, so
+  // guillotine bidding advice stays accurate without any manual entry.
+  const faabBudget = Number(
+    (bundle.league as { settings?: { waiver_budget?: number } }).settings?.waiver_budget ?? 0,
+  );
+
   await supabase
     .from("leagues")
     .update({
       name: bundle.league.name,
       current_week: week,
       scoring_rules: bundle.league.scoring_settings ?? {},
+      ...(faabBudget ? { faab_budget: faabBudget } : {}),
       last_synced_at: new Date().toISOString(),
     })
     .eq("id", league.id);
@@ -73,6 +80,13 @@ export async function refreshSleeperLeague(
       ties: s.ties ?? 0,
       points_for: Number(`${s.fpts ?? 0}.${s.fpts_decimal ?? 0}`),
       points_against: Number(`${s.fpts_against ?? 0}.${s.fpts_against_decimal ?? 0}`),
+      ...(faabBudget
+        ? {
+            faab_spent: Number((s as { waiver_budget_used?: number }).waiver_budget_used ?? 0),
+            faab_remaining:
+              faabBudget - Number((s as { waiver_budget_used?: number }).waiver_budget_used ?? 0),
+          }
+        : {}),
     };
     const existing = teamByExternal.get(String(r.roster_id));
     if (existing) {
