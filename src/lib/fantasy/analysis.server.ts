@@ -508,21 +508,27 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     .sort((a, b) => b.proj - a.proj)
     .slice(0, 14);
 
+  // Always surface the five best waiver options, even when the maths says the
+  // gain is small or slightly negative — the manager still wants to see them.
   const droppable = [...mine.roster].sort((a, b) => a.proj - b.proj);
-  for (const fa of freeAgents.slice(0, 8)) {
-    const drop = droppable.find((d) => d.proj < fa.proj);
+  const waiverIdeas: MoveSuggestion[] = [];
+  for (const fa of freeAgents.slice(0, 10)) {
+    const drop = droppable[0];
     if (!drop) continue;
     const nextRoster = mine.roster.map((p) => (p.name === drop.name ? fa : p));
     const before = optimalLineup(mine.roster, slots).total;
     const after = optimalLineup(nextRoster, slots).total;
-    if (after - before < 0.4) continue;
+    const gain = after - before;
     const impact = whatIf(nextRoster);
-    suggestions.push({
+    waiverIdeas.push({
       id: `waiver-${fa.name}`,
       kind: "waiver",
       headline: `Add ${fa.name} (${fa.position}), drop ${drop.name}`,
-      detail: `Your best starting lineup gains ${(after - before).toFixed(1)} points a week.`,
-      pointsDelta: Math.round((after - before) * 10) / 10,
+      detail:
+        gain >= 0.1
+          ? `Your best starting lineup gains ${gain.toFixed(1)} points a week.`
+          : `A depth or upside add — your starting lineup changes by ${gain.toFixed(1)} points a week right now.`,
+      pointsDelta: Math.round(gain * 10) / 10,
       winDelta: Math.round(impact.winDelta * 100) / 100,
       titleDelta: impact.titleDelta,
       playoffDelta: impact.playoffDelta,
@@ -530,6 +536,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       dropName: drop.name,
     });
   }
+  waiverIdeas.sort((a, b) => b.pointsDelta - a.pointsDelta || b.titleDelta - a.titleDelta);
+  suggestions.push(...keepTopFive(waiverIdeas, (s) => s.pointsDelta >= 0.4));
+
 
   // --- trade ideas, shaped by my team's badge ------------------------------
   // A contender buys proven production with picks and youth; a rebuilding team
