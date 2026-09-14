@@ -193,10 +193,10 @@ export async function buildWaiverBoard(
             (p as { years_exp?: number | null }).years_exp ?? null,
           )
         : null;
-      const projValue = fallbackValue(pos, projSeason);
-      // Market price comes back only when KTC covers the player; the
-      // projection-based fallback doubles as the "what they should cost" line.
-      const marketValue = values.covered ? values.player(p.id, p.full_name, pos, projSeason) : null;
+      // "Worth" is our projection-priced value on the market's scale; the
+      // market price shows only when KTC actually covers the player.
+      const projValue = Math.round(fallbackValue(pos, projSeason) * valueScale);
+      const marketValue = values.covered ? values.market(p.id, p.full_name, pos) : null;
       return {
         id: p.id,
         name: p.full_name,
