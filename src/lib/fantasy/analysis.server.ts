@@ -712,12 +712,26 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         .filter((p) => laneOf(p) !== "young")
         .sort((a, b) => valueOf(b) - valueOf(a))
         .slice(0, 2);
-      const theirYoungPool = other.roster
+      // Ask for their youth first. Some platforms give us no ages at all, so
+      // when nobody reads as "young" we fall back to their most valuable
+      // pieces rather than showing no ideas.
+      const young = other.roster
         .filter((p) => laneOf(p) === "young")
         .sort((a, b) => valueOf(b) - valueOf(a));
+      const theirYoungPool = young.length
+        ? young
+        : [...other.roster].sort((a, b) => valueOf(b) - valueOf(a)).slice(0, 3);
 
+
+      const taken = new Set<string>();
       for (const [i, send] of sellables.entries()) {
-        const theirYoung = theirYoungPool[i] ?? theirYoungPool[0];
+        // Ask for a piece priced near what we send, not simply their best
+        // player — a wildly lopsided ask is one no manager ever accepts.
+        const wanted = valueOf(send) * 1.05;
+        const theirYoung = theirYoungPool
+          .filter((p) => !taken.has(p.name))
+          .sort((a, b) => Math.abs(valueOf(a) - wanted) - Math.abs(valueOf(b) - wanted))[0];
+        if (theirYoung) taken.add(theirYoung.name);
         const back: TradeAsset[] = [];
         if (otherPicks[i] ?? otherPicks[0]) back.push((otherPicks[i] ?? otherPicks[0])!);
         if (theirYoung) back.push(assetFor(theirYoung));
@@ -729,16 +743,18 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         const after = optimalLineup(nextRoster, slots).total;
         const impact = whatIf(nextRoster);
 
-        const myPool: TradeAsset[] = mine.roster
-          .filter((p) => p.name !== send.name && laneOf(p) === "veteran")
+        const myRest = mine.roster.filter((p) => p.name !== send.name);
+        const myVets = myRest.filter((p) => laneOf(p) === "veteran");
+        const myPool: TradeAsset[] = (myVets.length ? myVets : myRest)
           .map(assetFor)
           .sort((a, b) => a.value - b.value);
+        const theirRest = other.roster.filter((p) => p.name !== theirYoung?.name);
+        const theirYouth = theirRest.filter((p) => laneOf(p) === "young");
         const theirPool: TradeAsset[] = [
           ...otherPicks.filter((pk) => !back.includes(pk)),
-          ...other.roster
-            .filter((p) => laneOf(p) === "young" && p.name !== theirYoung?.name)
-            .map(assetFor),
+          ...(theirYouth.length ? theirYouth : theirRest).map(assetFor),
         ].sort((a, b) => a.value - b.value);
+
 
         const balanced = balanceTrade([assetFor(send)], back, myPool, theirPool);
         const gained = balanced.getValue - balanced.giveValue;
