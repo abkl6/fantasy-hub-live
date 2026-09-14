@@ -531,7 +531,16 @@ export async function buildGameDay(
   const { data: leagueRows } = await leagueQuery;
   const leagues = leagueRows ?? [];
   if (!leagues.length) {
-    return { season, week, updatedAt: null, matchups: [], events: [], games };
+    return {
+      season,
+      week,
+      updatedAt: null,
+      matchups: [],
+      events: [],
+      games,
+      nextKickoff: nextKickoffFrom(board),
+    };
+
   }
   const leagueIds = leagues.map((l) => l.id);
 
