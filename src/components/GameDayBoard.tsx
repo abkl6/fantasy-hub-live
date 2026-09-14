@@ -304,7 +304,7 @@ function hasLineupAlert(m: LiveMatchup) {
   return pending.some((p) => bestBench - p.projectedFinal >= 2);
 }
 
-function ReadinessBar({ matchups, kickoffAt }: { matchups: LiveMatchup[]; kickoffAt?: string | null }) {
+function ReadinessBar({ matchups, kickoffAt }: { matchups: LiveMatchup[]; kickoffAt?: string | null | undefined }) {
   const fallback = useMemo(() => nextKickoff(), []);
   const alerts = matchups.filter((m) => !m.isBestBall && hasLineupAlert(m)).length;
   const at = kickoffAt ? new Date(kickoffAt) : fallback.at;
