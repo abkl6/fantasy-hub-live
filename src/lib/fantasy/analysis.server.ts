@@ -680,7 +680,7 @@ export async function evaluateTrade(
         name: s.player_name,
         position: s.position.toUpperCase(),
         nflTeam: s.nfl_team,
-        proj: Number(s.proj_points),
+        proj: tradeProj.week(s.player_id, s.player_name, Number(s.proj_points)),
         volatility: 0.35,
       }));
     const games = t.wins + t.losses + t.ties;
