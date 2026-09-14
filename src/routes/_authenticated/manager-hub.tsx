@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, ArrowRight, BellRing, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
+import { Activity, ArrowRight, BellRing, LineChart, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -78,6 +78,66 @@ function LeagueCard({ league }: { league: HubLeague }) {
   );
 }
 
+type HubMove = {
+  id: string;
+  leagueId: string;
+  leagueName: string;
+  headline: string;
+  detail: string;
+  titleDelta: number;
+  playoffDelta: number;
+};
+
+function MoveRow({ move }: { move: HubMove }) {
+  return (
+    <div className="py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="text-sm font-semibold">{move.headline}</p><p className="mt-1 text-xs text-muted-foreground">{move.detail}</p></div>
+        {(move.titleDelta > 0 || move.playoffDelta > 0) && <div className="flex shrink-0 flex-col items-end gap-1">{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}{move.playoffDelta > 0 && <Badge variant="secondary">+{(move.playoffDelta * 100).toFixed(1)}% playoff</Badge>}</div>}
+      </div>
+      <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0"><Link to="/league/$leagueId" params={{ leagueId: move.leagueId }}>{move.leagueName}<ArrowRight className="size-3" /></Link></Button>
+    </div>
+  );
+}
+
+type OddsSeries = {
+  leagueId: string;
+  leagueName: string;
+  teamName: string;
+  points: { week: number; titleOdds: number; playoffOdds: number }[];
+};
+
+function OddsRow({ row }: { row: OddsSeries }) {
+  const latest = row.points[row.points.length - 1];
+  const first = row.points[0];
+  if (!latest || !first) return null;
+  const swing = latest.titleOdds - first.titleOdds;
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><p className="text-sm font-semibold">{row.leagueName}</p><p className="text-xs text-muted-foreground">{row.teamName} · week {latest.week}</p></div>
+        <div className="flex items-center gap-4 text-right text-xs">
+          <div><p className="text-muted-foreground">Title</p><Percent value={latest.titleOdds} /></div>
+          <div><p className="text-muted-foreground">Playoffs</p><Percent value={latest.playoffOdds} /></div>
+          {row.points.length > 1 && <Badge variant={swing >= 0 ? "default" : "destructive"}>{swing >= 0 ? "+" : ""}{(swing * 100).toFixed(1)}% since wk {first.week}</Badge>}
+        </div>
+      </div>
+      <div className="mt-3 flex items-end gap-1" aria-hidden>
+        {row.points.map((point) => (
+          <div key={point.week} className="flex-1" title={`Week ${point.week}`}>
+            <div className="flex h-16 items-end gap-[2px]">
+              <div className="w-1/2 rounded-t bg-primary" style={{ height: `${Math.max(2, point.titleOdds * 100)}%` }} />
+              <div className="w-1/2 rounded-t bg-muted-foreground/40" style={{ height: `${Math.max(2, point.playoffOdds * 100)}%` }} />
+            </div>
+            <p className="mt-1 text-center text-[10px] text-muted-foreground">{point.week}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-1 text-[10px] uppercase text-muted-foreground">Solid = title odds · faded = playoff odds</p>
+    </div>
+  );
+}
+
 function ManagerHub() {
   const fetchHub = useServerFn(getManagerHubFn);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["manager-hub"], queryFn: () => fetchHub() });
@@ -95,40 +155,57 @@ function ManagerHub() {
       {!data.leagues.length && <section className="mt-8 rounded-xl border border-dashed p-10 text-center"><h2 className="text-2xl font-bold uppercase">Build your hub</h2><p className="mt-2 text-sm text-muted-foreground">Add a league to see recommendations, alerts and exposure.</p><Button asChild className="mt-5"><Link to="/connect">Add your first league</Link></Button></section>}
 
       {!!data.leagues.length && <>
-        <section className="mt-8 grid gap-4 sm:grid-cols-3">
+        <section className="mt-8 grid gap-4 sm:grid-cols-4">
           <div className="rounded-xl border bg-card p-5"><Users className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.leagues.length}</p><p className="text-xs text-muted-foreground">Teams tracked</p></div>
-          <div className="rounded-xl border bg-card p-5"><BellRing className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.alerts.length}</p><p className="text-xs text-muted-foreground">Roster alerts</p></div>
-          <div className="rounded-xl border bg-card p-5"><Sparkles className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.moves.length}</p><p className="text-xs text-muted-foreground">Recommended moves</p></div>
+          <div className="rounded-xl border bg-card p-5"><Repeat2 className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.trades.length}</p><p className="text-xs text-muted-foreground">Trade ideas</p></div>
+          <div className="rounded-xl border bg-card p-5"><Sparkles className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.waivers.length}</p><p className="text-xs text-muted-foreground">Waiver targets</p></div>
+          <div className="rounded-xl border bg-card p-5"><BellRing className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.alerts.length}</p><p className="text-xs text-muted-foreground">Injury &amp; bye alerts</p></div>
         </section>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <section className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2"><Sparkles className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Recommended moves</h2></div>
+            <div className="flex items-center gap-2"><Repeat2 className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Trade suggestions</h2></div>
+            <p className="mt-1 text-xs text-muted-foreground">Swaps that turn surplus into a starting-lineup upgrade.</p>
             <div className="mt-3 divide-y divide-border">
-              {!data.moves.length && <p className="py-4 text-sm text-muted-foreground">No lineup or waiver upgrade is currently projected.</p>}
-              {data.moves.slice(0, 6).map((move) => <div key={`${move.leagueId}-${move.id}`} className="py-3">
-                <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{move.headline}</p><p className="mt-1 text-xs text-muted-foreground">{move.detail}</p></div>{(move.titleDelta > 0 || move.playoffDelta > 0) && <div className="flex shrink-0 flex-col items-end gap-1">{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}{move.playoffDelta > 0 && <Badge variant="secondary">+{(move.playoffDelta * 100).toFixed(1)}% playoff</Badge>}</div>}</div>
-                <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0"><Link to="/league/$leagueId" params={{ leagueId: move.leagueId }}>{move.leagueName}<ArrowRight className="size-3" /></Link></Button>
-              </div>)}
+              {!data.trades.length && <p className="py-4 text-sm text-muted-foreground">No trade currently improves a lineup enough to recommend.</p>}
+              {data.trades.map((move) => <MoveRow key={`${move.leagueId}-${move.id}`} move={move} />)}
             </div>
           </section>
 
           <section className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2"><ShieldAlert className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Roster alerts</h2></div>
+            <div className="flex items-center gap-2"><Sparkles className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Waiver wire</h2></div>
+            <p className="mt-1 text-xs text-muted-foreground">Best available adds across every league, with the drop to make.</p>
             <div className="mt-3 divide-y divide-border">
-              {!data.alerts.length && <p className="py-4 text-sm text-muted-foreground">No urgent injuries, byes or roster risks.</p>}
-              {data.alerts.slice(0, 8).map((alert) => <Link key={`${alert.leagueId}-${alert.id}`} to="/league/$leagueId" params={{ leagueId: alert.leagueId }} className="flex items-start justify-between gap-3 py-3">
-                <div><p className="text-sm font-semibold">{alert.playerName} <span className="font-normal text-muted-foreground">· {alert.position}</span></p><p className="mt-1 text-xs text-muted-foreground">{alert.message} · {alert.leagueName}</p></div><Badge variant={alert.severity === "high" ? "destructive" : "outline"}>{alert.severity}</Badge>
-              </Link>)}
+              {!data.waivers.length && <p className="py-4 text-sm text-muted-foreground">Nobody on the wire beats your current roster.</p>}
+              {data.waivers.map((move) => <MoveRow key={`${move.leagueId}-${move.id}`} move={move} />)}
             </div>
           </section>
         </div>
+
+        <section className="mt-6 rounded-xl border bg-card p-5">
+          <div className="flex items-center gap-2"><ShieldAlert className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Injury updates</h2></div>
+          <p className="mt-1 text-xs text-muted-foreground">Injuries, byes and news on players you actually roster.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {!data.alerts.length && <p className="py-4 text-sm text-muted-foreground">No urgent injuries, byes or roster risks.</p>}
+            {data.alerts.slice(0, 10).map((alert) => <Link key={`${alert.leagueId}-${alert.id}`} to="/league/$leagueId" params={{ leagueId: alert.leagueId }} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+              <div><p className="text-sm font-semibold">{alert.playerName} <span className="font-normal text-muted-foreground">· {alert.position}</span></p><p className="mt-1 text-xs text-muted-foreground">{alert.message} · {alert.leagueName}</p></div><Badge variant={alert.severity === "high" ? "destructive" : "outline"}>{alert.severity}</Badge>
+            </Link>)}
+          </div>
+        </section>
 
         <section className="mt-6 rounded-xl border bg-card p-5">
           <div className="flex items-center gap-2"><Activity className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Player exposure</h2></div>
           <p className="mt-1 text-xs text-muted-foreground">Your most repeated players and concentrated injury risk.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {data.exposure.slice(0, 12).map((player) => <div key={`${player.name}-${player.position}`} className="flex items-center justify-between rounded-lg border p-3"><div><p className="text-sm font-semibold">{player.name} <span className="text-xs font-normal text-muted-foreground">{player.position}{player.nflTeam ? ` · ${player.nflTeam}` : ""}</span></p><p className="text-xs text-muted-foreground">{player.leagueNames.join(" · ")}</p></div><div className="text-right"><p className="font-display font-bold">{player.leagues}/{player.totalLeagues}</p><p className={`text-[10px] uppercase ${player.status === "Active" ? "text-muted-foreground" : "text-destructive"}`}>{player.status}</p></div></div>)}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-xl border bg-card p-5">
+          <div className="flex items-center gap-2"><LineChart className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Weekly odds</h2></div>
+          <p className="mt-1 text-xs text-muted-foreground">How your title and playoff chances have moved week to week.</p>
+          <div className="mt-3 space-y-3">
+            {data.weeklyOdds.map((row) => <OddsRow key={row.leagueId} row={row} />)}
           </div>
         </section>
 

@@ -16,6 +16,10 @@ export interface ManagerHubPayload {
     playoffOdds: number;
   }[];
   moves: (MoveSuggestion & { leagueId: string; leagueName: string })[];
+  /** Trade ideas only, best title impact first. */
+  trades: (MoveSuggestion & { leagueId: string; leagueName: string })[];
+  /** Waiver / free-agent adds only, best title impact first. */
+  waivers: (MoveSuggestion & { leagueId: string; leagueName: string })[];
   alerts: (Alert & { leagueId: string; leagueName: string })[];
   exposure: {
     name: string;
@@ -25,6 +29,13 @@ export interface ManagerHubPayload {
     totalLeagues: number;
     status: string;
     leagueNames: string[];
+  }[];
+  /** Week-by-week title and playoff odds for my team in each league. */
+  weeklyOdds: {
+    leagueId: string;
+    leagueName: string;
+    teamName: string;
+    points: { week: number; titleOdds: number; playoffOdds: number }[];
   }[];
 }
 
@@ -47,14 +58,17 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
       : [],
   );
 
-  const moves = analyses
-    .flatMap((analysis) => analysis.suggestions.slice(0, 4).map((move) => ({
+  const allSuggestions = analyses
+    .flatMap((analysis) => analysis.suggestions.map((move) => ({
       ...move,
       leagueId: analysis.league.id,
       leagueName: analysis.league.name,
     })))
-    .sort((a, b) => b.titleDelta - a.titleDelta || b.pointsDelta - a.pointsDelta)
-    .slice(0, 12);
+    .sort((a, b) => b.titleDelta - a.titleDelta || b.pointsDelta - a.pointsDelta);
+
+  const moves = allSuggestions.slice(0, 12);
+  const trades = allSuggestions.filter((m) => m.kind === "trade").slice(0, 8);
+  const waivers = allSuggestions.filter((m) => m.kind === "waiver").slice(0, 10);
 
   const alerts = analyses
     .flatMap((analysis) => analysis.alerts.map((alert) => ({
@@ -94,5 +108,37 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
     return riskB - riskA || b.leagues - a.leagues || a.name.localeCompare(b.name);
   });
 
-  return { leagues, moves, alerts, exposure };
+  const weeklyOdds = (
+    await Promise.all(
+      analyses.map(async (analysis) => {
+        if (!analysis.myTeam) return [];
+        const { data: rows } = await supabase
+          .from("weekly_snapshots")
+          .select("week, title_odds, playoff_odds")
+          .eq("league_id", analysis.league.id)
+          .eq("team_id", analysis.myTeam.id)
+          .order("week", { ascending: true });
+        const points = (rows ?? []).map((row) => ({
+          week: row.week,
+          titleOdds: Number(row.title_odds),
+          playoffOdds: Number(row.playoff_odds),
+        }));
+        if (!points.length) {
+          points.push({
+            week: analysis.league.current_week ?? 1,
+            titleOdds: analysis.myTeam.titleOdds,
+            playoffOdds: analysis.myTeam.playoffOdds,
+          });
+        }
+        return [{
+          leagueId: analysis.league.id,
+          leagueName: analysis.league.name,
+          teamName: analysis.myTeam.name,
+          points,
+        }];
+      }),
+    )
+  ).flat();
+
+  return { leagues, moves, trades, waivers, alerts, exposure, weeklyOdds };
 }
