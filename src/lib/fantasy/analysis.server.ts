@@ -55,8 +55,22 @@ import {
   type StrategyMode,
   type TeamStrategy,
 } from "./strategy";
+import { acceptanceBandOf, acceptanceScore } from "./proposal.server";
+
 
 type DB = SupabaseClient<Database>;
+
+/**
+ * Keeps every idea that clears the bar, and if fewer than five do, pads the
+ * list with the next best ones so the manager always sees five options.
+ */
+function keepTopFive<T>(sorted: T[], clears: (item: T) => boolean): T[] {
+  const good = sorted.filter(clears);
+  if (good.length >= 5) return good;
+  const rest = sorted.filter((item) => !clears(item));
+  return [...good, ...rest.slice(0, 5 - good.length)];
+}
+
 
 export interface LeagueRow {
   id: string;
@@ -107,7 +121,14 @@ export interface MoveSuggestion {
   rationale?: string;
   /** Future (market) value gained by the trade; negative means you paid. */
   dynastyDelta?: number;
+  /** Weekly lineup points the other team gains (negative = it hurts them). */
+  partnerPointsDelta?: number;
+  /** 0-1 chance the other manager says yes, with a plain-language band. */
+  acceptance?: number;
+  acceptanceBand?: string;
+  acceptanceReason?: string;
 }
+
 
 export interface ScoreboardGame {
   week: number;
@@ -499,21 +520,27 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     .sort((a, b) => b.proj - a.proj)
     .slice(0, 14);
 
+  // Always surface the five best waiver options, even when the maths says the
+  // gain is small or slightly negative — the manager still wants to see them.
   const droppable = [...mine.roster].sort((a, b) => a.proj - b.proj);
-  for (const fa of freeAgents.slice(0, 8)) {
-    const drop = droppable.find((d) => d.proj < fa.proj);
+  const waiverIdeas: MoveSuggestion[] = [];
+  for (const fa of freeAgents.slice(0, 10)) {
+    const drop = droppable[0];
     if (!drop) continue;
     const nextRoster = mine.roster.map((p) => (p.name === drop.name ? fa : p));
     const before = optimalLineup(mine.roster, slots).total;
     const after = optimalLineup(nextRoster, slots).total;
-    if (after - before < 0.4) continue;
+    const gain = after - before;
     const impact = whatIf(nextRoster);
-    suggestions.push({
+    waiverIdeas.push({
       id: `waiver-${fa.name}`,
       kind: "waiver",
       headline: `Add ${fa.name} (${fa.position}), drop ${drop.name}`,
-      detail: `Your best starting lineup gains ${(after - before).toFixed(1)} points a week.`,
-      pointsDelta: Math.round((after - before) * 10) / 10,
+      detail:
+        gain >= 0.1
+          ? `Your best starting lineup gains ${gain.toFixed(1)} points a week.`
+          : `A depth or upside add — your starting lineup changes by ${gain.toFixed(1)} points a week right now.`,
+      pointsDelta: Math.round(gain * 10) / 10,
       winDelta: Math.round(impact.winDelta * 100) / 100,
       titleDelta: impact.titleDelta,
       playoffDelta: impact.playoffDelta,
@@ -521,6 +548,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       dropName: drop.name,
     });
   }
+  waiverIdeas.sort((a, b) => b.pointsDelta - a.pointsDelta || b.titleDelta - a.titleDelta);
+  suggestions.push(...keepTopFive(waiverIdeas, (s) => s.pointsDelta >= 0.4));
+
 
   // --- trade ideas, shaped by my team's badge ------------------------------
   // A contender buys proven production with picks and youth; a rebuilding team
@@ -556,7 +586,55 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   });
   const beforeLineup = optimalLineup(mine.roster, slots).total;
 
+  // Read the deal from the other side of the table: does their lineup get
+  // better, do they bank future value, and does that fit how they are built?
+  const partnerRead = (
+    other: (typeof engineTeams)[number],
+    theySend: EnginePlayer[],
+    theyGet: EnginePlayer[],
+    theirSendValue: number,
+    theirGetValue: number,
+  ) => {
+    const out = new Set(theySend.map((p) => p.name));
+    const nextTheirs = [...other.roster.filter((p) => !out.has(p.name)), ...theyGet];
+    const theirBefore = optimalLineup(other.roster, slots).total;
+    const theirAfter = optimalLineup(nextTheirs, slots).total;
+    const pointsDelta = theirAfter - theirBefore;
+    const badge = badgeById.get(other.id);
+    const winNow = badge ? strategyMode(badge.key) === "buy" : false;
+    const clamp = (n: number) => Math.max(-0.25, Math.min(0.25, n));
+    const acceptance = acceptanceScore({
+      bSendValue: theirSendValue,
+      bReceiveValue: theirGetValue,
+      bTitleDelta: clamp(pointsDelta * 0.01),
+      bPlayoffDelta: clamp(pointsDelta * 0.015),
+      bDynastyDelta: isDynastyLeague ? theirGetValue - theirSendValue : null,
+      bWinNow: winNow,
+      isDynasty: isDynastyLeague,
+    });
+    const label = badge?.label ?? "their team";
+    const lineupLine =
+      pointsDelta >= 0.5
+        ? `their lineup gains ${pointsDelta.toFixed(1)} points a week`
+        : pointsDelta <= -0.5
+          ? `their lineup loses ${Math.abs(pointsDelta).toFixed(1)} points a week`
+          : "their lineup barely moves";
+      const valueLine =
+        theirGetValue - theirSendValue >= 0
+          ? `they bank ${Math.round(theirGetValue - theirSendValue).toLocaleString()} of market value`
+          : `they pay ${Math.round(theirSendValue - theirGetValue).toLocaleString()} of market value`;
+    return {
+      pointsDelta,
+      acceptance,
+      band: acceptanceBandOf(acceptance),
+      reason: `As a ${label} ${winNow ? "chasing this season" : "playing the long game"}, ${lineupLine} and ${valueLine}.`,
+    };
+  };
+
+  const tradeIdeas: MoveSuggestion[] = [];
+
   for (const other of partners) {
+
     const otherBadge = badgeById.get(other.id);
     const otherLabel = otherBadge?.label ?? "their team";
     const otherPicks = [...(pickAssets.get(other.id) ?? [])].sort((a, b) => b.value - a.value);
@@ -576,7 +654,6 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         if (!give) continue;
         const nextRoster = mine.roster.map((p) => (p.name === give.name ? target : p));
         const after = optimalLineup(nextRoster, slots).total;
-        if (after - beforeLineup < 0.5) continue;
         const impact = whatIf(nextRoster);
 
         const myPool: TradeAsset[] = [
@@ -593,13 +670,15 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         const balanced = balanceTrade([assetFor(give)], [assetFor(target)], myPool, theirPool);
         const giveText = balanced.give.map(assetLabel).join(" + ");
         const getText = balanced.get.map(assetLabel).join(" + ");
+        const read = partnerRead(other, [target], [give], balanced.getValue, balanced.giveValue);
+        const gain = after - beforeLineup;
 
-        suggestions.push({
+        tradeIdeas.push({
           id: `trade-${other.id}-${target.name}`,
           kind: "trade",
           headline: `Send ${giveText} to ${other.name} for ${getText}`,
-          detail: `Fills your ${need} hole from a position of surplus. Lineup gains ${(after - beforeLineup).toFixed(1)} points a week. ${fairnessLabel(balanced.giveValue, balanced.getValue)} on the ${marketLabel} dynasty market.`,
-          pointsDelta: Math.round((after - beforeLineup) * 10) / 10,
+          detail: `Fills your ${need} hole from a position of surplus. Lineup ${gain >= 0 ? "gains" : "loses"} ${Math.abs(gain).toFixed(1)} points a week. ${fairnessLabel(balanced.giveValue, balanced.getValue)} on the ${marketLabel} dynasty market. ${read.band} they accept — ${read.reason}`,
+          pointsDelta: Math.round(gain * 10) / 10,
           winDelta: Math.round(impact.winDelta * 100) / 100,
           titleDelta: impact.titleDelta,
           playoffDelta: impact.playoffDelta,
@@ -615,24 +694,35 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           strategyLabel: "Buying",
           rationale: `You're a ${myBadge.label}: ${myStrategy.rationale} ${other.name} (${otherLabel}) should take the youth back.`,
           dynastyDelta: balanced.getValue - balanced.giveValue,
+          partnerPointsDelta: Math.round(read.pointsDelta * 10) / 10,
+          acceptance: read.acceptance,
+          acceptanceBand: read.band,
+          acceptanceReason: read.reason,
         });
         break;
       }
     }
 
+
     // ---- selling: my veterans to a contender for picks and youth ----------
     if (modes.includes("sell") && (otherPicks.length || other.roster.length)) {
-      const send = mine.roster
+      // A selling team (especially a Donator) should be shopping every veteran
+      // it has, so offer up its two most valuable non-young pieces.
+      const sellables = mine.roster
         .filter((p) => laneOf(p) !== "young")
-        .sort((a, b) => valueOf(b) - valueOf(a))[0];
-      const theirYoung = other.roster
+        .sort((a, b) => valueOf(b) - valueOf(a))
+        .slice(0, 2);
+      const theirYoungPool = other.roster
         .filter((p) => laneOf(p) === "young")
-        .sort((a, b) => valueOf(b) - valueOf(a))[0];
-      const back: TradeAsset[] = [];
-      if (otherPicks[0]) back.push(otherPicks[0]);
-      if (theirYoung) back.push(assetFor(theirYoung));
+        .sort((a, b) => valueOf(b) - valueOf(a));
 
-      if (send && back.length) {
+      for (const [i, send] of sellables.entries()) {
+        const theirYoung = theirYoungPool[i] ?? theirYoungPool[0];
+        const back: TradeAsset[] = [];
+        if (otherPicks[i] ?? otherPicks[0]) back.push((otherPicks[i] ?? otherPicks[0])!);
+        if (theirYoung) back.push(assetFor(theirYoung));
+        if (!back.length) continue;
+
         const nextRoster = theirYoung
           ? mine.roster.map((p) => (p.name === send.name ? theirYoung : p))
           : mine.roster.filter((p) => p.name !== send.name);
@@ -644,7 +734,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           .map(assetFor)
           .sort((a, b) => a.value - b.value);
         const theirPool: TradeAsset[] = [
-          ...otherPicks.slice(1),
+          ...otherPicks.filter((pk) => !back.includes(pk)),
           ...other.roster
             .filter((p) => laneOf(p) === "young" && p.name !== theirYoung?.name)
             .map(assetFor),
@@ -655,12 +745,19 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         const cost = Math.max(0, beforeLineup - after);
         const giveText = balanced.give.map(assetLabel).join(" + ");
         const getText = balanced.get.map(assetLabel).join(" + ");
+        const read = partnerRead(
+          other,
+          theirYoung ? [theirYoung] : [],
+          [send],
+          balanced.getValue,
+          balanced.giveValue,
+        );
 
-        suggestions.push({
+        tradeIdeas.push({
           id: `sell-${other.id}-${send.name}`,
           kind: "trade",
           headline: `Sell ${giveText} to ${other.name} for ${getText}`,
-          detail: `${other.name} are a ${otherLabel} and should pay for win-now help. You bank ${Math.abs(gained).toLocaleString()} ${gained >= 0 ? "of extra" : "less"} future value on the ${marketLabel} market and give up ${cost.toFixed(1)} points a week you don't need.`,
+          detail: `${other.name} are a ${otherLabel} and should pay for win-now help. You bank ${Math.abs(gained).toLocaleString()} ${gained >= 0 ? "of extra" : "less"} future value on the ${marketLabel} market and give up ${cost.toFixed(1)} points a week you don't need. ${read.band} they accept — ${read.reason}`,
           pointsDelta: Math.round((after - beforeLineup) * 10) / 10,
           winDelta: Math.round(impact.winDelta * 100) / 100,
           titleDelta: impact.titleDelta,
@@ -677,16 +774,29 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           strategyLabel: "Selling",
           rationale: `You're a ${myBadge.label}: ${myStrategy.rationale}`,
           dynastyDelta: gained,
+          partnerPointsDelta: Math.round(read.pointsDelta * 10) / 10,
+          acceptance: read.acceptance,
+          acceptanceBand: read.band,
+          acceptanceReason: read.reason,
         });
       }
     }
+
   }
 
   // Sell ideas are supposed to cost title odds, so they are ranked by the
   // future value they bring back instead (5,000 market points ~ one title point).
-  const rankScore = (s: MoveSuggestion) =>
-    s.strategy === "sell" ? (s.dynastyDelta ?? 0) / 5000 : s.titleDelta;
+  // Deals the other manager would actually take are worth more than perfect
+  // ones they would laugh at, so acceptance is part of the ranking.
+  const rankScore = (s: MoveSuggestion) => {
+    const core = s.strategy === "sell" ? (s.dynastyDelta ?? 0) / 5000 : s.titleDelta;
+    return core * (0.4 + 1.2 * (s.acceptance ?? 0.5));
+  };
+  tradeIdeas.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
+  // Always show five trade ideas, even when the best of them still costs points.
+  suggestions.push(...keepTopFive(tradeIdeas, (s) => rankScore(s) > 0));
   suggestions.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
+
 
   const why: string[] = [];
   const strength = grades.filter((g) => g.verdict === "strength").map((g) => g.position);

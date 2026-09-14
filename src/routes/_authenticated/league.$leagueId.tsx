@@ -855,6 +855,11 @@ function MoveCard({
     strategyLabel?: string;
     rationale?: string;
     dynastyDelta?: number;
+    acceptance?: number;
+    acceptanceBand?: string;
+    acceptanceReason?: string;
+    partnerPointsDelta?: number;
+
   };
   onApplied: () => void;
 }) {
@@ -902,12 +907,31 @@ function MoveCard({
           </div>
           <h3 className="mt-2 text-xl font-semibold">{suggestion.headline}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{suggestion.detail}</p>
+          {suggestion.acceptanceBand && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {suggestion.acceptanceBand}
+                {suggestion.acceptance != null
+                  ? ` (${Math.round(suggestion.acceptance * 100)}%)`
+                  : ""}{" "}
+                they accept
+              </span>
+              {suggestion.partnerPointsDelta != null && (
+                <>
+                  {" "}
+                  · their lineup {suggestion.partnerPointsDelta >= 0 ? "+" : ""}
+                  {suggestion.partnerPointsDelta.toFixed(1)} pts/week
+                </>
+              )}
+            </p>
+          )}
           {suggestion.rationale && (
             <p className="mt-1 text-xs text-muted-foreground">{suggestion.rationale}</p>
           )}
         </div>
         <div className="text-right">
           <p className="eyebrow text-muted-foreground">Title odds</p>
+
           <p
             className={`stat-num text-2xl ${suggestion.titleDelta >= 0 ? "text-primary" : "text-destructive"}`}
           >
