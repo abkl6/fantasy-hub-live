@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, ArrowRight, BellRing, ShieldAlert, Sparkles, Trophy, Users } from "lucide-react";
+import { Activity, ArrowRight, BellRing, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getManagerHubFn } from "@/lib/fantasy.functions";
+import { deleteLeague, getManagerHubFn } from "@/lib/fantasy.functions";
 
 export const Route = createFileRoute("/_authenticated/manager-hub")({
   head: () => ({
