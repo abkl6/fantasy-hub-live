@@ -712,9 +712,16 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         .filter((p) => laneOf(p) !== "young")
         .sort((a, b) => valueOf(b) - valueOf(a))
         .slice(0, 2);
-      const theirYoungPool = other.roster
+      // Ask for their youth first. Some platforms give us no ages at all, so
+      // when nobody reads as "young" we fall back to their most valuable
+      // pieces rather than showing no ideas.
+      const young = other.roster
         .filter((p) => laneOf(p) === "young")
         .sort((a, b) => valueOf(b) - valueOf(a));
+      const theirYoungPool = young.length
+        ? young
+        : [...other.roster].sort((a, b) => valueOf(b) - valueOf(a)).slice(0, 3);
+
 
       for (const [i, send] of sellables.entries()) {
         const theirYoung = theirYoungPool[i] ?? theirYoungPool[0];
