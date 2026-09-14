@@ -107,7 +107,14 @@ export interface MoveSuggestion {
   rationale?: string;
   /** Future (market) value gained by the trade; negative means you paid. */
   dynastyDelta?: number;
+  /** Weekly lineup points the other team gains (negative = it hurts them). */
+  partnerPointsDelta?: number;
+  /** 0-1 chance the other manager says yes, with a plain-language band. */
+  acceptance?: number;
+  acceptanceBand?: string;
+  acceptanceReason?: string;
 }
+
 
 export interface ScoreboardGame {
   week: number;
