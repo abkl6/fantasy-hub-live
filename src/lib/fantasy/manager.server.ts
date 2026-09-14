@@ -58,14 +58,17 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
       : [],
   );
 
-  const moves = analyses
-    .flatMap((analysis) => analysis.suggestions.slice(0, 4).map((move) => ({
+  const allSuggestions = analyses
+    .flatMap((analysis) => analysis.suggestions.map((move) => ({
       ...move,
       leagueId: analysis.league.id,
       leagueName: analysis.league.name,
     })))
-    .sort((a, b) => b.titleDelta - a.titleDelta || b.pointsDelta - a.pointsDelta)
-    .slice(0, 12);
+    .sort((a, b) => b.titleDelta - a.titleDelta || b.pointsDelta - a.pointsDelta);
+
+  const moves = allSuggestions.slice(0, 12);
+  const trades = allSuggestions.filter((m) => m.kind === "trade").slice(0, 8);
+  const waivers = allSuggestions.filter((m) => m.kind === "waiver").slice(0, 10);
 
   const alerts = analyses
     .flatMap((analysis) => analysis.alerts.map((alert) => ({
