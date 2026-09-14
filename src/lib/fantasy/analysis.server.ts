@@ -430,14 +430,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     })
     .sort((x, y) => Number(y.home.isMine || y.away.isMine) - Number(x.home.isMine || x.away.isMine));
 
-  // Guillotine leagues have no playoffs: the lowest scorer is cut each week.
-  const weeksLeft = Math.max(1, league.regular_season_weeks - league.current_week + 1);
-  const survival = isSurvival(format)
-    ? simulateGuillotine(
-        simInputs.map((t) => ({ id: t.id, name: t.name, isMine: t.isMine, mean: t.mean, sd: t.sd })),
-        weeksLeft,
-      )
-    : null;
+
+
 
   const formatMeta = {
     format,
