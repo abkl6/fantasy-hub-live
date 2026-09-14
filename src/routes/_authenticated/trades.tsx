@@ -97,7 +97,7 @@ function TradesPage() {
             No trades logged yet. Build one in a league's Trade tab and save it here.
           </p>
           <Button asChild className="mt-4">
-            <Link to="/dashboard">Go to my leagues</Link>
+            <Link to="/manager-hub">Go to my leagues</Link>
           </Button>
         </div>
       )}
