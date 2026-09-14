@@ -19,7 +19,13 @@ import { normalizeName } from "./names";
 import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
-import { fallbackValue, leagueValueFormat, loadTradeValues, type ValueFormat } from "./trade-value";
+import {
+  calibratedScale,
+  fallbackValue,
+  leagueValueFormat,
+  loadTradeValues,
+  type ValueFormat,
+} from "./trade-value";
 import {
   FORMAT_LABELS,
   asFormat,
@@ -128,6 +134,13 @@ export async function buildWaiverBoard(
   const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
   // Dynasty market prices, matched by the same normalized names as everywhere else.
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
+  // Put projection-implied worth on the market's scale before comparing.
+  const valueScale = calibratedScale(
+    players.map((p) => ({
+      market: values.market(p.id, p.full_name, p.position.toUpperCase()) ?? 0,
+      proj: fallbackValue(p.position.toUpperCase(), Number(p.proj_points_season)),
+    })),
+  );
   const seasonOf = (p: {
     id?: string;
     full_name?: string;
@@ -180,10 +193,10 @@ export async function buildWaiverBoard(
             (p as { years_exp?: number | null }).years_exp ?? null,
           )
         : null;
-      const projValue = fallbackValue(pos, projSeason);
-      // Market price comes back only when KTC covers the player; the
-      // projection-based fallback doubles as the "what they should cost" line.
-      const marketValue = values.covered ? values.player(p.id, p.full_name, pos, projSeason) : null;
+      // "Worth" is our projection-priced value on the market's scale; the
+      // market price shows only when KTC actually covers the player.
+      const projValue = Math.round(fallbackValue(pos, projSeason) * valueScale);
+      const marketValue = values.covered ? values.market(p.id, p.full_name, pos) : null;
       return {
         id: p.id,
         name: p.full_name,
