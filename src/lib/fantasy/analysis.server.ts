@@ -132,7 +132,14 @@ export interface AnalysisPayload {
     projLosses: number;
     why: string[];
   } | null;
-  standings: (SimTeamResult & { record: string; pointsFor: number; badge: TeamBadge })[];
+  standings: (SimTeamResult & {
+    record: string;
+    pointsFor: number;
+    badge: TeamBadge;
+    /** KTC market value of roster + picks; dynasty leagues only. */
+    dynastyValue: number | null;
+    dynastyRank: number | null;
+  })[];
   grades: PositionGrade[];
   lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
   bench: { name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
@@ -268,6 +275,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // --- future value and age lanes, which drive who should buy and who sells -
   const isDynastyLeague = isMultiYear(format);
   const dynastyRankById = new Map<string, number>();
+  const dynastyValueById = new Map<string, number>();
   if (isDynastyLeague) {
     const rows = leagueDynastyValues(
       engineTeams.map((t) => ({
@@ -284,7 +292,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       })),
       values,
     );
-    for (const row of rows) dynastyRankById.set(row.teamId, row.rank);
+    for (const row of rows) {
+      dynastyRankById.set(row.teamId, row.rank);
+      dynastyValueById.set(row.teamId, row.total);
+    }
   }
   const ageByPlayer = new Map(
     players.map((p) => [
@@ -358,6 +369,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           isDynasty: isDynastyLeague,
           dynastyRank: dynastyRankById.get(r.id) ?? null,
         }),
+        dynastyValue: dynastyValueById.get(r.id) ?? null,
+        dynastyRank: dynastyRankById.get(r.id) ?? null,
       };
     });
 
