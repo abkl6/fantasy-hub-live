@@ -516,7 +516,11 @@ export async function buildGameDay(
   opts: { leagueId?: string; includeGames?: boolean } = {},
 ): Promise<GameDayPayload> {
   const { season, week } = await currentLiveWeek();
+  // The live scoreboard is the source of truth for game status; stored rows can
+  // be stale or written while the scoreboard was unreachable.
+  const board = await gameStates(week, season);
   const games = opts.includeGames ? await weekGames(supabase, season, week) : [];
+
 
   let leagueQuery = supabase.from("leagues").select("*");
   if (opts.leagueId) leagueQuery = leagueQuery.eq("id", opts.leagueId);
