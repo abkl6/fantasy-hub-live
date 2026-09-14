@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw, Share2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Sparkline } from "@/components/Sparkline";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +95,7 @@ function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
 
 function MatchupCard({ m }: { m: LiveMatchup }) {
   const [expanded, setExpanded] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const odds = m.winProbability === null ? null : Math.round(m.winProbability * 100);
   const mine = useCountUp(m.myScore);
   const theirs = useCountUp(m.oppScore);
@@ -120,8 +122,37 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
           </p>
           <span className="shrink-0 text-xs text-muted-foreground">Week {m.week}</span>
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
           {m.isBestBall ? `Best ball · ${m.leagueRank ?? "—"} of ${m.teamCount}` : m.scoringLabel}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7 text-muted-foreground"
+            aria-label={`Share ${m.leagueName} matchup`}
+            disabled={sharing}
+            onClick={async () => {
+              setSharing(true);
+              try {
+                const result = await shareMatchupCard({
+                  leagueName: m.leagueName,
+                  week: m.week,
+                  myTeam: m.myTeam,
+                  oppTeam: m.oppTeam ?? "Opponent",
+                  myScore: m.myScore,
+                  oppScore: m.oppScore,
+                  winProbability: m.winProbability,
+                  color,
+                });
+                if (result === "downloaded") toast.success("Image saved to your downloads.");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Could not create the image.");
+              } finally {
+                setSharing(false);
+              }
+            }}
+          >
+            {sharing ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
+          </Button>
         </span>
       </div>
 
