@@ -251,3 +251,28 @@ export async function refreshTradeValues(admin: DB, scope: "full" | "ir" = "full
     throw error;
   }
 }
+
+/**
+ * Keeps values current without a scheduler: refreshes the whole market once a
+ * week, and tops up injured players daily. Safe to call on any page load — it
+ * no-ops when a recent run already succeeded.
+ */
+export async function refreshTradeValuesIfStale(admin: DB) {
+  const { data: last } = await admin
+    .from("trade_value_refresh_log")
+    .select("run_at, scope, status")
+    .eq("status", "ok")
+    .order("run_at", { ascending: false })
+    .limit(10);
+
+  const newest = (scope: string) =>
+    (last ?? []).find((r) => r.scope === scope)?.run_at ?? null;
+  const ageMs = (at: string | null) => (at ? Date.now() - new Date(at).getTime() : Infinity);
+
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  const DAY = 24 * 60 * 60 * 1000;
+
+  if (ageMs(newest("full")) > WEEK) return refreshTradeValues(admin, "full");
+  if (ageMs(newest("ir")) > DAY) return refreshTradeValues(admin, "ir");
+  return null;
+}
