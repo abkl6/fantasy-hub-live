@@ -96,7 +96,7 @@ export const yahooStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { yahooConfigured, YAHOO_NOT_CONFIGURED } = await import("./fantasy/yahoo.server");
-    void YAHOO_NOT_CONFIGURED;
+    const configured = yahooConfigured();
     const { data } = await context.supabase
       .from("platform_credentials")
       .select("expires_at, payload")
