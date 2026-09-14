@@ -31,12 +31,27 @@ export interface ManagerHubPayload {
     status: string;
     leagueNames: string[];
   }[];
-  /** Week-by-week title and playoff odds for my team in each league. */
-  weeklyOdds: {
+  /** Full standings per league, with my team flagged and dynasty values where relevant. */
+  standings: {
     leagueId: string;
     leagueName: string;
-    teamName: string;
-    points: { week: number; titleOdds: number; playoffOdds: number }[];
+    platform: string;
+    isDynasty: boolean;
+    myTeamId: string | null;
+    /** My title-odds swing since the first stored snapshot, if any. */
+    swing: number | null;
+    swingFromWeek: number | null;
+    teams: {
+      id: string;
+      name: string;
+      isMine: boolean;
+      record: string;
+      titleOdds: number;
+      playoffOdds: number;
+      badge: import("./team-class").TeamBadge;
+      dynastyValue: number | null;
+      dynastyRank: number | null;
+    }[];
   }[];
 }
 
