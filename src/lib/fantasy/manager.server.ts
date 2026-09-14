@@ -16,6 +16,10 @@ export interface ManagerHubPayload {
     playoffOdds: number;
   }[];
   moves: (MoveSuggestion & { leagueId: string; leagueName: string })[];
+  /** Trade ideas only, best title impact first. */
+  trades: (MoveSuggestion & { leagueId: string; leagueName: string })[];
+  /** Waiver / free-agent adds only, best title impact first. */
+  waivers: (MoveSuggestion & { leagueId: string; leagueName: string })[];
   alerts: (Alert & { leagueId: string; leagueName: string })[];
   exposure: {
     name: string;
@@ -25,6 +29,13 @@ export interface ManagerHubPayload {
     totalLeagues: number;
     status: string;
     leagueNames: string[];
+  }[];
+  /** Week-by-week title and playoff odds for my team in each league. */
+  weeklyOdds: {
+    leagueId: string;
+    leagueName: string;
+    teamName: string;
+    points: { week: number; titleOdds: number; playoffOdds: number }[];
   }[];
 }
 
