@@ -89,8 +89,9 @@ const signed = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)} pts`;
 
 function LeaguePage() {
   const { leagueId } = Route.useParams();
+  const search = Route.useSearch();
   const analyze = useServerFn(getAnalysis);
-  const [tab, setTab] = useState("moves");
+  const [tab, setTab] = useState(search.tab === "lineup" ? "lineup" : "moves");
 
   const forceRef = useRef(false);
   const { data, isLoading, isFetching, refetch, error } = useQuery({
