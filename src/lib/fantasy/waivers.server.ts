@@ -19,7 +19,13 @@ import { normalizeName } from "./names";
 import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
-import { fallbackValue, leagueValueFormat, loadTradeValues, type ValueFormat } from "./trade-value";
+import {
+  calibratedScale,
+  fallbackValue,
+  leagueValueFormat,
+  loadTradeValues,
+  type ValueFormat,
+} from "./trade-value";
 import {
   FORMAT_LABELS,
   asFormat,
@@ -132,7 +138,7 @@ export async function buildWaiverBoard(
   const valueScale = calibratedScale(
     players.map((p) => ({
       market: values.market(p.id, p.full_name, p.position.toUpperCase()) ?? 0,
-      proj: fallbackValue(p.position.toUpperCase(), seasonOfProbe(p)),
+      proj: fallbackValue(p.position.toUpperCase(), Number(p.proj_points_season)),
     })),
   );
   const seasonOf = (p: {
