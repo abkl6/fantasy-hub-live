@@ -225,8 +225,13 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
 
   const events = useMemo(() => {
     const rows = data?.events ?? [];
-    return showAllEvents ? rows : rows.slice(0, 5);
+    return showAllEvents ? rows : rows.slice(0, 3);
   }, [data, showAllEvents]);
+
+  const sortedMatchups = useMemo(() => {
+    const rows = [...(data?.matchups ?? [])];
+    return rows.sort((a, b) => (b.winProbability ?? -1) - (a.winProbability ?? -1));
+  }, [data]);
 
   if (isLoading) {
     return (
