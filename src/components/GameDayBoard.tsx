@@ -5,10 +5,12 @@ import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw, Share2 } fr
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { CacheStatus } from "@/components/CacheStatus";
 import { Sparkline } from "@/components/Sparkline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCachedQuery } from "@/hooks/useCachedQuery";
 import { getGameDayFn } from "@/lib/fantasy.functions";
 import { countdownLabel, gameWindow, nextKickoff, pollInterval } from "@/lib/fantasy/gamewindow";
 import type { LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
