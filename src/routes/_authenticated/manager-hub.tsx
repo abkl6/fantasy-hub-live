@@ -96,6 +96,8 @@ type HubMove = {
   acceptance?: number;
   acceptanceBand?: string;
   partnerPointsDelta?: number;
+  bids?: { aggressive: number; optimal: number; passive: number; reason: string } | null;
+
 
 };
 
