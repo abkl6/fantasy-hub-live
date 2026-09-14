@@ -107,7 +107,7 @@ function MoveRow({ move }: { move: HubMove }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            {move.strategyLabel && <Badge variant="outline" className="">{move.strategyLabel}</Badge>}
+            {move.strategyLabel && <Badge variant="outline">{move.strategyLabel}</Badge>}
             {move.dynastyDelta != null && move.dynastyDelta !== 0 && <Badge variant={move.dynastyDelta > 0 ? "default" : "secondary"}>{move.dynastyDelta > 0 ? "+" : ""}{move.dynastyDelta.toLocaleString()} future value</Badge>}
           </div>
           <p className="mt-1 text-sm font-semibold">{move.headline}</p>

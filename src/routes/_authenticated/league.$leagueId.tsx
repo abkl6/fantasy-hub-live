@@ -211,8 +211,8 @@ function LeaguePage() {
           {data.myStrategy && data.myBadge && (
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="">{data.myBadge.label}</Badge>
-                <Badge variant="secondary" className="">
+                <Badge>{data.myBadge.label}</Badge>
+                <Badge variant="secondary">
                   {data.myStrategy.label}
                 </Badge>
               </div>
@@ -801,7 +801,6 @@ function TradePanel({ leagueId }: { leagueId: string }) {
       {run.data && (
         <div className="mt-6 rounded-lg border border-border bg-background/50 p-5">
           <Badge
-            className=""
             variant={run.data.verdict === "accept" ? "default" : "secondary"}
           >
             {run.data.verdict}
@@ -1004,11 +1003,11 @@ function MoveCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="">
+            <Badge variant="secondary">
               {suggestion.kind.replace(/_/g, " ")}
             </Badge>
             {suggestion.strategyLabel && (
-              <Badge variant="outline" className="">
+              <Badge variant="outline">
                 {suggestion.strategyLabel}
               </Badge>
             )}
