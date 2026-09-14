@@ -133,6 +133,7 @@ export type Database = {
       }
       leagues: {
         Row: {
+          color: string | null
           created_at: string
           current_week: number
           external_id: string | null
@@ -153,6 +154,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          color?: string | null
           created_at?: string
           current_week?: number
           external_id?: string | null
@@ -173,6 +175,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          color?: string | null
           created_at?: string
           current_week?: number
           external_id?: string | null
