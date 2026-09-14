@@ -370,7 +370,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       name: p.full_name,
       position: p.position.toUpperCase(),
       nflTeam: p.nfl_team,
-      proj: scoring.scale(p.position, Number(p.proj_points_week)),
+      proj: scoring.scale(p.position, proj.week(p.id, p.full_name, Number(p.proj_points_week))),
       volatility: Number(p.volatility),
     }))
     .sort((a, b) => b.proj - a.proj)
@@ -464,7 +464,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         {
           age: (p as { age?: number | null }).age ?? null,
           yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
-          season: scoring.scale(p.position, Number(p.proj_points_season)),
+          season: scoring.scale(p.position, proj.season(p.id, p.full_name, Number(p.proj_points_season))),
         },
       ]),
     );
