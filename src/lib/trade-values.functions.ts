@@ -52,25 +52,42 @@ export const listTradeValues = createServerFn({ method: "POST" })
       .parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
-    const [{ data: values, error }, { data: picks }, { data: log }] = await Promise.all([
-      context.supabase
-        .from("player_trade_values")
-        .select("display_name, position, nfl_team, value, tier, overall_rank, position_rank, fetched_at")
-        .eq("format", data.format)
-        .order("value", { ascending: false })
-        .limit(600),
-      context.supabase
-        .from("pick_values")
-        .select("season, round, slot, value")
-        .eq("format", data.format)
-        .order("value", { ascending: false }),
-      context.supabase
-        .from("trade_value_refresh_log")
-        .select("run_at, status, error, rows_upserted, scope")
-        .order("run_at", { ascending: false })
-        .limit(1),
-    ]);
+    const [{ data: values, error }, { data: picks }, { data: log }, { data: playerRows }] =
+      await Promise.all([
+        context.supabase
+          .from("player_trade_values")
+          .select("display_name, position, nfl_team, value, tier, overall_rank, position_rank, fetched_at")
+          .eq("format", data.format)
+          .order("value", { ascending: false })
+          .limit(600),
+        context.supabase
+          .from("pick_values")
+          .select("season, round, slot, value")
+          .eq("format", data.format)
+          .order("value", { ascending: false }),
+        context.supabase
+          .from("trade_value_refresh_log")
+          .select("run_at, status, error, rows_upserted, scope")
+          .order("run_at", { ascending: false })
+          .limit(1),
+        context.supabase
+          .from("players")
+          .select("search_name, position, proj_points_season")
+          .limit(3000),
+      ]);
     if (error) throw new Error(error.message);
+
+    // Projection-implied market worth, so the table can flag who our numbers
+    // like more than the dynasty market does.
+    const projByName = new Map<string, number>();
+    for (const p of playerRows ?? []) {
+      const projValue = fallbackValue(
+        String(p.position).toUpperCase(),
+        Number(p.proj_points_season ?? 0),
+      );
+      const nameKey = String(p.search_name);
+      projByName.set(nameKey, Math.max(projByName.get(nameKey) ?? 0, projValue));
+    }
 
     const search = normalizeName(data.search ?? "");
     const position = (data.position ?? "ALL").toUpperCase();
@@ -79,15 +96,23 @@ export const listTradeValues = createServerFn({ method: "POST" })
       .filter((r) => (position === "ALL" ? true : String(r.position).toUpperCase() === position))
       .filter((r) => (search ? normalizeName(String(r.display_name)).includes(search) : true))
       .slice(0, data.limit ?? 150)
-      .map((r) => ({
-        name: String(r.display_name),
-        position: String(r.position).toUpperCase(),
-        nflTeam: r.nfl_team,
-        value: Number(r.value ?? 0),
-        tier: r.tier,
-        overallRank: r.overall_rank,
-        positionRank: r.position_rank,
-      }));
+      .map((r) => {
+        const value = Number(r.value ?? 0);
+        const projValue = projByName.get(normalizeName(String(r.display_name))) ?? null;
+        const gap = projValue === null ? null : projValue - value;
+        return {
+          name: String(r.display_name),
+          position: String(r.position).toUpperCase(),
+          nflTeam: r.nfl_team,
+          value,
+          tier: r.tier,
+          overallRank: r.overall_rank,
+          positionRank: r.position_rank,
+          projValue,
+          gap,
+          undervalued: gap !== null && projValue! >= value * 1.25 && gap >= 400,
+        };
+      });
 
     const last = log?.[0] ?? null;
     return {
