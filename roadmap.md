@@ -24,3 +24,4 @@
 - [x] 22. Game day: live points from Sleeper stats + ESPN game states, per-league scoring log, live projected finals, auto-refresh during game windows, cron endpoint /api/public/cron/live-scoring
 - [x] 23. Make Game Day the signed-in home with live notifications, compact win probabilities, and best-ball leader tracking
 - [x] 24. Manager Hub: cross-league moves, roster alerts, player exposure, and league shortcuts
+- [x] 25. Keep Trade Cut dynasty values: market table (1QB + superflex) with pick values, weekly auto-refresh plus daily top-up for injured players, pick ownership per league, and balanced two-sided trade suggestions with a fairness read
