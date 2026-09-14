@@ -185,7 +185,7 @@ function LeaguePage() {
                   </p>
                 </div>
                 {a.action && (
-                  <Button size="sm" variant="outline" onClick={() => setTab("waivers")}>
+                  <Button size="sm" variant="outline" onClick={() => setTab("moves")}>
                     {a.action.label}
                   </Button>
                 )}
@@ -333,6 +333,15 @@ function LeaguePage() {
         </TabsContent>
       </Tabs>
     </main>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      {children}
+    </section>
   );
 }
 
