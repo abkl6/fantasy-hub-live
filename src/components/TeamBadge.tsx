@@ -19,13 +19,15 @@ export function TeamBadge({
 }) {
   if (!badge) return null;
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="outline" className={cn("cursor-help text-[11px] font-medium", TONE[badge.tone], className)}>
-          {badge.label}
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-[16rem]">{badge.reason}</TooltipContent>
-    </Tooltip>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={cn("cursor-help text-[11px] font-medium", TONE[badge.tone], className)}>
+            {badge.label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[16rem]">{badge.reason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
