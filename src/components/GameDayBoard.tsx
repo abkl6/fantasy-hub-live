@@ -424,7 +424,7 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
         </div>
       </section>
 
-      <ReadinessBar matchups={sortedMatchups} />
+      <ReadinessBar matchups={sortedMatchups} kickoffAt={data.nextKickoff} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
