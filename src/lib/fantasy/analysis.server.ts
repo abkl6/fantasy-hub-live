@@ -21,6 +21,7 @@ import { fetchAllRows } from "./paginate";
 import { normalizeName } from "./names";
 import { leagueScoring } from "./scoring";
 import { classifyTeam, classifySurvivalTeam, type TeamBadge } from "./team-class";
+import { bidLadder, type BidLadder, type FaabRival } from "./faab";
 import {
   asFormat,
   bestBallDistribution,
@@ -100,6 +101,8 @@ export interface DynastyRow {
 export interface MoveSuggestion {
   id: string;
   kind: "start-sit" | "waiver" | "trade";
+  /** Guillotine only: the three suggested FAAB bids for this pickup. */
+  bids?: BidLadder | null;
   headline: string;
   detail: string;
   pointsDelta: number;
@@ -538,6 +541,52 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // Always surface the five best waiver options, even when the maths says the
   // gain is small or slightly negative — the manager still wants to see them.
   const droppable = [...mine.roster].sort((a, b) => a.proj - b.proj);
+  // Guillotine bidding: price the pickup against every rival's desperation
+  // and the money they actually have left.
+  const survivalBidsFor = (fa: EnginePlayer): BidLadder | null => {
+    if (!survival) return null;
+    const myBase = survivalById.get(mine.id);
+    if (!myBase) return null;
+    const nextRoster = mine.roster.map((p) => (p.name === droppable[0]?.name ? fa : p));
+    const dist = teamDistribution(nextRoster, slots);
+    const withMe = simInputs.map((t) =>
+      t.id === mine.id
+        ? { id: t.id, name: t.name, isMine: t.isMine, mean: dist.mean, sd: dist.sd }
+        : { id: t.id, name: t.name, isMine: t.isMine, mean: t.mean, sd: t.sd },
+    );
+    const after = simulateGuillotine(withMe, weeksLeft, 1000, 7).find((r) => r.id === mine.id);
+    const myGain = Math.max(0, (after?.surviveWeekOdds ?? 0) - myBase.surviveWeekOdds);
+
+    const rivals: FaabRival[] = engineTeams
+      .filter((t) => t.id !== mine.id && t.roster.length)
+      .map((t) => {
+        const base = survivalById.get(t.id);
+        const before = optimalLineup(t.roster, slots).total;
+        const worst = [...t.roster].sort((a, b) => a.proj - b.proj)[0];
+        const swapped = worst ? t.roster.map((p) => (p.name === worst.name ? fa : p)) : [...t.roster, fa];
+        const gainPts = Math.max(0, optimalLineup(swapped, slots).total - before);
+        const risk = Math.max(0, 1 - (base?.surviveWeekOdds ?? 1));
+        const row = teamById.get(t.id);
+        return {
+          id: t.id,
+          name: t.name,
+          surviveWeekOdds: base?.surviveWeekOdds ?? 1,
+          survivalGain: risk * Math.min(0.9, gainPts / 15),
+          faabRemaining: row?.faab_remaining ?? null,
+        };
+      });
+
+    return bidLadder({
+      budget: leagueFaabBudget,
+      myRemaining: teamById.get(mine.id)?.faab_remaining ?? leagueFaabBudget,
+      mySurviveWeekOdds: myBase.surviveWeekOdds,
+      mySurvivalGain: myGain,
+      rivals,
+      teamCount: engineTeams.length,
+      weeksLeft,
+    });
+  };
+
   const waiverIdeas: MoveSuggestion[] = [];
   for (const fa of freeAgents.slice(0, 10)) {
     const drop = droppable[0];
@@ -561,6 +610,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       playoffDelta: impact.playoffDelta,
       addName: fa.name,
       dropName: drop.name,
+      bids: survival ? survivalBidsFor(fa) : null,
     });
   }
   waiverIdeas.sort((a, b) => b.pointsDelta - a.pointsDelta || b.titleDelta - a.titleDelta);
