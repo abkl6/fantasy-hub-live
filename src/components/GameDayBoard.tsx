@@ -1,14 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw, Share2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { CacheStatus } from "@/components/CacheStatus";
 import { Sparkline } from "@/components/Sparkline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCachedQuery } from "@/hooks/useCachedQuery";
 import { getGameDayFn } from "@/lib/fantasy.functions";
 import { countdownLabel, gameWindow, nextKickoff, pollInterval } from "@/lib/fantasy/gamewindow";
 import type { LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
@@ -330,12 +332,12 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
   const window = gameWindow();
   const interval = pollInterval();
 
-  const { data, isLoading, isFetching, refetch, error } = useQuery({
+  const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
+    cacheKey: `gameday:${leagueId ?? "all"}`,
     queryKey: ["gameday", leagueId ?? "all"],
     queryFn: () => fetchGameDay({ data: { ...(leagueId ? { leagueId } : {}), refresh: true } }),
     refetchOnWindowFocus: true,
     refetchInterval: interval || false,
-    refetchIntervalInBackground: false,
   });
 
   const events = useMemo(() => {
@@ -372,6 +374,7 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
 
   return (
     <div className="space-y-5">
+      <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
       <ScoreboardStrip matchups={sortedMatchups} />
 
       <section className="overflow-hidden rounded-lg bg-card">

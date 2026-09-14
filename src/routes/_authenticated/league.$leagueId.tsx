@@ -17,7 +17,9 @@ import {
 import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { CacheStatus } from "@/components/CacheStatus";
 import { DraftPicksPanel } from "@/components/DraftPicksPanel";
+import { useCachedQuery } from "@/hooks/useCachedQuery";
 import type { TeamBadge as TeamBadgeValue } from "@/lib/fantasy/team-class";
 import { TeamBadge } from "@/components/TeamBadge";
 import { TradeBuilder } from "@/components/TradeBuilder";
@@ -94,7 +96,8 @@ function LeaguePage() {
   const [tab, setTab] = useState(search.tab === "lineup" ? "lineup" : "moves");
 
   const forceRef = useRef(false);
-  const { data, isLoading, isFetching, refetch, error } = useQuery({
+  const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
+    cacheKey: `analysis:${leagueId}`,
     queryKey: ["analysis", leagueId],
     queryFn: () => {
       const force = forceRef.current;
@@ -141,6 +144,9 @@ function LeaguePage() {
           <div className="mt-2 flex items-center gap-3">
             <h1 className="text-2xl font-bold">{data.league.name}</h1>
             <LeagueColorPicker leagueId={leagueId} current={(data.league as { color?: string | null }).color ?? null} />
+          </div>
+          <div className="mt-1">
+            <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
           </div>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">

@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { CacheStatus } from "@/components/CacheStatus";
 import { Button } from "@/components/ui/button";
+import { useCachedQuery } from "@/hooks/useCachedQuery";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGameDayFn } from "@/lib/fantasy.functions";
 import type { LiveGame, LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
@@ -99,7 +100,8 @@ const stateRank = (state: LiveGame["gameState"]) => ({ in: 0, pre: 1, post: 2 })
 
 function GamesPage() {
   const fetchGameDay = useServerFn(getGameDayFn);
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch, updating, stale, lastUpdated } = useCachedQuery({
+    cacheKey: "gameday:games",
     queryKey: ["gameday", "games"],
     queryFn: () => fetchGameDay({ data: { games: true } }),
     refetchInterval: pollInterval() || false,
@@ -139,6 +141,10 @@ function GamesPage() {
           <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} aria-hidden="true" />
           Refresh
         </Button>
+      </div>
+
+      <div className="mt-1">
+        <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
       </div>
 
       {showingWholeWeek && (
