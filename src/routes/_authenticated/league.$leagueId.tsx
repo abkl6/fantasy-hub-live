@@ -391,6 +391,8 @@ const SORTS = [
   { id: "points", label: "Points" },
   { id: "bid", label: "Bid" },
   { id: "value", label: "Trade value" },
+  { id: "ktc", label: "Market value" },
+  { id: "gems", label: "Undervalued" },
 ] as const;
 
 function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => void }) {
