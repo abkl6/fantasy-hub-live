@@ -1,14 +1,28 @@
 import { Link, Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LogOut, Plus } from "lucide-react";
+import { BarChart3, LogOut, Menu, Plus, Radio, Repeat2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
+
+const TABS = [
+  { to: "/gameday", label: "Game Day", icon: Radio },
+  { to: "/manager-hub", label: "Hub", icon: BarChart3 },
+  { to: "/trade-desk", label: "Trades", icon: Repeat2 },
+  { to: "/projections", label: "Players", icon: Users },
+] as const;
 
 function AuthenticatedLayout() {
   const { session, loading } = useAuth();
@@ -27,49 +41,62 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/gameday" className="font-display text-xl font-bold uppercase tracking-wider">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+          <Link to="/gameday" className="font-display text-lg font-bold uppercase tracking-wider">
             Gridiron<span className="text-primary">Edge</span>
           </Link>
-          <nav className="flex items-center gap-2">
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/gameday">Game day</Link>
-            </Button>
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/manager-hub">Manager Hub</Link>
-            </Button>
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/trade-desk">Trade Simulator</Link>
-            </Button>
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/trades">Trades</Link>
-            </Button>
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/projections">Stats Hub</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link to="/connect">
-                <Plus className="size-4" aria-hidden="true" />
-                Add league
-              </Link>
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Sign out"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                navigate({ to: "/" });
-              }}
-            >
-              <LogOut className="size-4" aria-hidden="true" />
-            </Button>
-          </nav>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" aria-label="Menu">
+                <Menu className="size-5" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link to="/connect">
+                  <Plus className="size-4" aria-hidden="true" />
+                  Add league
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/trades">Trade history</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={async () => {
+                  await supabase.auth.signOut();
+                  navigate({ to: "/" });
+                }}
+              >
+                <LogOut className="size-4" aria-hidden="true" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
+
       <Outlet />
+
+      <nav
+        aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur"
+      >
+        <div className="mx-auto flex max-w-md items-stretch">
+          {TABS.map(({ to, label, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-muted-foreground transition-colors data-[status=active]:text-primary"
+            >
+              <Icon className="size-5" aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }
