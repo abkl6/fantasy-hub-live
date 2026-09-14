@@ -46,7 +46,15 @@ export const FLEX_ELIGIBLE: Record<string, string[]> = {
   SUPER_FLEX: ["QB", "RB", "WR", "TE"],
   SUPERFLEX: ["QB", "RB", "WR", "TE"],
   OP: ["QB", "RB", "WR", "TE"],
+  // Individual defensive players
+  IDP: ["DL", "LB", "DB"],
+  IDP_FLEX: ["DL", "LB", "DB"],
+  DP: ["DL", "LB", "DB"],
+  DL: ["DL", "DE", "DT"],
+  LB: ["LB", "OLB", "ILB"],
+  DB: ["DB", "CB", "S", "SS", "FS"],
 };
+
 
 export function slotAccepts(slot: Slot, position: string): boolean {
   const s = slot.toUpperCase();

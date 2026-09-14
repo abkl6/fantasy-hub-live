@@ -17,6 +17,7 @@ import {
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
 import { loadProjections } from "./projections.server";
+import { fetchAllRows } from "./paginate";
 import { leagueScoring } from "./scoring";
 import {
   asFormat,
@@ -153,26 +154,26 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   if (leagueError) throw new Error(leagueError.message);
   if (!league) throw new Error("League not found.");
 
-  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, { data: playerRows }] =
+  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, playerRows] =
     await Promise.all([
       supabase.from("teams").select("*").eq("league_id", leagueId),
       supabase.from("roster_spots").select("*").eq("league_id", leagueId),
       supabase.from("matchups").select("*").eq("league_id", leagueId),
-      supabase.from("players").select("*"),
+      fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
     ]);
 
   const slots = asSlots(league.roster_slots);
   const teams = teamRows ?? [];
   const spots = spotRows ?? [];
   const matchups = matchupRows ?? [];
-  const players = playerRows ?? [];
-
-  // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase);
+  const players = playerRows;
 
   // Every projection below is re-scored against this league's own rules, so
   // half-PPR, TE-premium or 6-point passing TDs change the numbers.
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
+
+  // The member's own projection adjustments replace the shared baseline.
+  const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
   const format = asFormat((league as { format?: string }).format);
   const bestBall = !hasLineupDecisions(format);
 
@@ -197,7 +198,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         name: s.player_name,
         position: s.position.toUpperCase(),
         nflTeam: s.nfl_team,
-        proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
+        proj: proj.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
         volatility: 0.35,
       })),
   }));
@@ -339,9 +340,11 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         .filter((c) => slotAccepts(s.slot, c.position.toUpperCase()) && !bestNames.has(c.player_name))
         .sort((a, b) => Number(a.proj_points) - Number(b.proj_points))[0];
       if (!benched) continue;
-      const benchedProj = scoring.scale(
-        benched.position,
-        proj.week(benched.player_id, benched.player_name, Number(benched.proj_points)),
+      const benchedProj = proj.week(
+        benched.player_id,
+        benched.player_name,
+        benched.position.toUpperCase(),
+        Number(benched.proj_points),
       );
       const gain = s.player.proj - benchedProj;
       if (gain < 0.6) continue;
@@ -370,7 +373,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       name: p.full_name,
       position: p.position.toUpperCase(),
       nflTeam: p.nfl_team,
-      proj: scoring.scale(p.position, proj.week(p.id, p.full_name, Number(p.proj_points_week))),
+      proj: proj.week(p.id, p.full_name, p.position.toUpperCase(), Number(p.proj_points_week)),
       volatility: Number(p.volatility),
     }))
     .sort((a, b) => b.proj - a.proj)
@@ -464,7 +467,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         {
           age: (p as { age?: number | null }).age ?? null,
           yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
-          season: scoring.scale(p.position, proj.season(p.id, p.full_name, Number(p.proj_points_season))),
+          season: proj.season(p.id, p.full_name, p.position.toUpperCase(), Number(p.proj_points_season), (p as { stat_projections?: unknown }).stat_projections),
         },
       ]),
     );
@@ -639,14 +642,21 @@ export async function evaluateTrade(
     .select("*")
     .eq("team_id", analysis.myTeam.id);
 
-  const tradeProj = await loadProjections(supabase);
+  const tradeScoring = leagueScoring(
+    analysis.league.scoring_type,
+    (analysis.league.scoring_rules ?? {}) as Record<string, number>,
+  );
+  const tradeProj = await loadProjections(supabase, {
+    scoring: tradeScoring,
+    week: analysis.league.current_week ?? 1,
+  });
 
   const roster: EnginePlayer[] = (spots ?? []).map((s) => ({
     id: s.player_id,
     name: s.player_name,
     position: s.position.toUpperCase(),
     nflTeam: s.nfl_team,
-    proj: tradeProj.week(s.player_id, s.player_name, Number(s.proj_points)),
+    proj: tradeProj.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
     volatility: 0.35,
   }));
 
@@ -680,7 +690,7 @@ export async function evaluateTrade(
         name: s.player_name,
         position: s.position.toUpperCase(),
         nflTeam: s.nfl_team,
-        proj: tradeProj.week(s.player_id, s.player_name, Number(s.proj_points)),
+        proj: tradeProj.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
         volatility: 0.35,
       }));
     const games = t.wins + t.losses + t.ties;

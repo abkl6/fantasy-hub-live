@@ -16,6 +16,7 @@ import {
   type ScheduleGame,
 } from "./engine";
 import { normalizeName } from "./names";
+import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
 import {
@@ -91,18 +92,18 @@ export async function buildWaiverBoard(
   if (error) throw new Error(error.message);
   if (!league) throw new Error("League not found.");
 
-  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, { data: playerRows }] =
+  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, playerRows] =
     await Promise.all([
       supabase.from("teams").select("*").eq("league_id", leagueId),
       supabase.from("roster_spots").select("*").eq("league_id", leagueId),
       supabase.from("matchups").select("*").eq("league_id", leagueId),
-      supabase.from("players").select("*"),
+      fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
     ]);
 
   const slots = asSlots(league.roster_slots);
   const teams = teamRows ?? [];
   const spots = spotRows ?? [];
-  const players = playerRows ?? [];
+  const players = playerRows;
 
   const rostered = new Set(spots.map((s) => key(s.player_name)));
   const usablePosition = (position: string) =>
@@ -115,17 +116,22 @@ export async function buildWaiverBoard(
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
   // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase);
+  const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
   const seasonOf = (p: {
     id?: string;
     full_name?: string;
     position: string;
     proj_points_season: number | string;
+    stat_projections?: unknown;
   }) =>
-    scoring.scale(
-      p.position,
-      proj.season(p.id ?? null, p.full_name ?? null, Number(p.proj_points_season)),
+    proj.season(
+      p.id ?? null,
+      p.full_name ?? null,
+      p.position.toUpperCase(),
+      Number(p.proj_points_season),
+      p.stat_projections,
     );
+
 
   // --- replacement level: the Nth best season projection at each position ---
   const startersNeeded = (pos: string) => {
@@ -134,7 +140,7 @@ export async function buildWaiverBoard(
     return Math.max(1, direct + Math.ceil(flex / 3));
   };
   const replacement = new Map<string, number>();
-  for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF"]) {
+  for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"]) {
     const pool = players
       .filter((p) => p.position.toUpperCase() === pos)
       .map((p) => seasonOf(p))
@@ -170,7 +176,7 @@ export async function buildWaiverBoard(
         nflTeam: p.nfl_team,
         byeWeek: p.bye_week,
         status: p.status,
-        projWeek: scoring.scale(p.position, proj.week(p.id, p.full_name, Number(p.proj_points_week))),
+        projWeek: proj.week(p.id, p.full_name, pos, Number(p.proj_points_week)),
         projSeason,
         volatility: Number(p.volatility),
         tradeValue: Math.round((projSeason - (replacement.get(pos) ?? 0)) * 10) / 10,
@@ -191,7 +197,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
+          proj: proj.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
           volatility: 0.35,
         }))
     : [];
@@ -212,7 +218,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
+          proj: proj.week(s.player_id, s.player_name, s.position.toUpperCase(), Number(s.proj_points)),
           volatility: 0.35,
         })),
       wins: t.wins,

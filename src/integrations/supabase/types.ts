@@ -248,6 +248,33 @@ export type Database = {
           },
         ]
       }
+      nfl_schedule: {
+        Row: {
+          created_at: string
+          id: string
+          nfl_team: string
+          opponent: string | null
+          season: number
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nfl_team: string
+          opponent?: string | null
+          season?: number
+          week: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nfl_team?: string
+          opponent?: string | null
+          season?: number
+          week?: number
+        }
+        Relationships: []
+      }
       platform_credentials: {
         Row: {
           created_at: string
@@ -356,6 +383,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "player_projection_overrides_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_week_stats: {
+        Row: {
+          created_at: string
+          id: string
+          opponent: string | null
+          player_id: string
+          season: number
+          src_points: number
+          stats: Json
+          updated_at: string
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          opponent?: string | null
+          player_id: string
+          season?: number
+          src_points?: number
+          stats?: Json
+          updated_at?: string
+          week: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          opponent?: string | null
+          player_id?: string
+          season?: number
+          src_points?: number
+          stats?: Json
+          updated_at?: string
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_week_stats_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"

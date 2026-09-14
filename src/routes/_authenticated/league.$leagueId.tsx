@@ -369,7 +369,7 @@ function PlayerList({
   );
 }
 
-const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
+const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"];
 
 const SORTS = [
   { id: "impact", label: "Title impact" },

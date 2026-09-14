@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.players_name_position_key;
