@@ -38,7 +38,7 @@ function AuthenticatedLayout() {
               <Link to="/gameday">Game day</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
-              <Link to="/manager-hub">Leagues</Link>
+              <Link to="/manager-hub">Manager Hub</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
               <Link to="/trades">Trades</Link>
