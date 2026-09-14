@@ -130,6 +130,10 @@ function TvTile({ m, size }: { m: LiveMatchup; size: "lg" | "md" | "sm" }) {
           <p className={`stat-num font-bold leading-none ${scoreSize}`}>{theirs.display.toFixed(1)}</p>
         </div>
       </div>
+
+      {m.needLine && (
+        <p className="mt-3 truncate text-center text-xs text-muted-foreground">{m.needLine}</p>
+      )}
     </article>
   );
 }
