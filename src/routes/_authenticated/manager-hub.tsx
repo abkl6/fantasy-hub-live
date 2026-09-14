@@ -112,8 +112,21 @@ function MoveRow({ move }: { move: HubMove }) {
           <p className="mt-1 text-xs text-muted-foreground">{move.detail}</p>
           {move.rationale && <p className="mt-1 text-xs text-muted-foreground">{move.rationale}</p>}
         </div>
+          {move.acceptanceBand && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {move.acceptanceBand}
+                {move.acceptance != null ? ` (${Math.round(move.acceptance * 100)}%)` : ""} they accept
+              </span>
+              {move.partnerPointsDelta != null && (
+                <> · their lineup {move.partnerPointsDelta >= 0 ? "+" : ""}{move.partnerPointsDelta.toFixed(1)} pts/week</>
+              )}
+            </p>
+          )}
+        </div>
         {(move.titleDelta > 0 || move.playoffDelta > 0) && <div className="flex shrink-0 flex-col items-end gap-1">{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}{move.playoffDelta > 0 && <Badge variant="secondary">+{(move.playoffDelta * 100).toFixed(1)}% playoff</Badge>}</div>}
       </div>
+
       {move.giveValue != null && move.getValue != null && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="outline">You give {move.giveValue.toLocaleString()}</Badge>
