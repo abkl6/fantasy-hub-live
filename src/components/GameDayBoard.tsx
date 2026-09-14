@@ -1,14 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronUp, Clock, Loader2, RefreshCw, Radio } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronDown, ChevronUp, Clock, Loader2, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Sparkline } from "@/components/Sparkline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGameDayFn } from "@/lib/fantasy.functions";
 import { countdownLabel, gameWindow, nextKickoff, pollInterval } from "@/lib/fantasy/gamewindow";
 import type { LiveMatchup, LivePlayerRow } from "@/lib/fantasy/live-types";
+import { leagueColor, leagueInitials } from "@/lib/league-colors";
 
 const stateLabel: Record<LivePlayerRow["gameState"], string> = {
   pre: "Yet to play",
@@ -24,13 +26,53 @@ function timeAgo(iso: string | null) {
   return `${Math.round(secs / 3600)}h ago`;
 }
 
+function prefersReducedMotion() {
+  if (typeof window === "undefined") return true;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** Tween a score up to its new value over 600ms; also reports when it changed. */
+function useCountUp(value: number, duration = 600) {
+  const [display, setDisplay] = useState(value);
+  const [changed, setChanged] = useState(false);
+  const from = useRef(value);
+
+  useEffect(() => {
+    if (value === from.current) return;
+    setChanged(true);
+    const start = from.current;
+    const startedAt = performance.now();
+    let frame = 0;
+
+    if (prefersReducedMotion()) {
+      setDisplay(value);
+      from.current = value;
+    } else {
+      const step = (now: number) => {
+        const t = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - (1 - t) * (1 - t);
+        setDisplay(start + (value - start) * eased);
+        if (t < 1) frame = requestAnimationFrame(step);
+        else from.current = value;
+      };
+      frame = requestAnimationFrame(step);
+    }
+
+    const clear = setTimeout(() => setChanged(false), 950);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(clear);
+    };
+  }, [value, duration]);
+
+  return { display, changed };
+}
+
 function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
   return (
     <div className={`flex items-center justify-between gap-3 py-1.5 text-sm ${dim ? "opacity-60" : ""}`}>
       <div className="flex min-w-0 items-center gap-2">
-        <Badge variant="outline" className="w-11 justify-center text-[10px] uppercase">
-          {p.slot}
-        </Badge>
+        <span className="w-10 shrink-0 text-[11px] font-medium text-muted-foreground">{p.slot}</span>
         <div className="min-w-0">
           <p className="truncate font-medium">{p.name}</p>
           <p className="text-[11px] text-muted-foreground">
@@ -41,8 +83,8 @@ function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
         </div>
       </div>
       <div className="text-right">
-        <p className="font-display text-base font-bold tabular-nums">{p.livePoints.toFixed(1)}</p>
-        <p className="text-[11px] text-muted-foreground tabular-nums">proj {p.projectedFinal.toFixed(1)}</p>
+        <p className="stat-num text-base font-bold">{p.livePoints.toFixed(1)}</p>
+        <p className="text-[11px] tabular-nums text-muted-foreground">proj {p.projectedFinal.toFixed(1)}</p>
       </div>
     </div>
   );
@@ -51,93 +93,167 @@ function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
 function MatchupCard({ m }: { m: LiveMatchup }) {
   const [expanded, setExpanded] = useState(false);
   const odds = m.winProbability === null ? null : Math.round(m.winProbability * 100);
+  const mine = useCountUp(m.myScore);
+  const theirs = useCountUp(m.oppScore);
+  const color = leagueColor(m.color, m.leagueId);
+  const live = m.gameState === "in";
+  const final = m.gameState === "post";
+  const history = m.oddsHistory ?? [];
+
   return (
-    <article id={`matchup-${m.leagueId}`} className="scroll-mt-24 rounded-xl border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="eyebrow text-primary">
-            {m.leagueName} · Week {m.week}
+    <article
+      id={`matchup-${m.leagueId}`}
+      className={`scroll-mt-28 overflow-hidden rounded-xl bg-card p-5 transition-opacity ${
+        final ? "opacity-70" : ""
+      } ${live ? "shadow-lg shadow-black/25 ring-1 ring-primary/20" : ""} ${
+        mine.changed || theirs.changed ? "row-flash" : ""
+      }`}
+      style={{ borderLeft: `3px solid ${color}` }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {live && <span className="live-dot size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />}
+          <p className="truncate text-sm font-medium" style={{ color }}>
+            {m.leagueName}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {m.isBestBall ? `Best ball · ${m.leagueRank ?? "—"} of ${m.teamCount}` : m.scoringLabel}
-          </p>
+          <span className="shrink-0 text-xs text-muted-foreground">Week {m.week}</span>
         </div>
-        <Badge variant="secondary" className="text-[10px] uppercase">
-          {m.gameState === "in" ? "Live" : m.gameState === "post" ? "Final" : "Upcoming"}
-        </Badge>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {m.isBestBall ? `Best ball · ${m.leagueRank ?? "—"} of ${m.teamCount}` : m.scoringLabel}
+        </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <div>
-          <p className="truncate text-sm font-medium">{m.myTeam}</p>
-          <p className="font-display text-3xl font-bold tabular-nums">{m.myScore.toFixed(1)}</p>
-          <p className="text-[11px] text-muted-foreground tabular-nums">proj {m.myProjected.toFixed(1)}</p>
+      <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-[12px] text-muted-foreground">{m.myTeam}</p>
+          <p className="stat-num text-5xl font-bold leading-none">{mine.display.toFixed(1)}</p>
+          <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">proj {m.myProjected.toFixed(1)}</p>
         </div>
-        <span className="text-xs uppercase text-muted-foreground">vs</span>
-        <div className="text-right">
-          <p className="truncate text-sm font-medium">
+
+        <div className="w-16 sm:w-24">
+          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${odds ?? 0}%` }} />
+          </div>
+          <p className="mt-1 text-center text-[11px] tabular-nums text-muted-foreground">
+            {odds === null ? "—" : `${odds}%`}
+          </p>
+        </div>
+
+        <div className="min-w-0 text-right">
+          <p className="truncate text-[12px] text-muted-foreground">
             {m.isBestBall ? `${m.oppTeam ?? "—"} · leader` : m.oppTeam ?? "Opponent unavailable"}
           </p>
-          <p className="font-display text-3xl font-bold tabular-nums">{m.oppScore.toFixed(1)}</p>
-          <p className="text-[11px] text-muted-foreground tabular-nums">proj {m.oppProjected.toFixed(1)}</p>
+          <p className="stat-num text-5xl font-bold leading-none">{theirs.display.toFixed(1)}</p>
+          <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">proj {m.oppProjected.toFixed(1)}</p>
         </div>
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-medium">{odds === null ? "Win chance unavailable" : `${odds}% chance to win`}</span>
-          <span className="text-muted-foreground">
-            {m.yetToPlay} yours · {m.oppYetToPlay} {m.isBestBall ? "leader" : "opponent"} left
-          </span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${odds ?? 0}%` }} />
-        </div>
-        {(m.titleOdds !== null || m.playoffOdds !== null) && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {m.titleOdds !== null && <>Season title odds: {(m.titleOdds * 100).toFixed(1)}%</>}
-            {m.titleOdds !== null && m.playoffOdds !== null && " · "}
-            {m.playoffOdds !== null && <>Playoff odds: {(m.playoffOdds * 100).toFixed(1)}%</>}
-          </p>
-        )}
       </div>
 
       <Button className="mt-4 w-full" size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>
         {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-        {expanded ? "Hide roster breakdown" : "View roster breakdown"}
+        {expanded ? "Hide details" : "Details"}
       </Button>
 
-      {expanded && <div className="mt-3 grid gap-6 border-t border-border pt-4 md:grid-cols-2">
-        <div>
-          <p className="eyebrow mb-1 text-muted-foreground">Your starters</p>
-          <div className="divide-y divide-border">
-            {m.starters.map((p) => (
-              <PlayerLine key={`${p.name}-${p.slot}`} p={p} />
-            ))}
+      {expanded && (
+        <div className="mt-3 space-y-6 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>
+              {m.yetToPlay} yours · {m.oppYetToPlay} {m.isBestBall ? "leader" : "opponent"} left to play
+            </span>
+            <span className="flex items-center gap-3">
+              {m.titleOdds !== null && <span>Title {(m.titleOdds * 100).toFixed(1)}%</span>}
+              {m.playoffOdds !== null && <span>Playoffs {(m.playoffOdds * 100).toFixed(1)}%</span>}
+              {history.length > 1 && (
+                <Sparkline
+                  values={history.map((h) => h.titleOdds)}
+                  color={color}
+                  label="Title odds by week"
+                  width={80}
+                  height={20}
+                />
+              )}
+            </span>
           </div>
-        </div>
-        <div>
-            <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader lineup" : "Opponent starters"}</p>
-          <div className="divide-y divide-border">
-            {m.oppStarters.length ? (
-              m.oppStarters.map((p) => <PlayerLine key={`o-${p.name}-${p.slot}`} p={p} />)
-            ) : (
-              <p className="py-2 text-sm text-muted-foreground">No opponent lineup yet.</p>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <p className="eyebrow mb-1 text-muted-foreground">Your starters</p>
+              <div className="divide-y divide-border/60">
+                {m.starters.map((p) => (
+                  <PlayerLine key={`${p.name}-${p.slot}`} p={p} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader lineup" : "Opponent starters"}</p>
+              <div className="divide-y divide-border/60">
+                {m.oppStarters.length ? (
+                  m.oppStarters.map((p) => <PlayerLine key={`o-${p.name}-${p.slot}`} p={p} />)
+                ) : (
+                  <p className="py-2 text-sm text-muted-foreground">No opponent lineup yet.</p>
+                )}
+              </div>
+            </div>
+            {(m.bench.length > 0 || m.oppBench.length > 0) && (
+              <>
+                <div>
+                  <p className="eyebrow mb-1 text-muted-foreground">Your bench</p>
+                  <div className="divide-y divide-border/60">
+                    {m.bench.map((p) => (
+                      <PlayerLine key={`b-${p.name}-${p.slot}`} p={p} dim />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader bench" : "Opponent bench"}</p>
+                  <div className="divide-y divide-border/60">
+                    {m.oppBench.map((p) => (
+                      <PlayerLine key={`ob-${p.name}-${p.slot}`} p={p} dim />
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
-        {(m.bench.length > 0 || m.oppBench.length > 0) && <>
-          <div>
-            <p className="eyebrow mb-1 text-muted-foreground">Your bench</p>
-            <div className="divide-y divide-border">{m.bench.map((p) => <PlayerLine key={`b-${p.name}-${p.slot}`} p={p} dim />)}</div>
-          </div>
-          <div>
-            <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader bench" : "Opponent bench"}</p>
-            <div className="divide-y divide-border">{m.oppBench.map((p) => <PlayerLine key={`ob-${p.name}-${p.slot}`} p={p} dim />)}</div>
-          </div>
-        </>}
-      </div>}
+      )}
     </article>
+  );
+}
+
+function ScoreboardStrip({ matchups }: { matchups: LiveMatchup[] }) {
+  if (!matchups.length) return null;
+  return (
+    <div className="sticky top-14 z-20 -mx-6 bg-background/90 px-6 py-2 backdrop-blur">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {matchups.map((m) => {
+          const color = leagueColor(m.color, m.leagueId);
+          const win = m.winProbability === null ? 0 : Math.round(m.winProbability * 100);
+          return (
+            <a
+              key={`tile-${m.leagueId}`}
+              href={`#matchup-${m.leagueId}`}
+              className={`min-w-[112px] shrink-0 rounded-lg bg-card p-2 transition-opacity hover:opacity-90 ${
+                m.gameState === "post" ? "opacity-70" : ""
+              }`}
+              style={{ borderLeft: `3px solid ${color}` }}
+            >
+              <div className="flex items-center gap-1.5">
+                {m.gameState === "in" && <span className="live-dot size-1.5 rounded-full bg-primary" aria-hidden="true" />}
+                <span className="text-[11px] font-semibold" style={{ color }}>
+                  {leagueInitials(m.leagueName)}
+                </span>
+              </div>
+              <p className="stat-num mt-0.5 text-sm font-bold">
+                {m.myScore.toFixed(1)} <span className="text-muted-foreground">–</span> {m.oppScore.toFixed(1)}
+              </p>
+              <div className="mt-1 h-[3px] overflow-hidden rounded-full bg-secondary">
+                <div className="h-full rounded-full" style={{ width: `${win}%`, backgroundColor: color }} />
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -154,15 +270,15 @@ function ReadinessBar({ matchups }: { matchups: LiveMatchup[] }) {
   const alerts = matchups.filter((m) => !m.isBestBall && hasLineupAlert(m)).length;
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card px-4 py-3">
       <div className="flex items-center gap-2">
-        <Clock className="size-4 text-primary" />
+        <Clock className="size-4 text-muted-foreground" />
         <div>
           <p className="text-sm font-semibold tabular-nums">{countdownLabel(kickoff.at)} to first kickoff</p>
           <p className="text-[11px] text-muted-foreground">{kickoff.label}</p>
         </div>
       </div>
-      <Badge variant={alerts ? "destructive" : "secondary"} className="text-[10px] uppercase">
+      <Badge variant={alerts ? "destructive" : "secondary"} className="text-[11px]">
         {alerts
           ? `${alerts} ${alerts === 1 ? "league needs" : "leagues need"} a lineup fix`
           : "All lineups look set"}
@@ -206,7 +322,7 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
 
   if (error || !data) {
     return (
-      <div className="rounded-xl border border-border p-6">
+      <div className="rounded-xl bg-card p-6">
         <p className="text-sm text-muted-foreground">
           {error instanceof Error ? error.message : "Live scoring is unavailable right now."}
         </p>
@@ -218,46 +334,43 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={window.live ? "default" : "outline"} className="text-[10px] uppercase">
-            {window.live ? `Live · ${window.label}` : window.label}
-          </Badge>
-          <p className="text-xs text-muted-foreground">
-            Week {data.week} · stats updated {timeAgo(data.updatedAt)}
-            {window.live ? " · refreshing every 45s" : ""}
-          </p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
-          {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-          Refresh
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <ScoreboardStrip matchups={sortedMatchups} />
 
-      <ReadinessBar matchups={sortedMatchups} />
-
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <section className="overflow-hidden rounded-lg bg-card">
         <div className="flex items-center gap-2 px-3 py-1.5">
-          <Radio className={`size-3.5 shrink-0 ${window.live ? "animate-pulse text-primary" : "text-muted-foreground"}`} />
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Live</span>
-          <div className="min-w-0 flex-1 divide-y divide-border/60">
+          <span
+            className={`size-2 shrink-0 rounded-full ${window.live ? "live-dot bg-primary" : "bg-muted-foreground/50"}`}
+            aria-hidden="true"
+          />
+          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">Live</span>
+          <div className="min-w-0 flex-1 divide-y divide-border/50">
             {!events.length && (
               <p className="truncate py-1 text-xs text-muted-foreground">No scoring updates yet — new plays appear here first.</p>
             )}
             {events.map((e) => (
-              <p key={`${e.leagueId}-${e.id}`} className="flex items-baseline gap-1.5 truncate py-1 text-xs leading-tight">
-                <span className={`shrink-0 font-display font-bold tabular-nums ${e.side === "opponent" ? "text-destructive" : e.points >= 0 ? "text-primary" : "text-destructive"}`}>
-                  {e.points >= 0 ? "+" : ""}{e.points.toFixed(1)}
+              <p
+                key={`${e.leagueId}-${e.id}`}
+                className="ticker-in flex items-baseline gap-1.5 truncate py-1 text-xs leading-tight"
+              >
+                <span
+                  className={`stat-num shrink-0 font-bold ${
+                    e.side === "opponent" ? "text-destructive" : e.points >= 0 ? "text-primary" : "text-destructive"
+                  }`}
+                >
+                  {e.points >= 0 ? "+" : ""}
+                  {e.points.toFixed(1)}
                 </span>
                 <span className="shrink-0 font-medium">{e.playerName}</span>
-                <span className="truncate text-muted-foreground">{e.description} · {e.leagueName}</span>
+                <span className="truncate text-muted-foreground">
+                  {e.description} · {e.leagueName}
+                </span>
               </p>
             ))}
           </div>
           {data.events.length > 3 && (
             <button
-              className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-[11px] font-medium text-muted-foreground hover:text-foreground"
               onClick={() => setShowAllEvents((value) => !value)}
             >
               {showAllEvents ? "Less" : `All ${data.events.length}`}
@@ -265,6 +378,19 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
           )}
         </div>
       </section>
+
+      <ReadinessBar matchups={sortedMatchups} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          Week {data.week} · stats updated {timeAgo(data.updatedAt)}
+          {window.live ? " · refreshing every 45s" : ""}
+        </p>
+        <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
+          {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+          Refresh
+        </Button>
+      </div>
 
       {!data.matchups.length && (
         <p className="text-sm text-muted-foreground">
@@ -277,7 +403,6 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
           <MatchupCard key={m.leagueId} m={m} />
         ))}
       </div>
-
     </div>
   );
 }
