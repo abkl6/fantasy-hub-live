@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeName } from "@/lib/fantasy/names";
+import { fallbackValue } from "@/lib/fantasy/trade-value";
 
 export interface TradeValueRow {
   name: string;
@@ -17,6 +18,11 @@ export interface TradeValueRow {
   tier: number | null;
   overallRank: number | null;
   positionRank: number | null;
+  /** What our projections imply this player should be worth. */
+  projValue: number | null;
+  /** projValue minus market value; positive means the market is sleeping. */
+  gap: number | null;
+  undervalued: boolean;
 }
 
 export interface PickValueRow {
