@@ -654,7 +654,6 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         if (!give) continue;
         const nextRoster = mine.roster.map((p) => (p.name === give.name ? target : p));
         const after = optimalLineup(nextRoster, slots).total;
-        if (after - beforeLineup < 0.5) continue;
         const impact = whatIf(nextRoster);
 
         const myPool: TradeAsset[] = [
@@ -671,13 +670,15 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         const balanced = balanceTrade([assetFor(give)], [assetFor(target)], myPool, theirPool);
         const giveText = balanced.give.map(assetLabel).join(" + ");
         const getText = balanced.get.map(assetLabel).join(" + ");
+        const read = partnerRead(other, [target], [give], balanced.getValue, balanced.giveValue);
+        const gain = after - beforeLineup;
 
-        suggestions.push({
+        tradeIdeas.push({
           id: `trade-${other.id}-${target.name}`,
           kind: "trade",
           headline: `Send ${giveText} to ${other.name} for ${getText}`,
-          detail: `Fills your ${need} hole from a position of surplus. Lineup gains ${(after - beforeLineup).toFixed(1)} points a week. ${fairnessLabel(balanced.giveValue, balanced.getValue)} on the ${marketLabel} dynasty market.`,
-          pointsDelta: Math.round((after - beforeLineup) * 10) / 10,
+          detail: `Fills your ${need} hole from a position of surplus. Lineup ${gain >= 0 ? "gains" : "loses"} ${Math.abs(gain).toFixed(1)} points a week. ${fairnessLabel(balanced.giveValue, balanced.getValue)} on the ${marketLabel} dynasty market. ${read.band} they accept — ${read.reason}`,
+          pointsDelta: Math.round(gain * 10) / 10,
           winDelta: Math.round(impact.winDelta * 100) / 100,
           titleDelta: impact.titleDelta,
           playoffDelta: impact.playoffDelta,
@@ -693,10 +694,15 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           strategyLabel: "Buying",
           rationale: `You're a ${myBadge.label}: ${myStrategy.rationale} ${other.name} (${otherLabel}) should take the youth back.`,
           dynastyDelta: balanced.getValue - balanced.giveValue,
+          partnerPointsDelta: Math.round(read.pointsDelta * 10) / 10,
+          acceptance: read.acceptance,
+          acceptanceBand: read.band,
+          acceptanceReason: read.reason,
         });
         break;
       }
     }
+
 
     // ---- selling: my veterans to a contender for picks and youth ----------
     if (modes.includes("sell") && (otherPicks.length || other.roster.length)) {
