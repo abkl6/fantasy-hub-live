@@ -33,6 +33,7 @@ export interface LiveMatchup {
   leagueId: string;
   leagueName: string;
   scoringLabel: string;
+  format: string;
   week: number;
   myTeam: string;
   oppTeam: string | null;
@@ -42,9 +43,16 @@ export interface LiveMatchup {
   oppProjected: number;
   yetToPlay: number;
   oppYetToPlay: number;
+  winProbability: number | null;
+  titleOdds: number | null;
+  gameState: "pre" | "in" | "post";
+  isBestBall: boolean;
+  leagueRank: number | null;
+  teamCount: number;
   starters: LivePlayerRow[];
   bench: LivePlayerRow[];
   oppStarters: LivePlayerRow[];
+  oppBench: LivePlayerRow[];
 }
 
 export interface GameDayPayload {

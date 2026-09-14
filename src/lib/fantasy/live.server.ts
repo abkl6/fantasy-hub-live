@@ -13,7 +13,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { leagueScoring, scoreStats, type StatLine } from "./scoring";
-import { slotAccepts } from "./engine";
+import { optimalLineup, slotAccepts } from "./engine";
+import { bestBallWeekProbability, headToHeadWinProbability, type ProbabilityPlayer } from "./game-probability";
+import { asFormat } from "./format";
 import type {
   GameDayPayload,
   LiveEventRow,
@@ -274,7 +276,7 @@ export async function buildGameDay(
   }
   const leagueIds = leagues.map((l) => l.id);
 
-  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, { data: liveRows }, { data: eventRows }] =
+  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, { data: liveRows }, { data: eventRows }, { data: snapshotRows }] =
     await Promise.all([
       supabase.from("teams").select("*").in("league_id", leagueIds),
       supabase.from("roster_spots").select("*").in("league_id", leagueIds),
@@ -287,6 +289,11 @@ export async function buildGameDay(
         .eq("week", week)
         .order("occurred_at", { ascending: false })
         .limit(300),
+      supabase
+        .from("weekly_snapshots")
+        .select("league_id, team_id, title_odds, week, created_at")
+        .in("league_id", leagueIds)
+        .order("created_at", { ascending: false }),
     ]);
 
   const teams = teamRows ?? [];
@@ -314,6 +321,8 @@ export async function buildGameDay(
 
   for (const league of leagues) {
     const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
+    const format = asFormat(league.format);
+    const isBestBall = format === "best_ball";
     const mine = teams.find((t) => t.league_id === league.id && t.is_mine);
     if (!mine) continue;
 
@@ -367,27 +376,101 @@ export async function buildGameDay(
         .slice(0, Math.max(1, slots.length));
     };
 
-    const starters = startersOf(mySpots);
-    const oppStarters = startersOf(oppSpots);
+    const bestBallRows = (rows: LivePlayerRow[], field: "livePoints" | "projectedFinal") => {
+      const selected = optimalLineup(
+        rows.map((row) => ({ ...row, id: null, proj: row[field], volatility: 0.35 })),
+        slots,
+      ).starters.flatMap((entry) => (entry.player ? [entry.player as LivePlayerRow] : []));
+      return selected;
+    };
+    const starters = isBestBall ? bestBallRows(mySpots, "livePoints") : startersOf(mySpots);
+    const projectedStarters = isBestBall ? bestBallRows(mySpots, "projectedFinal") : starters;
+    let oppStarters = startersOf(oppSpots);
     const sum = (rows: LivePlayerRow[], field: "livePoints" | "projectedFinal") =>
       round1(rows.reduce((acc, r) => acc + r[field], 0));
+
+    let comparisonTeam = opp;
+    let comparisonSpots = oppSpots;
+    let leagueRank: number | null = null;
+    let winProbability: number | null = null;
+
+    if (isBestBall) {
+      const teamLive = teams
+        .filter((team) => team.league_id === league.id)
+        .map((team) => {
+          const rows = spots.filter((spot) => spot.team_id === team.id).map(toRow);
+          const liveLineup = bestBallRows(rows, "livePoints");
+          const projectedLineup = bestBallRows(rows, "projectedFinal");
+          return {
+            team,
+            rows,
+            liveLineup,
+            projectedLineup,
+            liveScore: sum(liveLineup, "livePoints"),
+            projected: sum(projectedLineup, "projectedFinal"),
+          };
+        })
+        .sort((a, b) => b.liveScore - a.liveScore || b.projected - a.projected);
+      leagueRank = Math.max(1, teamLive.findIndex((entry) => entry.team.id === mine.id) + 1);
+      const leader = teamLive.find((entry) => entry.team.id !== mine.id) ?? teamLive[0];
+      if (leader) {
+        comparisonTeam = leader.team;
+        comparisonSpots = leader.rows;
+        oppStarters = leader.liveLineup;
+      }
+      const probabilityTeams = teamLive.map((entry) => ({
+        id: entry.team.id,
+        players: entry.rows.map((row) => ({
+          ...row,
+          id: null,
+          proj: row.projectedFinal,
+          volatility: 0.35,
+        })) as ProbabilityPlayer[],
+      }));
+      winProbability = probabilityTeams.length > 1
+        ? bestBallWeekProbability(probabilityTeams, mine.id, slots)
+        : 1;
+    } else if (opp) {
+      winProbability = headToHeadWinProbability(
+        starters.map((row) => ({ ...row, id: null, proj: row.projectedFinal, volatility: 0.35 })),
+        oppStarters.map((row) => ({ ...row, id: null, proj: row.projectedFinal, volatility: 0.35 })),
+      );
+    }
+
+    const allPlayers = [...starters, ...oppStarters];
+    const gameState = allPlayers.some((row) => row.gameState === "in")
+      ? "in"
+      : allPlayers.length > 0 && allPlayers.every((row) => row.gameState === "post")
+        ? "post"
+        : "pre";
+    const latestSnapshot = (snapshotRows ?? []).find(
+      (row) => row.league_id === league.id && row.team_id === mine.id,
+    );
 
     matchups.push({
       leagueId: league.id,
       leagueName: league.name,
       scoringLabel: scoring.label,
+      format,
       week: liveWeek,
       myTeam: mine.name,
-      oppTeam: opp?.name ?? null,
+      oppTeam: comparisonTeam?.name ?? null,
       myScore: sum(starters, "livePoints"),
       oppScore: sum(oppStarters, "livePoints"),
-      myProjected: sum(starters, "projectedFinal"),
-      oppProjected: sum(oppStarters, "projectedFinal"),
+      myProjected: sum(projectedStarters, "projectedFinal"),
+      oppProjected: sum(isBestBall ? bestBallRows(comparisonSpots, "projectedFinal") : oppStarters, "projectedFinal"),
       yetToPlay: starters.filter((r) => r.gameState === "pre").length,
       oppYetToPlay: oppStarters.filter((r) => r.gameState === "pre").length,
+      winProbability,
+      titleOdds: latestSnapshot ? Number(latestSnapshot.title_odds) : null,
+      gameState,
+      isBestBall,
+      leagueRank,
+      teamCount: teams.filter((team) => team.league_id === league.id).length,
       starters: starters.sort((a, b) => b.livePoints - a.livePoints),
       bench: mySpots.filter((r) => !starters.includes(r)),
       oppStarters: oppStarters.sort((a, b) => b.livePoints - a.livePoints),
+      oppBench: comparisonSpots.filter((r) => !oppStarters.includes(r)),
     });
 
     // Score the event log with this league's rules, for players in this matchup.
@@ -395,7 +478,7 @@ export async function buildGameDay(
     for (const s of spots) {
       if (!s.player_id) continue;
       if (s.team_id === mine.id) sideOf.set(s.player_id, "mine");
-      else if (opp && s.team_id === opp.id) sideOf.set(s.player_id, "opponent");
+       else if (comparisonTeam && s.team_id === comparisonTeam.id) sideOf.set(s.player_id, "opponent");
     }
 
     const card = matchups[matchups.length - 1]!;
@@ -423,6 +506,8 @@ export async function buildGameDay(
   }
 
   events.sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : a.occurredAt > b.occurredAt ? -1 : 0));
+
+  matchups.sort((a, b) => ({ in: 0, pre: 1, post: 2 })[a.gameState] - ({ in: 0, pre: 1, post: 2 })[b.gameState]);
 
   return { season, week, updatedAt, matchups, events: events.slice(0, 120) };
 }

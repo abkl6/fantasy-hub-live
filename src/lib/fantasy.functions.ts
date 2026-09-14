@@ -925,3 +925,10 @@ export const getGameDayFn = createServerFn({ method: "POST" })
 
     return buildGameDay(context.supabase, data.leagueId ? { leagueId: data.leagueId } : {});
   });
+
+export const getManagerHubFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { buildManagerHub } = await import("./fantasy/manager.server");
+    return buildManagerHub(context.supabase);
+  });
