@@ -84,6 +84,13 @@ export interface MoveSuggestion {
   playoffDelta: number;
   addName?: string;
   dropName?: string;
+  /** Dynasty market pricing, present on trade suggestions. */
+  giveValue?: number;
+  getValue?: number;
+  fairness?: Fairness;
+  giveAssets?: string[];
+  getAssets?: string[];
+  valueFormat?: ValueFormat;
 }
 
 export interface ScoreboardGame {
