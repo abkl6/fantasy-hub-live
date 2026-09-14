@@ -188,6 +188,14 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
       .eq("platform", "sleeper")
       .eq("external_id", data.sleeperLeagueId);
 
+    // Give each league its own accent: pick the least-used color so far.
+    const { data: existingLeagues } = await supabase.from("leagues").select("color");
+    const used = new Map<string, number>(LEAGUE_COLOR_KEYS.map((key) => [key, 0]));
+    for (const row of existingLeagues ?? []) {
+      if (row.color && used.has(row.color)) used.set(row.color, used.get(row.color)! + 1);
+    }
+    const color = [...used.entries()].sort((a, b) => a[1] - b[1])[0]![0];
+
     const { data: league, error: leagueError } = await supabase
       .from("leagues")
       .insert({
@@ -195,7 +203,8 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         platform: "sleeper",
         external_id: data.sleeperLeagueId,
         name: bundle.league.name,
-        season: Number(data.season),
+        season: Number(season),
+        color,
         current_week: week,
         team_count: bundle.league.total_rosters,
         playoff_teams: playoffTeams,
@@ -225,7 +234,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         external_id: String(r.roster_id),
         name: owner?.metadata?.team_name || owner?.display_name || `Team ${r.roster_id}`,
         owner_name: owner?.display_name ?? null,
-        is_mine: r.owner_id === data.sleeperUserId,
+        is_mine: !!ownerId && r.owner_id === ownerId,
         wins: s.wins ?? 0,
         losses: s.losses ?? 0,
         ties: s.ties ?? 0,
