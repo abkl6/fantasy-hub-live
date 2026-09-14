@@ -17,6 +17,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedGamedayRouteImport } from './routes/_authenticated/gameday'
 import { Route as AuthenticatedManagerHubRouteImport } from './routes/_authenticated/manager-hub'
 import { Route as AuthenticatedProjectionsRouteImport } from './routes/_authenticated/projections'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTradeDeskRouteImport } from './routes/_authenticated/trade-desk'
 import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated/trades'
 import { Route as AuthenticatedTvRouteImport } from './routes/_authenticated/tv'
@@ -67,6 +68,11 @@ const AuthenticatedProjectionsRoute =
     path: '/projections',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTradeDeskRoute = AuthenticatedTradeDeskRouteImport.update({
   id: '/trade-desk',
   path: '/trade-desk',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/gameday': typeof AuthenticatedGamedayRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
   '/projections': typeof AuthenticatedProjectionsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/gameday': typeof AuthenticatedGamedayRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
   '/projections': typeof AuthenticatedProjectionsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/_authenticated/gameday': typeof AuthenticatedGamedayRoute
   '/_authenticated/manager-hub': typeof AuthenticatedManagerHubRoute
   '/_authenticated/projections': typeof AuthenticatedProjectionsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/_authenticated/trades': typeof AuthenticatedTradesRoute
   '/_authenticated/tv': typeof AuthenticatedTvRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/gameday'
     | '/manager-hub'
     | '/projections'
+    | '/settings'
     | '/trade-desk'
     | '/trades'
     | '/tv'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/gameday'
     | '/manager-hub'
     | '/projections'
+    | '/settings'
     | '/trade-desk'
     | '/trades'
     | '/tv'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/_authenticated/gameday'
     | '/_authenticated/manager-hub'
     | '/_authenticated/projections'
+    | '/_authenticated/settings'
     | '/_authenticated/trade-desk'
     | '/_authenticated/trades'
     | '/_authenticated/tv'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/trade-desk': {
       id: '/_authenticated/trade-desk'
       path: '/trade-desk'
@@ -372,6 +391,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGamedayRoute: typeof AuthenticatedGamedayRoute
   AuthenticatedManagerHubRoute: typeof AuthenticatedManagerHubRoute
   AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTradeDeskRoute: typeof AuthenticatedTradeDeskRoute
   AuthenticatedTradesRoute: typeof AuthenticatedTradesRoute
   AuthenticatedTvRoute: typeof AuthenticatedTvRoute
@@ -384,6 +404,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGamedayRoute: AuthenticatedGamedayRoute,
   AuthenticatedManagerHubRoute: AuthenticatedManagerHubRoute,
   AuthenticatedProjectionsRoute: AuthenticatedProjectionsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTradeDeskRoute: AuthenticatedTradeDeskRoute,
   AuthenticatedTradesRoute: AuthenticatedTradesRoute,
   AuthenticatedTvRoute: AuthenticatedTvRoute,
