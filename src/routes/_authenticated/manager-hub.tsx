@@ -418,6 +418,15 @@ function ManagerHub() {
 
       {!data.leagues.length && <section className="mt-8 rounded-xl border border-dashed p-10 text-center"><h2 className="text-2xl font-bold">Build your hub</h2><p className="mt-2 text-sm text-muted-foreground">Add a league to see recommendations, alerts and exposure.</p><Button asChild className="mt-5"><Link to="/connect">Add your first league</Link></Button></section>}
 
+      {!!data.reviews?.length && (
+        <section className="mt-6 space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">Week in review</h2>
+          {data.reviews.map((review) => (
+            <ReviewCard key={review.leagueId} review={review} />
+          ))}
+        </section>
+      )}
+
       {!!data.leagues.length && <>
         <section className="mt-8 grid gap-4 sm:grid-cols-4">
           <div className="rounded-xl bg-card p-5"><Users className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.leagues.length}</p><p className="text-xs text-muted-foreground">Teams tracked</p></div>
