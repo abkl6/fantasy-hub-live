@@ -39,6 +39,8 @@ import {
   getWaiverBoard,
   importSleeperDraftFn,
   setBestLineupFn,
+  updateFaab,
+
 } from "@/lib/fantasy.functions";
 import { logTrade } from "@/lib/platforms.functions";
 
