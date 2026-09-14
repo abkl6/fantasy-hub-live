@@ -556,6 +556,7 @@ export async function buildGameDay(
     matchups.push({
       leagueId: league.id,
       leagueName: league.name,
+      color: (league as { color?: string | null }).color ?? null,
       scoringLabel: scoring.label,
       format,
       week: liveWeek,

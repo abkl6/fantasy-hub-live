@@ -79,7 +79,7 @@ function readFiles(files: FileList): Promise<string[]> {
 function ConnectPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
-      <h1 className="text-2xl font-bold uppercase">Add a league</h1>
+      <h1 className="text-2xl font-bold">Add a league</h1>
 
       <Tabs defaultValue="sleeper" className="mt-8">
         <TabsList>
@@ -127,8 +127,8 @@ function SleeperPanel() {
   });
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Connect Sleeper</h2>
+    <section className="rounded-xl bg-card p-6">
+      <h2 className="text-2xl font-bold">Connect Sleeper</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Enter your Sleeper username and pick the league to track. Scores refresh every time you open
         it.
@@ -161,7 +161,7 @@ function SleeperPanel() {
           {search.data.leagues.map((l) => (
             <div
               key={l.league_id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background/50 p-4"
             >
               <div>
                 <p className="font-semibold">{l.name}</p>
@@ -311,14 +311,14 @@ function ManualPanel() {
 
   if (step === 2 && leagueId && teamId) {
     return (
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-2xl font-bold uppercase">Your roster</h2>
+      <section className="rounded-xl bg-card p-6">
+        <h2 className="text-2xl font-bold">Your roster</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Upload a screenshot of your roster and we will fill this in. Anything we were unsure about
           is flagged — fix it and save.
         </p>
 
-        <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background/50 p-4 text-sm hover:border-primary/60">
+        <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-lg border-dashed border-border bg-background/50 p-4 text-sm hover:border-primary/60">
           {scanRoster.isPending ? (
             <Loader2 className="size-5 animate-spin text-primary" />
           ) : (
@@ -340,7 +340,7 @@ function ManualPanel() {
           {players.map((p, i) => (
             <div
               key={`${p.name}-${i}`}
-              className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-border bg-background/40 p-2"
+              className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-lg bg-secondary/30 border-border bg-background/40 p-2"
             >
               <Input
                 value={p.name}
@@ -411,14 +411,14 @@ function ManualPanel() {
   }
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">League settings</h2>
+    <section className="rounded-xl bg-card p-6">
+      <h2 className="text-2xl font-bold">League settings</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Got unusual scoring? Upload a screenshot of your league's scoring page and we will read the
         rules for you.
       </p>
 
-      <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background/50 p-4 text-sm hover:border-primary/60">
+      <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-lg border-dashed border-border bg-background/50 p-4 text-sm hover:border-primary/60">
         {scanScoring.isPending ? (
           <Loader2 className="size-5 animate-spin text-primary" />
         ) : (
@@ -574,8 +574,8 @@ function EspnPanel() {
   });
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Connect ESPN</h2>
+    <section className="rounded-xl bg-card p-6">
+      <h2 className="text-2xl font-bold">Connect ESPN</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Your league ID is the number in the ESPN league URL after <code>leagueId=</code>. Public
         leagues need nothing else.
@@ -605,14 +605,14 @@ function EspnPanel() {
 
       <button
         type="button"
-        className="mt-4 text-xs uppercase tracking-wider text-primary underline-offset-4 hover:underline"
+        className="mt-4 text-xs tracking-wider text-primary underline-offset-4 hover:underline"
         onClick={() => setShowPrivate((v) => !v)}
       >
         {showPrivate ? "Hide private league settings" : "My league is private"}
       </button>
 
       {showPrivate && (
-        <div className="mt-4 space-y-4 rounded-lg border border-border bg-background/50 p-4">
+        <div className="mt-4 space-y-4 rounded-lg bg-background/50 p-4">
           <p className="text-xs text-muted-foreground">
             Open your ESPN league in a browser while signed in, open the browser's developer tools,
             go to Application → Cookies → fantasy.espn.com, and copy the two values below. They are
@@ -658,7 +658,7 @@ function EspnPanel() {
             {look.data.teams.map((t) => (
               <div
                 key={t.externalId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-4"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background/50 p-4"
               >
                 <div>
                   <p className="font-semibold">{t.name}</p>
@@ -766,10 +766,10 @@ function YahooPanel() {
 
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Yahoo</h2>
+    <section className="rounded-xl bg-card p-6">
+      <h2 className="text-2xl font-bold">Yahoo</h2>
 
-      <div className="mt-3 rounded-lg border border-primary/50 bg-primary/10 p-4 text-sm">
+      <div className="mt-3 rounded-lg bg-secondary/30 border-primary/50 bg-primary/10 p-4 text-sm">
         <p className="font-semibold text-foreground">Add your Yahoo league from a screenshot</p>
         <p className="mt-1 text-muted-foreground">
           Yahoo has paused new Fantasy Sports access for apps like this one, so for now the reliable
@@ -779,7 +779,7 @@ function YahooPanel() {
         </p>
       </div>
 
-      <details className="mt-4 rounded-lg border border-border bg-background/50 p-4 text-sm text-muted-foreground">
+      <details className="mt-4 rounded-lg bg-background/50 p-4 text-sm text-muted-foreground">
         <summary className="cursor-pointer font-semibold text-foreground">
           Direct Yahoo sign-in (waiting on Yahoo approval)
         </summary>
@@ -812,7 +812,7 @@ function YahooPanel() {
           {find.data.map((l) => (
             <div
               key={l.leagueKey}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background/50 p-4"
             >
               <div>
                 <p className="font-semibold">{l.name}</p>

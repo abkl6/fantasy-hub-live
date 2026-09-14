@@ -44,7 +44,7 @@ function AuthenticatedLayout() {
     <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/gameday" className="font-display text-lg font-bold uppercase tracking-wider">
+          <Link to="/gameday" className="font-display text-lg font-bold tracking-wider">
             Gridiron<span className="text-primary">Edge</span>
           </Link>
           <DropdownMenu>

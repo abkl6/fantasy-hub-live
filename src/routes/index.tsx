@@ -53,7 +53,7 @@ function Landing() {
   return (
     <main className="min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <span className="font-display text-2xl font-bold uppercase tracking-wider">
+        <span className="font-display text-2xl font-bold tracking-wider">
           Gridiron<span className="text-primary">Edge</span>
         </span>
         <Button asChild variant={session ? "default" : "outline"} size="sm">
@@ -65,7 +65,7 @@ function Landing() {
 
       <section className="mx-auto max-w-6xl px-6 pb-16 pt-10 md:pt-20">
         <p className="eyebrow text-primary">Fantasy football league analyzer</p>
-        <h1 className="mt-4 max-w-3xl text-5xl font-bold uppercase leading-[0.95] md:text-7xl">
+        <h1 className="mt-4 max-w-3xl text-5xl font-bold leading-[0.95] md:text-7xl">
           THE TOOL BUILT TO WIN CHAMPIONSHIPS.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
@@ -88,7 +88,7 @@ function Landing() {
             ["5", "platforms supported"],
             ["1 tap", "from advice to decision"],
           ].map(([stat, label]) => (
-            <div key={label} className="rounded-xl border border-border bg-card/60 p-5">
+            <div key={label} className="rounded-xl bg-card/60 p-5">
               <dt className="stat-num text-4xl text-primary">{stat}</dt>
               <dd className="mt-1 text-sm text-muted-foreground">{label}</dd>
             </div>
@@ -97,12 +97,12 @@ function Landing() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 pb-24">
-        <h2 className="text-3xl font-bold uppercase">Built for managers who want the trophy</h2>
+        <h2 className="text-3xl font-bold">Built for managers who want the trophy</h2>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {FEATURES.map((f) => (
-            <article key={f.title} className="rounded-xl border border-border bg-card p-6">
+            <article key={f.title} className="rounded-xl bg-card p-6">
               <f.icon className="size-6 text-primary" aria-hidden="true" />
-              <h3 className="mt-4 text-xl font-semibold uppercase">{f.title}</h3>
+              <h3 className="mt-4 text-xl font-semibold">{f.title}</h3>
               <p className="mt-2 text-sm text-muted-foreground">{f.body}</p>
             </article>
           ))}

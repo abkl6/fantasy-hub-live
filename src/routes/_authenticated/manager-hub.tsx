@@ -54,7 +54,7 @@ function LeagueCard({ league }: { league: HubLeague }) {
   });
 
   return (
-    <article className="rounded-xl border bg-card p-4">
+    <article className="rounded-xl bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div><Badge variant="secondary">{PLATFORM[league.platform] ?? league.platform}</Badge><h3 className="mt-2 font-bold">{league.name}</h3><p className="text-xs text-muted-foreground">{league.teamName} · {league.record}</p></div>
         <div className="text-right text-xs"><p className="text-muted-foreground">Title</p><Percent value={league.titleOdds} /></div>
@@ -107,7 +107,7 @@ function MoveRow({ move }: { move: HubMove }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            {move.strategyLabel && <Badge variant="outline" className="uppercase">{move.strategyLabel}</Badge>}
+            {move.strategyLabel && <Badge variant="outline">{move.strategyLabel}</Badge>}
             {move.dynastyDelta != null && move.dynastyDelta !== 0 && <Badge variant={move.dynastyDelta > 0 ? "default" : "secondary"}>{move.dynastyDelta > 0 ? "+" : ""}{move.dynastyDelta.toLocaleString()} future value</Badge>}
           </div>
           <p className="mt-1 text-sm font-semibold">{move.headline}</p>
@@ -129,7 +129,7 @@ function MoveRow({ move }: { move: HubMove }) {
       </div>
 
       {move.bids && (
-        <div className="mt-2 rounded-lg border border-border bg-muted/30 p-2">
+        <div className="mt-2 rounded-lg bg-muted/30 p-2">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-md border border-border px-2 py-1">Passive <span className="stat-num text-foreground">${move.bids.passive}</span></span>
             <span className="rounded-md bg-primary px-2 py-1 text-primary-foreground">Optimal <span className="stat-num">${move.bids.optimal}</span></span>
@@ -181,11 +181,11 @@ function StandingsRow({ team, index, isDynasty, bubble }: { team: HubStandings["
       <td className="max-w-0 py-2 pr-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium">{team.name}</span>
-          {team.isMine && <Badge className="shrink-0 text-[9px] uppercase">You</Badge>}
+          {team.isMine && <Badge className="shrink-0 text-[9px]">You</Badge>}
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
           <TeamBadge badge={team.badge} />
-          {bubble && <span className="shrink-0 text-[9px] uppercase text-muted-foreground">Bubble</span>}
+          {bubble && <span className="shrink-0 text-[9px] text-muted-foreground">Bubble</span>}
         </div>
       </td>
       <td className="whitespace-nowrap py-2 pr-2 tabular-nums text-muted-foreground">{team.record}</td>
@@ -209,7 +209,7 @@ function StandingsCard({ league }: { league: HubStandings }) {
     !team.isMine && team.playoffOdds > 0.05 && team.playoffOdds < 0.5 && playoffCut > 0 && Math.abs(team.playoffOdds - 0.5) <= 0.15;
 
   return (
-    <div className="rounded-lg border">
+    <div className="rounded-lg bg-secondary/30">
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <Link to="/league/$leagueId" params={{ leagueId: league.leagueId }} className="truncate text-sm font-semibold transition-colors hover:text-primary">
@@ -235,7 +235,7 @@ function StandingsCard({ league }: { league: HubStandings }) {
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className="truncate font-medium">{myTeam.name}</span>
-              <Badge className="shrink-0 text-[9px] uppercase">You</Badge>
+              <Badge className="shrink-0 text-[9px]">You</Badge>
             </span>
             <span className="mt-0.5 block"><TeamBadge badge={myTeam.badge} /></span>
           </span>
@@ -253,7 +253,7 @@ function StandingsCard({ league }: { league: HubStandings }) {
       {expanded && (
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border text-left text-[10px] uppercase text-muted-foreground">
+            <tr className="border-b border-border text-left text-[10px] text-muted-foreground">
               <th className="px-3 py-1.5 font-medium">#</th>
               <th className="py-1.5 pr-2 font-medium">Team</th>
               <th className="py-1.5 pr-2 font-medium">Record</th>
@@ -320,23 +320,23 @@ function ManagerHub() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><h1 className="text-2xl font-bold uppercase">Manager Hub</h1></div>
+        <div><h1 className="text-2xl font-bold">Manager Hub</h1></div>
         <Button asChild><Link to="/connect">Add a league</Link></Button>
       </div>
 
-      {!data.leagues.length && <section className="mt-8 rounded-xl border border-dashed p-10 text-center"><h2 className="text-2xl font-bold uppercase">Build your hub</h2><p className="mt-2 text-sm text-muted-foreground">Add a league to see recommendations, alerts and exposure.</p><Button asChild className="mt-5"><Link to="/connect">Add your first league</Link></Button></section>}
+      {!data.leagues.length && <section className="mt-8 rounded-xl border border-dashed p-10 text-center"><h2 className="text-2xl font-bold">Build your hub</h2><p className="mt-2 text-sm text-muted-foreground">Add a league to see recommendations, alerts and exposure.</p><Button asChild className="mt-5"><Link to="/connect">Add your first league</Link></Button></section>}
 
       {!!data.leagues.length && <>
         <section className="mt-8 grid gap-4 sm:grid-cols-4">
-          <div className="rounded-xl border bg-card p-5"><Users className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.leagues.length}</p><p className="text-xs text-muted-foreground">Teams tracked</p></div>
-          <div className="rounded-xl border bg-card p-5"><Repeat2 className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.trades.length}</p><p className="text-xs text-muted-foreground">Trade ideas</p></div>
-          <div className="rounded-xl border bg-card p-5"><Sparkles className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.waivers.length}</p><p className="text-xs text-muted-foreground">Waiver targets</p></div>
-          <div className="rounded-xl border bg-card p-5"><BellRing className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.alerts.length}</p><p className="text-xs text-muted-foreground">Injury &amp; bye alerts</p></div>
+          <div className="rounded-xl bg-card p-5"><Users className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.leagues.length}</p><p className="text-xs text-muted-foreground">Teams tracked</p></div>
+          <div className="rounded-xl bg-card p-5"><Repeat2 className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.trades.length}</p><p className="text-xs text-muted-foreground">Trade ideas</p></div>
+          <div className="rounded-xl bg-card p-5"><Sparkles className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.waivers.length}</p><p className="text-xs text-muted-foreground">Waiver targets</p></div>
+          <div className="rounded-xl bg-card p-5"><BellRing className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.alerts.length}</p><p className="text-xs text-muted-foreground">Injury &amp; bye alerts</p></div>
         </section>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <section className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2"><Repeat2 className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Trade suggestions</h2></div>
+          <section className="rounded-xl bg-card p-5">
+            <div className="flex items-center gap-2"><Repeat2 className="size-5 text-primary" /><h2 className="text-xl font-bold">Trade suggestions</h2></div>
             <p className="mt-1 text-xs text-muted-foreground">Swaps that turn surplus into a starting-lineup upgrade.</p>
             <div className="mt-3 divide-y divide-border">
               {!data.trades.length && <p className="py-4 text-sm text-muted-foreground">No trade currently improves a lineup enough to recommend.</p>}
@@ -344,8 +344,8 @@ function ManagerHub() {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2"><Sparkles className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Waiver wire</h2></div>
+          <section className="rounded-xl bg-card p-5">
+            <div className="flex items-center gap-2"><Sparkles className="size-5 text-primary" /><h2 className="text-xl font-bold">Waiver wire</h2></div>
             <p className="mt-1 text-xs text-muted-foreground">Best available adds across every league, with the drop to make.</p>
             <div className="mt-3 divide-y divide-border">
               {!data.waivers.length && <p className="py-4 text-sm text-muted-foreground">Nobody on the wire beats your current roster.</p>}
@@ -354,29 +354,29 @@ function ManagerHub() {
           </section>
         </div>
 
-        <section className="mt-6 rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2"><ShieldAlert className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Injury updates</h2></div>
+        <section className="mt-6 rounded-xl bg-card p-5">
+          <div className="flex items-center gap-2"><ShieldAlert className="size-5 text-primary" /><h2 className="text-xl font-bold">Injury updates</h2></div>
           <p className="mt-1 text-xs text-muted-foreground">Injuries, byes and news on players you actually roster.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {!data.alerts.length && <p className="py-4 text-sm text-muted-foreground">No urgent injuries, byes or roster risks.</p>}
-            {data.alerts.slice(0, 10).map((alert) => <Link key={`${alert.leagueId}-${alert.id}`} to="/league/$leagueId" params={{ leagueId: alert.leagueId }} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+            {data.alerts.slice(0, 10).map((alert) => <Link key={`${alert.leagueId}-${alert.id}`} to="/league/$leagueId" params={{ leagueId: alert.leagueId }} className="flex items-start justify-between gap-3 rounded-lg bg-secondary/30 p-3">
               <div><p className="text-sm font-semibold">{alert.playerName} <span className="font-normal text-muted-foreground">· {alert.position}</span></p><p className="mt-1 text-xs text-muted-foreground">{alert.message} · {alert.leagueName}</p></div><Badge variant={alert.severity === "high" ? "destructive" : "outline"}>{alert.severity}</Badge>
             </Link>)}
           </div>
         </section>
 
-        <section className="mt-6 rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2"><Activity className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Player exposure</h2></div>
+        <section className="mt-6 rounded-xl bg-card p-5">
+          <div className="flex items-center gap-2"><Activity className="size-5 text-primary" /><h2 className="text-xl font-bold">Player exposure</h2></div>
           <p className="mt-1 text-xs text-muted-foreground">Your most repeated players and concentrated injury risk.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
-            {data.exposure.slice(0, 12).map((player) => <div key={`${player.name}-${player.position}`} className="flex items-center justify-between rounded-lg border p-3"><div><p className="text-sm font-semibold">{player.name} <span className="text-xs font-normal text-muted-foreground">{player.position}{player.nflTeam ? ` · ${player.nflTeam}` : ""}</span></p><p className="text-xs text-muted-foreground">{player.leagueNames.join(" · ")}</p></div><div className="text-right"><p className="font-display font-bold">{player.leagues}/{player.totalLeagues}</p><p className={`text-[10px] uppercase ${player.status === "Active" ? "text-muted-foreground" : "text-destructive"}`}>{player.status}</p></div></div>)}
+            {data.exposure.slice(0, 12).map((player) => <div key={`${player.name}-${player.position}`} className="flex items-center justify-between rounded-lg bg-secondary/30 p-3"><div><p className="text-sm font-semibold">{player.name} <span className="text-xs font-normal text-muted-foreground">{player.position}{player.nflTeam ? ` · ${player.nflTeam}` : ""}</span></p><p className="text-xs text-muted-foreground">{player.leagueNames.join(" · ")}</p></div><div className="text-right"><p className="font-display font-bold">{player.leagues}/{player.totalLeagues}</p><p className={`text-[10px] ${player.status === "Active" ? "text-muted-foreground" : "text-destructive"}`}>{player.status}</p></div></div>)}
           </div>
         </section>
 
-        <section className="mt-6 rounded-xl border bg-card p-5">
+        <section className="mt-6 rounded-xl bg-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">League standings</h2></div>
+              <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold">League standings</h2></div>
               <p className="mt-1 text-xs text-muted-foreground">Every league at a glance — your row is highlighted, with title, playoff and dynasty value for every team.</p>
             </div>
             <div className="flex gap-1">
@@ -387,9 +387,9 @@ function ManagerHub() {
           </div>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border p-3"><p className="text-[10px] uppercase text-muted-foreground">Best title chance</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.bestTitle === null ? "—" : `${(summary.bestTitle * 100).toFixed(1)}%`}</p></div>
-            <div className="rounded-lg border p-3"><p className="text-[10px] uppercase text-muted-foreground">Playoff-bound leagues</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.playoffBound}/{data.standings.length}</p></div>
-            <div className="rounded-lg border p-3"><p className="text-[10px] uppercase text-muted-foreground">Total dynasty value</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.dynastyTotal === null ? "—" : summary.dynastyTotal.toLocaleString()}</p></div>
+            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Best title chance</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.bestTitle === null ? "—" : `${(summary.bestTitle * 100).toFixed(1)}%`}</p></div>
+            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Playoff-bound leagues</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.playoffBound}/{data.standings.length}</p></div>
+            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Total dynasty value</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.dynastyTotal === null ? "—" : summary.dynastyTotal.toLocaleString()}</p></div>
           </div>
 
           <div className="mt-4 space-y-3">
@@ -398,7 +398,7 @@ function ManagerHub() {
         </section>
 
         <section className="mt-6">
-          <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">League shortcuts</h2></div>
+          <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold">League shortcuts</h2></div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {data.leagues.map((league) => <LeagueCard key={league.id} league={league} />)}
           </div>

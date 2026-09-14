@@ -32,6 +32,8 @@ export interface LiveEventRow {
 export interface LiveMatchup {
   leagueId: string;
   leagueName: string;
+  /** Palette key chosen for this league, used for stripes and tiles. */
+  color: string | null;
   scoringLabel: string;
   format: string;
   week: number;

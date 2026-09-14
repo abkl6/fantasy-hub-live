@@ -40,9 +40,11 @@ import {
   importSleeperDraftFn,
   setBestLineupFn,
   updateFaab,
+  updateLeagueSettings,
 
 } from "@/lib/fantasy.functions";
 import { logTrade } from "@/lib/platforms.functions";
+import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
 
 const statusTone: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   Active: "default",
@@ -103,7 +105,7 @@ function LeaguePage() {
   if (error || !data) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-2xl font-bold uppercase">We could not load this league</h1>
+        <h1 className="text-2xl font-bold">We could not load this league</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {error instanceof Error ? error.message : "Try refreshing in a moment."}
         </p>
@@ -121,17 +123,20 @@ function LeaguePage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-primary">Week {data.league.current_week}</p>
-          <h1 className="mt-2 text-2xl font-bold uppercase">{data.league.name}</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{data.league.name}</h1>
+            <LeagueColorPicker leagueId={leagueId} current={(data.league as { color?: string | null }).color ?? null} />
+          </div>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
               {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="secondary" className="text-[10px] uppercase">
+            <Badge variant="secondary" className="text-[10px]">
               {data.formatLabel}
             </Badge>
-            <Badge variant="outline" className="text-[10px] uppercase">
+            <Badge variant="outline" className="text-[10px]">
               {data.scoringLabel}
             </Badge>
           </div>
@@ -168,7 +173,7 @@ function LeaguePage() {
         <section className="mt-6 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-4 text-destructive" />
-            <h2 className="text-sm font-bold uppercase text-destructive">Alerts</h2>
+            <h2 className="text-sm font-bold text-destructive">Alerts</h2>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {data.alerts.map((a) => (
@@ -209,10 +214,10 @@ function LeaguePage() {
 
         <TabsContent value="moves" className="mt-6 space-y-3">
           {data.myStrategy && data.myBadge && (
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-xl bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="uppercase">{data.myBadge.label}</Badge>
-                <Badge variant="secondary" className="uppercase">
+                <Badge>{data.myBadge.label}</Badge>
+                <Badge variant="secondary">
                   {data.myStrategy.label}
                 </Badge>
               </div>
@@ -272,14 +277,14 @@ function LeaguePage() {
               {data.scoreboard.map((m, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
+                  className="flex items-center justify-between rounded-xl bg-card p-5"
                 >
                   <TeamScore
                     name={m.home.name}
                     points={m.home.score}
                     winning={m.home.score >= m.away.score}
                   />
-                  <span className="px-4 text-xs uppercase text-muted-foreground">vs</span>
+                  <span className="px-4 text-xs text-muted-foreground">vs</span>
                   <TeamScore
                     name={m.away.name}
                     points={m.away.score}
@@ -294,17 +299,17 @@ function LeaguePage() {
           <Section title="Position grades">
             <div className="space-y-3">
               {data.grades.map((g) => (
-                <div key={g.position} className="rounded-xl border border-border bg-card p-5">
+                <div key={g.position} className="rounded-xl bg-card p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold uppercase">{g.position}</p>
+                      <p className="text-lg font-semibold">{g.position}</p>
                       <p className="text-xs text-muted-foreground">
                         {g.myPoints.toFixed(1)} proj pts vs {g.leagueAverage.toFixed(1)} league average
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="stat-num text-3xl text-primary">{g.grade}</p>
-                      <p className="text-xs uppercase text-muted-foreground">{g.verdict}</p>
+                      <p className="text-xs text-muted-foreground">{g.verdict}</p>
                     </div>
                   </div>
                   <Progress
@@ -339,7 +344,7 @@ function LeaguePage() {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      <h2 className="text-sm font-bold tracking-wide text-muted-foreground">{title}</h2>
       {children}
     </section>
   );
@@ -347,7 +352,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function OddsCard({ label, value, tone }: { label: string; value: string; tone?: "primary" }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="rounded-xl bg-card p-5">
       <p className="eyebrow text-muted-foreground">{label}</p>
       <p className={`stat-num mt-1 text-4xl ${tone === "primary" ? "text-primary" : ""}`}>{value}</p>
     </div>
@@ -383,8 +388,8 @@ function PlayerList({
   players: { name: string; position: string; slot?: string; proj: number; status?: string; nflTeam?: string | null; byeWeek?: number | null }[];
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="text-lg font-bold uppercase">{title}</h2>
+    <section className="rounded-xl bg-card p-5">
+      <h2 className="text-lg font-bold">{title}</h2>
       <ul className="mt-3 space-y-2">
         {players.map((p, i) => (
           <li key={`${p.name}-${i}`} className="flex items-center justify-between text-sm">
@@ -392,7 +397,7 @@ function PlayerList({
               <span className="eyebrow text-muted-foreground">{p.slot ?? p.position}</span>
               <span>{p.name}</span>
               {p.status && p.status !== "Active" && (
-                <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px] uppercase">
+                <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px]">
                   {p.status}
                 </Badge>
               )}
@@ -450,7 +455,7 @@ function FaabBudgetStrip({
   });
 
   return (
-    <div className="mt-4 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/30 p-3">
+    <div className="mt-4 flex flex-wrap items-end gap-3 rounded-lg bg-muted/30 p-3">
       <div>
         <label className="eyebrow text-muted-foreground">League budget</label>
         <Input
@@ -539,10 +544,10 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
   const rosterFull = !!data && data.rosterSize >= data.rosterLimit;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
+    <section className="rounded-xl bg-card p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold uppercase">Waiver wire</h2>
+          <h2 className="text-lg font-bold">Waiver wire</h2>
           <p className="text-xs text-muted-foreground">
             Everyone still unowned in this league, with what they are worth and what they do to your
             title chances.
@@ -616,10 +621,10 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   <span className="eyebrow text-muted-foreground">{p.position}</span>
                   <span className="font-medium">{p.name}</span>
                   {p.undervalued && (
-                    <Badge className="text-[10px] uppercase">Undervalued</Badge>
+                    <Badge className="text-[10px]">Undervalued</Badge>
                   )}
                   {p.status && p.status !== "Active" && (
-                    <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px] uppercase">
+                    <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px]">
                       {p.status}
                     </Badge>
                   )}
@@ -673,7 +678,7 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   {p.suggestedDrop && <span>Drop {p.suggestedDrop}</span>}
                 </div>
                 {p.bids && (
-                  <div className="mt-2 rounded-lg border border-border bg-muted/30 p-2">
+                  <div className="mt-2 rounded-lg bg-muted/30 p-2">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className="rounded-md border border-border px-2 py-1">
                         Passive{" "}
@@ -771,8 +776,8 @@ function TradePanel({ leagueId }: { leagueId: string }) {
   });
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
-      <h2 className="text-2xl font-bold uppercase">Evaluate a trade</h2>
+    <section className="rounded-xl bg-card p-6">
+      <h2 className="text-2xl font-bold">Evaluate a trade</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Enter the players on each side and we will re-run the rest of the season to see what it does
         to your title odds.
@@ -799,9 +804,8 @@ function TradePanel({ leagueId }: { leagueId: string }) {
       )}
 
       {run.data && (
-        <div className="mt-6 rounded-lg border border-border bg-background/50 p-5">
+        <div className="mt-6 rounded-lg bg-background/50 p-5">
           <Badge
-            className="uppercase"
             variant={run.data.verdict === "accept" ? "default" : "secondary"}
           >
             {run.data.verdict}
@@ -889,7 +893,7 @@ function StandingsTable({
 
   return (
     <table className="w-full text-sm">
-      <thead className="text-left text-xs uppercase text-muted-foreground">
+      <thead className="text-left text-xs text-muted-foreground">
         <tr>
           <th className="py-2">Team</th>
           <th className="py-2">Record</th>
@@ -1000,15 +1004,15 @@ function MoveCard({
     suggestion.addName;
 
   return (
-    <article className="rounded-xl border border-border bg-card p-5">
+    <article className="rounded-xl bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="uppercase">
+            <Badge variant="secondary">
               {suggestion.kind.replace(/_/g, " ")}
             </Badge>
             {suggestion.strategyLabel && (
-              <Badge variant="outline" className="uppercase">
+              <Badge variant="outline">
                 {suggestion.strategyLabel}
               </Badge>
             )}
@@ -1102,8 +1106,8 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
   return (
     <div className="space-y-6">
       {data.myScenario && (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase flex items-center gap-2">
+        <section className="rounded-xl bg-card p-5">
+          <h2 className="text-lg font-bold flex items-center gap-2">
             <Trophy className="size-5 text-primary" />
             Your playoff path
           </h2>
@@ -1116,14 +1120,14 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-bold uppercase flex items-center gap-2">
+      <section className="rounded-xl bg-card p-5">
+        <h2 className="text-lg font-bold flex items-center gap-2">
           <Shield className="size-5 text-primary" />
           Projected seeds
         </h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-muted-foreground">
+            <thead className="text-left text-xs text-muted-foreground">
               <tr>
                 <th className="py-2">Seed</th>
                 <th className="py-2">Team</th>
@@ -1148,8 +1152,8 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
       </section>
 
       {!!data.rootingInterests?.length && (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase flex items-center gap-2">
+        <section className="rounded-xl bg-card p-5">
+          <h2 className="text-lg font-bold flex items-center gap-2">
             <Users className="size-5 text-primary" />
             Rooting interests
           </h2>
@@ -1171,7 +1175,7 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
 
 function StatBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background/50 p-4">
+    <div className="rounded-lg bg-background/50 p-4">
       <p className="eyebrow text-xs text-muted-foreground">{label}</p>
       <p className="stat-num mt-1 text-xl">{value}</p>
     </div>
@@ -1205,8 +1209,8 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
   const colorFor = (i: number) => TEAM_COLORS[i % TEAM_COLORS.length];
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="text-lg font-bold uppercase">Title odds over time</h2>
+    <section className="rounded-xl bg-card p-5">
+      <h2 className="text-lg font-bold">Title odds over time</h2>
       <p className="text-xs text-muted-foreground">Tracked each week when you load this league.</p>
       <svg viewBox={`0 0 ${width} ${height}`} className="mt-4 w-full">
         {data.weeks.map((w) => (
@@ -1282,8 +1286,8 @@ function DraftPanel({ leagueId }: { leagueId: string }) {
   return (
     <div className="space-y-6">
       {!data?.picks?.length && (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase">Import draft results</h2>
+        <section className="rounded-xl bg-card p-5">
+          <h2 className="text-lg font-bold">Import draft results</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             For Sleeper leagues, paste the Sleeper league ID to pull the full draft board.
           </p>
@@ -1305,8 +1309,8 @@ function DraftPanel({ leagueId }: { leagueId: string }) {
       )}
 
       {!!data?.grades?.length && (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase">Draft grades</h2>
+        <section className="rounded-xl bg-card p-5">
+          <h2 className="text-lg font-bold">Draft grades</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.grades.map((g) => (
               <div key={g.teamId} className={`rounded-lg border border-border p-4 ${g.isMine ? "bg-primary/5" : ""}`}>
@@ -1324,11 +1328,11 @@ function DraftPanel({ leagueId }: { leagueId: string }) {
       )}
 
       {!!data?.picks?.length && (
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-bold uppercase">Draft board</h2>
+        <section className="rounded-xl bg-card p-5">
+          <h2 className="text-lg font-bold">Draft board</h2>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-muted-foreground">
+              <thead className="text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="py-2">Pick</th>
                   <th className="py-2">Team</th>
@@ -1365,6 +1369,53 @@ function Stat({ label, before, after }: { label: string; before: string; after: 
         <span className="mx-2 text-muted-foreground">→</span>
         <span className="text-primary">{after}</span>
       </p>
+    </div>
+  );
+}
+
+function LeagueColorPicker({ leagueId, current }: { leagueId: string; current: string | null }) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(current);
+
+  const mutation = useMutation({
+    mutationFn: (color: string) => save({ data: { leagueId, color } }),
+    onSuccess: (_r, color) => {
+      setValue(color);
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success("League color updated");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the color"),
+  });
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label="Change league color"
+        onClick={() => setOpen((o) => !o)}
+        className="size-5 rounded-full ring-2 ring-border"
+        style={{ backgroundColor: leagueColor(value, leagueId) }}
+      />
+      {open && (
+        <div className="absolute left-0 top-7 z-30 flex gap-2 rounded-lg bg-popover p-2 shadow-lg">
+          {LEAGUE_COLOR_KEYS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              title={LEAGUE_COLOR_LABELS[key]}
+              aria-label={LEAGUE_COLOR_LABELS[key]}
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate(key)}
+              className={`size-5 rounded-full ${value === key ? "ring-2 ring-foreground" : "ring-1 ring-border"}`}
+              style={{ backgroundColor: leagueColor(key) }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
