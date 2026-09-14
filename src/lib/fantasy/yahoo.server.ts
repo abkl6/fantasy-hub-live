@@ -8,12 +8,13 @@ export function yahooConfigured() {
   return Boolean(process.env["YAHOO_CLIENT_ID"] && process.env["YAHOO_CLIENT_SECRET"]);
 }
 
+export const YAHOO_NOT_CONFIGURED =
+  "Yahoo isn't configured yet. The Yahoo client ID and secret need to be added before sign-in can work.";
+
 function clientCreds() {
   const id = process.env["YAHOO_CLIENT_ID"];
   const secret = process.env["YAHOO_CLIENT_SECRET"];
-  if (!id || !secret) {
-    throw new Error("Yahoo is not set up yet. Add the Yahoo client ID and secret first.");
-  }
+  if (!id || !secret) throw new Error(YAHOO_NOT_CONFIGURED);
   return { id, secret };
 }
 
