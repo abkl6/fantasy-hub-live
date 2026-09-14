@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis, type Alert, type MoveSuggestion } from "./analysis.server";
+import { isMultiYear } from "./format";
 import { normalizeName } from "./names";
 
 type DB = SupabaseClient<Database>;
@@ -31,12 +32,27 @@ export interface ManagerHubPayload {
     status: string;
     leagueNames: string[];
   }[];
-  /** Week-by-week title and playoff odds for my team in each league. */
-  weeklyOdds: {
+  /** Full standings per league, with my team flagged and dynasty values where relevant. */
+  standings: {
     leagueId: string;
     leagueName: string;
-    teamName: string;
-    points: { week: number; titleOdds: number; playoffOdds: number }[];
+    platform: string;
+    isDynasty: boolean;
+    myTeamId: string | null;
+    /** My title-odds swing since the first stored snapshot, if any. */
+    swing: number | null;
+    swingFromWeek: number | null;
+    teams: {
+      id: string;
+      name: string;
+      isMine: boolean;
+      record: string;
+      titleOdds: number;
+      playoffOdds: number;
+      badge: import("./team-class").TeamBadge;
+      dynastyValue: number | null;
+      dynastyRank: number | null;
+    }[];
   }[];
 }
 
@@ -109,37 +125,46 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
     return riskB - riskA || b.leagues - a.leagues || a.name.localeCompare(b.name);
   });
 
-  const weeklyOdds = (
+  const standings = (
     await Promise.all(
       analyses.map(async (analysis) => {
-        if (!analysis.myTeam) return [];
-        const { data: rows } = await supabase
-          .from("weekly_snapshots")
-          .select("week, title_odds, playoff_odds")
-          .eq("league_id", analysis.league.id)
-          .eq("team_id", analysis.myTeam.id)
-          .order("week", { ascending: true });
-        const points = (rows ?? []).map((row) => ({
-          week: row.week,
-          titleOdds: Number(row.title_odds),
-          playoffOdds: Number(row.playoff_odds),
-        }));
-        if (!points.length) {
-          points.push({
-            week: analysis.league.current_week ?? 1,
-            titleOdds: analysis.myTeam.titleOdds,
-            playoffOdds: analysis.myTeam.playoffOdds,
-          });
+        let swing: number | null = null;
+        let swingFromWeek: number | null = null;
+        if (analysis.myTeam) {
+          const { data: rows } = await supabase
+            .from("weekly_snapshots")
+            .select("week, title_odds")
+            .eq("league_id", analysis.league.id)
+            .eq("team_id", analysis.myTeam.id)
+            .order("week", { ascending: true });
+          if (rows && rows.length > 1) {
+            swing = analysis.myTeam.titleOdds - Number(rows[0]!.title_odds);
+            swingFromWeek = rows[0]!.week;
+          }
         }
         return [{
           leagueId: analysis.league.id,
           leagueName: analysis.league.name,
-          teamName: analysis.myTeam.name,
-          points,
+          platform: analysis.league.platform,
+          isDynasty: isMultiYear(analysis.format),
+          myTeamId: analysis.myTeam?.id ?? null,
+          swing,
+          swingFromWeek,
+          teams: analysis.standings.map((team) => ({
+            id: team.id,
+            name: team.name,
+            isMine: team.isMine,
+            record: team.record,
+            titleOdds: team.titleOdds,
+            playoffOdds: team.playoffOdds,
+            badge: team.badge,
+            dynastyValue: team.dynastyValue,
+            dynastyRank: team.dynastyRank,
+          })),
         }];
       }),
     )
   ).flat();
 
-  return { leagues, moves, trades, waivers, alerts, exposure, weeklyOdds };
+  return { leagues, moves, trades, waivers, alerts, exposure, standings };
 }

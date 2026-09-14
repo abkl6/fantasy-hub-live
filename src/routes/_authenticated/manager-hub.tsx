@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, ArrowRight, BellRing, LineChart, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
-import { useState } from "react";
+import { Activity, ArrowRight, BellRing, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { TeamBadge } from "@/components/TeamBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -123,47 +124,131 @@ function MoveRow({ move }: { move: HubMove }) {
   );
 }
 
-type OddsSeries = {
+type HubStandings = {
   leagueId: string;
   leagueName: string;
-  teamName: string;
-  points: { week: number; titleOdds: number; playoffOdds: number }[];
+  platform: string;
+  isDynasty: boolean;
+  myTeamId: string | null;
+  swing: number | null;
+  swingFromWeek: number | null;
+  teams: {
+    id: string;
+    name: string;
+    isMine: boolean;
+    record: string;
+    titleOdds: number;
+    playoffOdds: number;
+    badge: import("@/lib/fantasy/team-class").TeamBadge;
+    dynastyValue: number | null;
+    dynastyRank: number | null;
+  }[];
 };
 
-function OddsRow({ row }: { row: OddsSeries }) {
-  const latest = row.points[row.points.length - 1];
-  const first = row.points[0];
-  if (!latest || !first) return null;
-  const swing = latest.titleOdds - first.titleOdds;
+function StandingsCard({ league }: { league: HubStandings }) {
+  const myTeam = league.teams.find((t) => t.isMine);
   return (
-    <div className="rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div><p className="text-sm font-semibold">{row.leagueName}</p><p className="text-xs text-muted-foreground">{row.teamName} · week {latest.week}</p></div>
-        <div className="flex items-center gap-4 text-right text-xs">
-          <div><p className="text-muted-foreground">Title</p><Percent value={latest.titleOdds} /></div>
-          <div><p className="text-muted-foreground">Playoffs</p><Percent value={latest.playoffOdds} /></div>
-          {row.points.length > 1 && <Badge variant={swing >= 0 ? "default" : "destructive"}>{swing >= 0 ? "+" : ""}{(swing * 100).toFixed(1)}% since wk {first.week}</Badge>}
+    <div className="rounded-lg border">
+      <Link to="/league/$leagueId" params={{ leagueId: league.leagueId }} className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 transition-colors hover:bg-secondary/40">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-semibold">{league.leagueName}</p>
+          <Badge variant="secondary" className="text-[10px]">{PLATFORM[league.platform] ?? league.platform}</Badge>
         </div>
-      </div>
-      <div className="mt-3 flex items-end gap-1" aria-hidden>
-        {row.points.map((point) => (
-          <div key={point.week} className="flex-1" title={`Week ${point.week}`}>
-            <div className="flex h-16 items-end gap-[2px]">
-              <div className="w-1/2 rounded-t bg-primary" style={{ height: `${Math.max(2, point.titleOdds * 100)}%` }} />
-              <div className="w-1/2 rounded-t bg-muted-foreground/40" style={{ height: `${Math.max(2, point.playoffOdds * 100)}%` }} />
-            </div>
-            <p className="mt-1 text-center text-[10px] text-muted-foreground">{point.week}</p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-1 text-[10px] uppercase text-muted-foreground">Solid = title odds · faded = playoff odds</p>
+        {league.swing !== null && league.swingFromWeek !== null && (
+          <Badge variant={league.swing >= 0 ? "default" : "destructive"}>
+            {league.swing >= 0 ? "+" : ""}{(league.swing * 100).toFixed(1)}% title since wk {league.swingFromWeek}
+          </Badge>
+        )}
+      </Link>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border text-left text-[10px] uppercase text-muted-foreground">
+            <th className="px-3 py-1.5 font-medium">#</th>
+            <th className="py-1.5 pr-2 font-medium">Team</th>
+            <th className="py-1.5 pr-2 font-medium">Record</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Title</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Playoffs</th>
+            {league.isDynasty && <th className="py-1.5 pr-3 text-right font-medium">Dynasty value</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {league.teams.map((team, index) => {
+            const playoffCut = league.teams.filter((t) => t.playoffOdds >= 0.5).length;
+            const bubble = !team.isMine && index < league.teams.length && team.playoffOdds > 0.05 && team.playoffOdds < 0.5 && playoffCut > 0 && Math.abs(team.playoffOdds - 0.5) <= 0.15;
+            return (
+              <tr key={team.id} className={`border-b border-border/60 last:border-0 ${team.isMine ? "bg-primary/10" : ""}`}>
+                <td className="px-3 py-1.5 tabular-nums text-muted-foreground">{index + 1}</td>
+                <td className="max-w-0 py-1.5 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate font-medium">{team.name}</span>
+                    {team.isMine && <Badge className="text-[9px] uppercase">You</Badge>}
+                    <TeamBadge badge={team.badge} />
+                    {bubble && <span className="text-[9px] uppercase text-muted-foreground">Bubble</span>}
+                  </div>
+                </td>
+                <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">{team.record}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{(team.titleOdds * 100).toFixed(1)}%</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{(team.playoffOdds * 100).toFixed(0)}%</td>
+                {league.isDynasty && (
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {team.dynastyValue === null ? "—" : <>{team.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {team.dynastyRank}{ordinal(team.dynastyRank)}</span></>}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {myTeam && (
+        <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+          Your team: {myTeam.record} · {(myTeam.titleOdds * 100).toFixed(1)}% title · {(myTeam.playoffOdds * 100).toFixed(0)}% playoffs
+          {league.isDynasty && myTeam.dynastyValue !== null && ` · dynasty value ${myTeam.dynastyValue.toLocaleString()} (${myTeam.dynastyRank}${ordinal(myTeam.dynastyRank)})`}
+        </p>
+      )}
     </div>
   );
+}
+
+function ordinal(rank: number | null) {
+  if (!rank) return "";
+  const mod10 = rank % 10;
+  const mod100 = rank % 100;
+  if (mod10 === 1 && mod100 !== 11) return "st";
+  if (mod10 === 2 && mod100 !== 12) return "nd";
+  if (mod10 === 3 && mod100 !== 13) return "rd";
+  return "th";
 }
 
 function ManagerHub() {
   const fetchHub = useServerFn(getManagerHubFn);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["manager-hub"], queryFn: () => fetchHub() });
+  const [standingsSort, setStandingsSort] = useState<"title" | "playoff" | "dynasty">("title");
+
+  const sortedStandings = useMemo(() => {
+    const rows = [...(data?.standings ?? [])];
+    const mine = (league: (typeof rows)[number]) => league.teams.find((t) => t.isMine);
+    return rows.sort((a, b) => {
+      const value = (league: (typeof rows)[number]) => {
+        const team = mine(league);
+        if (standingsSort === "playoff") return team?.playoffOdds ?? -1;
+        if (standingsSort === "dynasty") return team?.dynastyValue ?? -1;
+        return team?.titleOdds ?? -1;
+      };
+      return value(b) - value(a);
+    });
+  }, [data, standingsSort]);
+
+  const summary = useMemo(() => {
+    const rows = data?.standings ?? [];
+    const mineTeams = rows.map((league) => league.teams.find((t) => t.isMine)).filter((t) => !!t);
+    return {
+      bestTitle: mineTeams.length ? Math.max(...mineTeams.map((t) => t.titleOdds)) : null,
+      playoffBound: mineTeams.filter((t) => t.playoffOdds >= 0.5).length,
+      dynastyTotal: mineTeams.some((t) => t.dynastyValue !== null)
+        ? mineTeams.reduce((sum, t) => sum + (t.dynastyValue ?? 0), 0)
+        : null,
+    };
+  }, [data]);
 
   if (isLoading) return <main className="mx-auto max-w-6xl space-y-5 px-6 py-10"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-72 rounded-xl" /></main>;
   if (error || !data) return <main className="mx-auto max-w-6xl px-6 py-10"><p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : "Manager Hub is unavailable."}</p><Button className="mt-4" onClick={() => refetch()}>Try again</Button></main>;
@@ -225,10 +310,26 @@ function ManagerHub() {
         </section>
 
         <section className="mt-6 rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2"><LineChart className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Weekly odds</h2></div>
-          <p className="mt-1 text-xs text-muted-foreground">How your title and playoff chances have moved week to week.</p>
-          <div className="mt-3 space-y-3">
-            {data.weeklyOdds.map((row) => <OddsRow key={row.leagueId} row={row} />)}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">League standings</h2></div>
+              <p className="mt-1 text-xs text-muted-foreground">Every league at a glance — your row is highlighted, with title, playoff and dynasty value for every team.</p>
+            </div>
+            <div className="flex gap-1">
+              {([["title", "Title chance"], ["playoff", "Playoff chance"], ["dynasty", "Dynasty value"]] as const).map(([key, label]) => (
+                <Button key={key} size="sm" variant={standingsSort === key ? "default" : "outline"} onClick={() => setStandingsSort(key)}>{label}</Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border p-3"><p className="text-[10px] uppercase text-muted-foreground">Best title chance</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.bestTitle === null ? "—" : `${(summary.bestTitle * 100).toFixed(1)}%`}</p></div>
+            <div className="rounded-lg border p-3"><p className="text-[10px] uppercase text-muted-foreground">Playoff-bound leagues</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.playoffBound}/{data.standings.length}</p></div>
+            <div className="rounded-lg border p-3"><p className="text-[10px] uppercase text-muted-foreground">Total dynasty value</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.dynastyTotal === null ? "—" : summary.dynastyTotal.toLocaleString()}</p></div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {sortedStandings.map((league) => <StandingsCard key={league.leagueId} league={league} />)}
           </div>
         </section>
 
