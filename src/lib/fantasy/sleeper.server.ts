@@ -2,6 +2,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { fetchAllRows } from "./paginate";
+
 
 type DB = SupabaseClient<Database>;
 
