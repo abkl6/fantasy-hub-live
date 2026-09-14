@@ -25,3 +25,5 @@
 - [x] 23. Make Game Day the signed-in home with live notifications, compact win probabilities, and best-ball leader tracking
 - [x] 24. Manager Hub: cross-league moves, roster alerts, player exposure, and league shortcuts
 - [x] 25. Keep Trade Cut dynasty values: market table (1QB + superflex) with pick values, weekly auto-refresh plus daily top-up for injured players, pick ownership per league, and balanced two-sided trade suggestions with a fairness read
+
+26. Trade Desk: proposed-trade builder (any two teams, both sides re-simulated), Dynasty Future Value, and team-quality badges with hover reasons — done

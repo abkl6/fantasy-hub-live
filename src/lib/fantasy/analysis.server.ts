@@ -20,6 +20,7 @@ import { loadProjections } from "./projections.server";
 import { fetchAllRows } from "./paginate";
 import { normalizeName } from "./names";
 import { leagueScoring } from "./scoring";
+import { classifyTeam, type TeamBadge } from "./team-class";
 import {
   asFormat,
   bestBallDistribution,
@@ -116,7 +117,7 @@ export interface AnalysisPayload {
     projLosses: number;
     why: string[];
   } | null;
-  standings: (SimTeamResult & { record: string; pointsFor: number })[];
+  standings: (SimTeamResult & { record: string; pointsFor: number; badge: TeamBadge })[];
   grades: PositionGrade[];
   lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
   bench: { name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
@@ -290,12 +291,20 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   const standings = [...baseline]
     .sort((a, b) => b.titleOdds - a.titleOdds || b.projWins - a.projWins)
-    .map((r) => {
+    .map((r, index) => {
       const row = teamById.get(r.id);
       return {
         ...r,
         record: row ? recordOf(row) : "0-0",
         pointsFor: row ? Number(row.points_for) : 0,
+        badge: classifyTeam({
+          titleOdds: r.titleOdds,
+          playoffOdds: r.playoffOdds,
+          oddsRank: index + 1,
+          teamCount: teams.length,
+          isDynasty: isMultiYear(format),
+          dynastyRank: null,
+        }),
       };
     });
 
@@ -678,7 +687,7 @@ async function saveWeeklySnapshot(
   leagueId: string,
   week: number,
   baseline: SimTeamResult[],
-  standings: (SimTeamResult & { record: string; pointsFor: number })[],
+  standings: (SimTeamResult & { record: string; pointsFor: number; badge?: TeamBadge })[],
 ) {
   const { data: league } = await supabase.from("leagues").select("user_id").eq("id", leagueId).single();
   if (!league) return;
