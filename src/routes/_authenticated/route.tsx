@@ -35,10 +35,10 @@ function AuthenticatedLayout() {
           </Link>
           <nav className="flex items-center gap-2">
             <Button asChild size="sm" variant="ghost">
-              <Link to="/manager-hub">Leagues</Link>
+              <Link to="/gameday">Game day</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
-              <Link to="/gameday">Game day</Link>
+              <Link to="/manager-hub">Leagues</Link>
             </Button>
             <Button asChild size="sm" variant="ghost">
               <Link to="/trades">Trades</Link>

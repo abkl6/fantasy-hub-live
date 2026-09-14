@@ -18,7 +18,7 @@ export const Route = createFileRoute("/auth")({
         content: "Sign in to Gridiron Edge to track your fantasy football teams, live scores and championship odds.",
       },
       { property: "og:title", content: "Sign in — Gridiron Edge" },
-      { property: "og:description", content: "Access your fantasy football league dashboard and championship odds." },
+      { property: "og:description", content: "Access your fantasy football game day tracker and championship odds." },
     ],
   }),
   component: AuthPage,

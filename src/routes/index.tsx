@@ -58,7 +58,7 @@ function Landing() {
         </span>
         <Button asChild variant={session ? "default" : "outline"} size="sm">
           <Link to={session ? "/gameday" : "/auth"}>
-            {loading ? "…" : session ? "Open dashboard" : "Sign in"}
+            {loading ? "…" : session ? "Open game day" : "Sign in"}
           </Link>
         </Button>
       </header>

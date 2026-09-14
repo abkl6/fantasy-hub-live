@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/manager-hub")({
       { property: "og:description", content: "All of your fantasy football teams in one dashboard." },
     ],
   }),
-  component: Dashboard,
+  component: ManagerHub,
 });
 
 const PLATFORM_LABEL: Record<string, string> = {
@@ -33,7 +33,7 @@ const PLATFORM_LABEL: Record<string, string> = {
   manual: "Manual",
 };
 
-function Dashboard() {
+function ManagerHub() {
   const fetchLeagues = useServerFn(listLeagues);
   const removeLeague = useServerFn(deleteLeague);
   const queryClient = useQueryClient();
