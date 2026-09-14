@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedConnectRouteImport } from './routes/_authenticated/connect'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedGamedayRouteImport } from './routes/_authenticated/gameday'
+import { Route as AuthenticatedProjectionsRouteImport } from './routes/_authenticated/projections'
 import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated/trades'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
 import { Route as ApiPublicCronLiveScoringRouteImport } from './routes/api/public/cron/live-scoring'
@@ -49,6 +50,12 @@ const AuthenticatedGamedayRoute = AuthenticatedGamedayRouteImport.update({
   path: '/gameday',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProjectionsRoute =
+  AuthenticatedProjectionsRouteImport.update({
+    id: '/projections',
+    path: '/projections',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTradesRoute = AuthenticatedTradesRouteImport.update({
   id: '/trades',
   path: '/trades',
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/gameday': typeof AuthenticatedGamedayRoute
+  '/projections': typeof AuthenticatedProjectionsRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -89,6 +97,7 @@ export interface FileRoutesByTo {
   '/connect': typeof AuthenticatedConnectRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/gameday': typeof AuthenticatedGamedayRoute
+  '/projections': typeof AuthenticatedProjectionsRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -102,6 +111,7 @@ export interface FileRoutesById {
   '/_authenticated/connect': typeof AuthenticatedConnectRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/gameday': typeof AuthenticatedGamedayRoute
+  '/_authenticated/projections': typeof AuthenticatedProjectionsRoute
   '/_authenticated/trades': typeof AuthenticatedTradesRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/dashboard'
     | '/gameday'
+    | '/projections'
     | '/trades'
     | '/league/$leagueId'
     | '/api/public/cron/live-scoring'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/dashboard'
     | '/gameday'
+    | '/projections'
     | '/trades'
     | '/league/$leagueId'
     | '/api/public/cron/live-scoring'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
     | '/_authenticated/connect'
     | '/_authenticated/dashboard'
     | '/_authenticated/gameday'
+    | '/_authenticated/projections'
     | '/_authenticated/trades'
     | '/_authenticated/league/$leagueId'
     | '/api/public/cron/live-scoring'
@@ -196,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGamedayRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/projections': {
+      id: '/_authenticated/projections'
+      path: '/projections'
+      fullPath: '/projections'
+      preLoaderRoute: typeof AuthenticatedProjectionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/trades': {
       id: '/_authenticated/trades'
       path: '/trades'
@@ -231,6 +251,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConnectRoute: typeof AuthenticatedConnectRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedGamedayRoute: typeof AuthenticatedGamedayRoute
+  AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRoute
   AuthenticatedTradesRoute: typeof AuthenticatedTradesRoute
   AuthenticatedLeagueLeagueIdRoute: typeof AuthenticatedLeagueLeagueIdRoute
 }
@@ -239,6 +260,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConnectRoute: AuthenticatedConnectRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedGamedayRoute: AuthenticatedGamedayRoute,
+  AuthenticatedProjectionsRoute: AuthenticatedProjectionsRoute,
   AuthenticatedTradesRoute: AuthenticatedTradesRoute,
   AuthenticatedLeagueLeagueIdRoute: AuthenticatedLeagueLeagueIdRoute,
 }

@@ -16,6 +16,7 @@ import {
   type ScheduleGame,
 } from "./engine";
 import { normalizeName } from "./names";
+import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
 import {
   FORMAT_LABELS,
@@ -113,8 +114,18 @@ export async function buildWaiverBoard(
   const bestBall = !hasLineupDecisions(format);
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
-  const seasonOf = (p: { position: string; proj_points_season: number | string }) =>
-    scoring.scale(p.position, Number(p.proj_points_season));
+  // The member's own projection adjustments replace the shared baseline.
+  const proj = await loadProjections(supabase);
+  const seasonOf = (p: {
+    id?: string;
+    full_name?: string;
+    position: string;
+    proj_points_season: number | string;
+  }) =>
+    scoring.scale(
+      p.position,
+      proj.season(p.id ?? null, p.full_name ?? null, Number(p.proj_points_season)),
+    );
 
   // --- replacement level: the Nth best season projection at each position ---
   const startersNeeded = (pos: string) => {
@@ -159,7 +170,7 @@ export async function buildWaiverBoard(
         nflTeam: p.nfl_team,
         byeWeek: p.bye_week,
         status: p.status,
-        projWeek: scoring.scale(p.position, Number(p.proj_points_week)),
+        projWeek: scoring.scale(p.position, proj.week(p.id, p.full_name, Number(p.proj_points_week))),
         projSeason,
         volatility: Number(p.volatility),
         tradeValue: Math.round((projSeason - (replacement.get(pos) ?? 0)) * 10) / 10,
@@ -180,7 +191,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: scoring.scale(s.position, Number(s.proj_points)),
+          proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
           volatility: 0.35,
         }))
     : [];
@@ -201,7 +212,7 @@ export async function buildWaiverBoard(
           name: s.player_name,
           position: s.position.toUpperCase(),
           nflTeam: s.nfl_team,
-          proj: scoring.scale(s.position, Number(s.proj_points)),
+          proj: scoring.scale(s.position, proj.week(s.player_id, s.player_name, Number(s.proj_points))),
           volatility: 0.35,
         })),
       wins: t.wins,
