@@ -425,6 +425,12 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
     if (sort === "points") return b.projWeek - a.projWeek;
     if (sort === "bid") return b.bid - a.bid;
     if (sort === "value") return b.tradeValue - a.tradeValue;
+    if (sort === "ktc") return (b.ktcValue ?? -1) - (a.ktcValue ?? -1);
+    if (sort === "gems")
+      return (
+        Number(b.undervalued) - Number(a.undervalued) ||
+        b.projValue - (b.ktcValue ?? b.projValue) - (a.projValue - (a.ktcValue ?? a.projValue))
+      );
     return (b.titleDelta ?? -1) - (a.titleDelta ?? -1) || b.tradeValue - a.tradeValue;
   });
 
@@ -495,6 +501,9 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="eyebrow text-muted-foreground">{p.position}</span>
                   <span className="font-medium">{p.name}</span>
+                  {p.undervalued && (
+                    <Badge className="text-[10px] uppercase">Undervalued</Badge>
+                  )}
                   {p.status && p.status !== "Active" && (
                     <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px] uppercase">
                       {p.status}
