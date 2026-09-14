@@ -836,6 +836,7 @@ function YahooPanel() {
   const start = useServerFn(startYahooSignIn);
   const leagues = useServerFn(listYahooLeagues);
   const doImport = useServerFn(importYahooLeague);
+  const doImportAll = useServerFn(importAllYahooLeagues);
 
   const state = useQuery({ queryKey: ["yahoo-status"], queryFn: () => status({}) });
 
