@@ -66,10 +66,10 @@ function Landing() {
       <section className="mx-auto max-w-6xl px-6 pb-16 pt-10 md:pt-20">
         <p className="eyebrow text-primary">Fantasy football league analyzer</p>
         <h1 className="mt-4 max-w-3xl text-5xl font-bold uppercase leading-[0.95] md:text-7xl">
-          Win the league you are actually in.
+          THE TOOL BUILT TO WIN CHAMPIONSHIPS AND BUILD THE NEXT DYNASTY.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-          Gridiron Edge tracks all of your fantasy teams, refreshes scores every time you open it,
+          Gridiron Edge tracks all of your fantasy teams in one spot, refreshes scores every time you open it,
           and turns your roster into one clear answer: what to do next, and what it does to your
           championship odds.
         </p>
