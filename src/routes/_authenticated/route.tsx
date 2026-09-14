@@ -43,6 +43,9 @@ function AuthenticatedLayout() {
             <Button asChild size="sm" variant="ghost">
               <Link to="/trades">Trades</Link>
             </Button>
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/projections">Projections</Link>
+            </Button>
             <Button asChild size="sm">
               <Link to="/connect">
                 <Plus className="size-4" aria-hidden="true" />
