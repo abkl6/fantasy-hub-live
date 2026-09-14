@@ -1,4 +1,4 @@
-/** Trade Desk: price a proposed trade and load the pickers behind it. */
+/** Trade Simulator: price a proposed trade and load the pickers behind it. */
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";

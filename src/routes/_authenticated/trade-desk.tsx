@@ -7,7 +7,7 @@ import { TradeBuilder } from "@/components/TradeBuilder";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listLeagues } from "@/lib/fantasy.functions";
 
-const TITLE = "Trade Desk — price any trade before you send it";
+const TITLE = "Trade Simulator — price any trade before you send it";
 const DESCRIPTION =
   "Build a trade between any two teams, see market value, how likely it is to be accepted, and the playoff, title and dynasty impact for both sides.";
 
@@ -38,7 +38,7 @@ function TradeDeskPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Trade Desk</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Trade Simulator</h1>
         <p className="text-sm text-muted-foreground">{DESCRIPTION}</p>
       </header>
 
