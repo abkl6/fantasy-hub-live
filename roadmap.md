@@ -22,3 +22,5 @@
 - [x] 20. League format (redraft/keeper/dynasty/guillotine/best ball) and true scoring-rule aware analysis
 - [x] 21. Player name matching (suffix-safe) + duplicate player merge so rostered players never show as free agents
 - [x] 22. Game day: live points from Sleeper stats + ESPN game states, per-league scoring log, live projected finals, auto-refresh during game windows, cron endpoint /api/public/cron/live-scoring
+- [ ] 23. Make Game Day the signed-in home with live notifications, compact win probabilities, and best-ball leader tracking
+- [ ] 24. Manager Hub: cross-league moves, roster alerts, player exposure, and league shortcuts

@@ -1,0 +1,98 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database } from "@/integrations/supabase/types";
+import { buildAnalysis, type Alert, type MoveSuggestion } from "./analysis.server";
+
+type DB = SupabaseClient<Database>;
+
+export interface ManagerHubPayload {
+  leagues: {
+    id: string;
+    name: string;
+    platform: string;
+    teamName: string;
+    record: string;
+    titleOdds: number;
+    playoffOdds: number;
+  }[];
+  moves: (MoveSuggestion & { leagueId: string; leagueName: string })[];
+  alerts: (Alert & { leagueId: string; leagueName: string })[];
+  exposure: {
+    name: string;
+    position: string;
+    nflTeam: string | null;
+    leagues: number;
+    totalLeagues: number;
+    status: string;
+    leagueNames: string[];
+  }[];
+}
+
+export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> {
+  const { data: leagueRows, error } = await supabase.from("leagues").select("id").order("created_at");
+  if (error) throw new Error(error.message);
+
+  const analyses = await Promise.all((leagueRows ?? []).map((league) => buildAnalysis(supabase, league.id)));
+  const leagues = analyses.flatMap((analysis) =>
+    analysis.myTeam
+      ? [{
+          id: analysis.league.id,
+          name: analysis.league.name,
+          platform: analysis.league.platform,
+          teamName: analysis.myTeam.name,
+          record: analysis.myTeam.record,
+          titleOdds: analysis.myTeam.titleOdds,
+          playoffOdds: analysis.myTeam.playoffOdds,
+        }]
+      : [],
+  );
+
+  const moves = analyses
+    .flatMap((analysis) => analysis.suggestions.slice(0, 4).map((move) => ({
+      ...move,
+      leagueId: analysis.league.id,
+      leagueName: analysis.league.name,
+    })))
+    .sort((a, b) => b.titleDelta - a.titleDelta || b.pointsDelta - a.pointsDelta)
+    .slice(0, 12);
+
+  const alerts = analyses
+    .flatMap((analysis) => analysis.alerts.map((alert) => ({
+      ...alert,
+      leagueId: analysis.league.id,
+      leagueName: analysis.league.name,
+    })))
+    .sort((a, b) => ({ high: 0, medium: 1, low: 2 })[a.severity] - ({ high: 0, medium: 1, low: 2 })[b.severity]);
+
+  const exposureMap = new Map<string, ManagerHubPayload["exposure"][number]>();
+  for (const analysis of analyses) {
+    const roster = [...analysis.lineup, ...analysis.bench].filter((player) => player.name !== "Empty");
+    for (const player of roster) {
+      const key = `${player.name.toLowerCase()}::${player.position}`;
+      const current = exposureMap.get(key);
+      if (current) {
+        current.leagues += 1;
+        current.leagueNames.push(analysis.league.name);
+        if (current.status === "Active" && player.status !== "Active") current.status = player.status;
+      } else {
+        exposureMap.set(key, {
+          name: player.name,
+          position: player.position,
+          nflTeam: player.nflTeam,
+          leagues: 1,
+          totalLeagues: leagues.length,
+          status: player.status,
+          leagueNames: [analysis.league.name],
+        });
+      }
+    }
+  }
+
+  const exposure = [...exposureMap.values()].sort((a, b) => {
+    const riskA = a.status === "Active" ? 0 : 1;
+    const riskB = b.status === "Active" ? 0 : 1;
+    return riskB - riskA || b.leagues - a.leagues || a.name.localeCompare(b.name);
+  });
+
+  return { leagues, moves, alerts, exposure };
+}
