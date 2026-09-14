@@ -13,7 +13,15 @@ export type TeamBadgeKey =
   | "win-now"
   | "future-star"
   | "eternal-mediocrity"
-  | "donator";
+  | "donator"
+  // guillotine: survival is the only thing that matters
+  | "safe"
+  | "comfortable"
+  | "bubble"
+  | "chopping-block"
+  | "broke-exposed"
+  | "loaded";
+
 
 export interface TeamBadge {
   key: TeamBadgeKey;
