@@ -95,7 +95,8 @@ export const importEspnLeague = createServerFn({ method: "POST" })
 export const yahooStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { yahooConfigured } = await import("./fantasy/yahoo.server");
+    const { yahooConfigured, YAHOO_NOT_CONFIGURED } = await import("./fantasy/yahoo.server");
+    void YAHOO_NOT_CONFIGURED;
     const { data } = await context.supabase
       .from("platform_credentials")
       .select("expires_at, payload")
@@ -112,7 +113,10 @@ export const startYahooSignIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ origin: z.string().url() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { yahooAuthorizeUrl } = await import("./fantasy/yahoo.server");
+    const { yahooAuthorizeUrl, yahooConfigured, YAHOO_NOT_CONFIGURED } = await import(
+      "./fantasy/yahoo.server"
+    );
+    if (!yahooConfigured()) throw new Error(YAHOO_NOT_CONFIGURED);
     const state = crypto.randomUUID();
     const { error } = await context.supabase.from("platform_credentials").upsert(
       {
