@@ -93,6 +93,15 @@ function ProjectionsPage() {
         </p>
       </header>
 
+      <Tabs defaultValue="projections">
+        <TabsList>
+          <TabsTrigger value="projections">Projections</TabsTrigger>
+          <TabsTrigger value="values">Trade values</TabsTrigger>
+        </TabsList>
+        <TabsContent value="values" className="pt-6">
+          <TradeValuesPanel />
+        </TabsContent>
+        <TabsContent value="projections" className="space-y-6 pt-6">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-56 flex-1">
           <Label htmlFor="proj-search">Find a player</Label>
