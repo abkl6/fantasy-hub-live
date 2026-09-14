@@ -35,13 +35,13 @@ import {
 export const Route = createFileRoute("/_authenticated/projections")({
   head: () => ({
     meta: [
-      { title: "Projections — Gridiron Edge" },
+      { title: "Stats Hub — Gridiron Edge" },
       {
         name: "description",
         content:
           "Set the shared baseline projections for every player and tune any player up or down for your own leagues.",
       },
-      { property: "og:title", content: "Projections — Gridiron Edge" },
+      { property: "og:title", content: "Stats Hub — Gridiron Edge" },
       {
         property: "og:description",
         content: "Shared baseline projections plus your own per-player adjustments.",
@@ -85,7 +85,7 @@ function ProjectionsPage() {
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
       <header className="space-y-2">
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Projections</h1>
+        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Stats Hub</h1>
         <p className="max-w-2xl text-muted-foreground">
           Every number in the app starts from a shared baseline. Disagree with one? Adjust it here and
           it follows you into all of your leagues — start/sit, waivers, trades and title odds all use
