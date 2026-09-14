@@ -108,5 +108,37 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
     return riskB - riskA || b.leagues - a.leagues || a.name.localeCompare(b.name);
   });
 
-  return { leagues, moves, alerts, exposure };
+  const weeklyOdds = (
+    await Promise.all(
+      analyses.map(async (analysis) => {
+        if (!analysis.myTeam) return [];
+        const { data: rows } = await supabase
+          .from("weekly_snapshots")
+          .select("week, title_odds, playoff_odds")
+          .eq("league_id", analysis.league.id)
+          .eq("team_id", analysis.myTeam.id)
+          .order("week", { ascending: true });
+        const points = (rows ?? []).map((row) => ({
+          week: row.week,
+          titleOdds: Number(row.title_odds),
+          playoffOdds: Number(row.playoff_odds),
+        }));
+        if (!points.length) {
+          points.push({
+            week: analysis.league.current_week ?? 1,
+            titleOdds: analysis.myTeam.titleOdds,
+            playoffOdds: analysis.myTeam.playoffOdds,
+          });
+        }
+        return [{
+          leagueId: analysis.league.id,
+          leagueName: analysis.league.name,
+          teamName: analysis.myTeam.name,
+          points,
+        }];
+      }),
+    )
+  ).flat();
+
+  return { leagues, moves, trades, waivers, alerts, exposure, weeklyOdds };
 }
