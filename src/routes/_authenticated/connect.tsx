@@ -834,6 +834,7 @@ function YahooPanel() {
           ))}
         </div>
       )}
+      </details>
     </section>
   );
 }
