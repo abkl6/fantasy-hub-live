@@ -888,6 +888,24 @@ function YahooPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
   });
 
+  const importAll = useMutation({
+    mutationFn: () => doImportAll({ data: {} }),
+    onSuccess: (res) => {
+      const ok = res.results.filter((r) => r.leagueId);
+      const failed = res.results.length - ok.length;
+      if (!ok.length) {
+        toast.error("No Yahoo leagues could be imported.");
+        return;
+      }
+      toast.success(
+        `${ok.length} Yahoo league${ok.length === 1 ? "" : "s"} imported${failed ? `, ${failed} failed` : ""}.`,
+      );
+      const first = ok[0]!.leagueId!;
+      navigate({ to: "/league/$leagueId", params: { leagueId: first } });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
+  });
+
   useEffect(() => {
     const result = new URLSearchParams(window.location.search).get("yahoo");
     if (!result) return;
