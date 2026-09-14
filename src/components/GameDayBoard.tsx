@@ -225,8 +225,13 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
 
   const events = useMemo(() => {
     const rows = data?.events ?? [];
-    return showAllEvents ? rows : rows.slice(0, 5);
+    return showAllEvents ? rows : rows.slice(0, 3);
   }, [data, showAllEvents]);
+
+  const sortedMatchups = useMemo(() => {
+    const rows = [...(data?.matchups ?? [])];
+    return rows.sort((a, b) => (b.winProbability ?? -1) - (a.winProbability ?? -1));
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -268,42 +273,46 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
         </Button>
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-primary/30 bg-card">
-        <div className="flex items-center justify-between border-b border-border bg-primary/5 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Radio className="size-4 text-primary" />
-            <h2 className="font-display text-lg font-bold uppercase">Live updates</h2>
+      <section className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          <Radio className={`size-3.5 shrink-0 ${window.live ? "animate-pulse text-primary" : "text-muted-foreground"}`} />
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Live</span>
+          <div className="min-w-0 flex-1 divide-y divide-border/60">
+            {!events.length && (
+              <p className="truncate py-1 text-xs text-muted-foreground">No scoring updates yet — new plays appear here first.</p>
+            )}
+            {events.map((e) => (
+              <p key={`${e.leagueId}-${e.id}`} className="flex items-baseline gap-1.5 truncate py-1 text-xs leading-tight">
+                <span className={`shrink-0 font-display font-bold tabular-nums ${e.points >= 0 ? "text-primary" : "text-destructive"}`}>
+                  {e.points >= 0 ? "+" : ""}{e.points.toFixed(1)}
+                </span>
+                <span className="shrink-0 font-medium">{e.playerName}</span>
+                <span className="truncate text-muted-foreground">{e.description} · {e.leagueName}</span>
+              </p>
+            ))}
           </div>
-          <Badge variant="outline">{data.events.length} plays</Badge>
+          {data.events.length > 3 && (
+            <button
+              className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllEvents((value) => !value)}
+            >
+              {showAllEvents ? "Less" : `All ${data.events.length}`}
+            </button>
+          )}
         </div>
-        {!events.length && <p className="p-4 text-sm text-muted-foreground">No scoring updates yet. New plays will appear here first.</p>}
-        <div className="divide-y divide-border">
-          {events.map((e) => (
-            <div key={`${e.leagueId}-${e.id}`} className="flex items-center justify-between gap-3 p-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{e.playerName} <span className="text-xs text-muted-foreground">· {e.leagueName}</span></p>
-                <p className="truncate text-xs text-muted-foreground">{e.description} · {e.side === "mine" ? "your player" : "opponent"}</p>
-              </div>
-              <p className={`font-display text-lg font-bold tabular-nums ${e.points >= 0 ? "text-primary" : "text-destructive"}`}>{e.points >= 0 ? "+" : ""}{e.points.toFixed(1)}</p>
-            </div>
-          ))}
-        </div>
-        {data.events.length > 5 && <Button className="w-full rounded-none border-t" variant="ghost" onClick={() => setShowAllEvents((value) => !value)}>
-          {showAllEvents ? "Show latest 5" : `Show all ${data.events.length} updates`}
-        </Button>}
       </section>
 
-      {!!data.matchups.length && (
+      {!!sortedMatchups.length && (
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="size-4 text-primary" />
               <h2 className="font-display text-lg font-bold uppercase">Weekly odds</h2>
             </div>
-            <Badge variant="outline">{data.matchups.length} {data.matchups.length === 1 ? "league" : "leagues"}</Badge>
+            <Badge variant="outline">{sortedMatchups.length} {sortedMatchups.length === 1 ? "league" : "leagues"}</Badge>
           </div>
           <div className="space-y-2 p-3">
-            {data.matchups.map((m) => (
+            {sortedMatchups.map((m) => (
               <OddsRow key={`odds-${m.leagueId}`} m={m} />
             ))}
           </div>
