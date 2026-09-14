@@ -145,6 +145,9 @@ function LeaguePage() {
             <h1 className="text-2xl font-bold">{data.league.name}</h1>
             <LeagueColorPicker leagueId={leagueId} current={(data.league as { color?: string | null }).color ?? null} />
           </div>
+          <div className="mt-1">
+            <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
+          </div>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
               {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
