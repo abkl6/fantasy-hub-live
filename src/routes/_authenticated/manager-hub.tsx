@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, ArrowRight, BellRing, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
+import { Activity, ArrowRight, BellRing, ChevronDown, ChevronUp, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -145,65 +145,86 @@ type HubStandings = {
   }[];
 };
 
+function StandingsRow({ team, index, isDynasty, bubble }: { team: HubStandings["teams"][number]; index: number; isDynasty: boolean; bubble: boolean }) {
+  return (
+    <tr className={`border-b border-border/60 last:border-0 ${team.isMine ? "bg-primary/10" : ""}`}>
+      <td className="w-8 px-3 py-2 tabular-nums text-muted-foreground">{index + 1}</td>
+      <td className="max-w-0 py-2 pr-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-medium">{team.name}</span>
+          {team.isMine && <Badge className="shrink-0 text-[9px] uppercase">You</Badge>}
+        </div>
+        <div className="mt-0.5 flex items-center gap-1.5">
+          <TeamBadge badge={team.badge} />
+          {bubble && <span className="shrink-0 text-[9px] uppercase text-muted-foreground">Bubble</span>}
+        </div>
+      </td>
+      <td className="whitespace-nowrap py-2 pr-2 tabular-nums text-muted-foreground">{team.record}</td>
+      <td className="whitespace-nowrap py-2 pr-2 text-right tabular-nums">{(team.titleOdds * 100).toFixed(1)}%</td>
+      <td className="whitespace-nowrap py-2 pr-2 text-right tabular-nums">{(team.playoffOdds * 100).toFixed(0)}%</td>
+      {isDynasty && (
+        <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">
+          {team.dynastyValue === null ? "—" : <>{team.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {team.dynastyRank}{ordinal(team.dynastyRank)}</span></>}
+        </td>
+      )}
+    </tr>
+  );
+}
+
 function StandingsCard({ league }: { league: HubStandings }) {
-  const myTeam = league.teams.find((t) => t.isMine);
+  const [expanded, setExpanded] = useState(false);
+  const myIndex = league.teams.findIndex((t) => t.isMine);
+  const myTeam = myIndex >= 0 ? league.teams[myIndex] : undefined;
+  const playoffCut = league.teams.filter((t) => t.playoffOdds >= 0.5).length;
+  const bubbleOf = (team: HubStandings["teams"][number]) =>
+    !team.isMine && team.playoffOdds > 0.05 && team.playoffOdds < 0.5 && playoffCut > 0 && Math.abs(team.playoffOdds - 0.5) <= 0.15;
+
   return (
     <div className="rounded-lg border">
-      <Link to="/league/$leagueId" params={{ leagueId: league.leagueId }} className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 transition-colors hover:bg-secondary/40">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-sm font-semibold">{league.leagueName}</p>
-          <Badge variant="secondary" className="text-[10px]">{PLATFORM[league.platform] ?? league.platform}</Badge>
+          <Link to="/league/$leagueId" params={{ leagueId: league.leagueId }} className="truncate text-sm font-semibold transition-colors hover:text-primary">
+            {league.leagueName}
+          </Link>
+          <Badge variant="secondary" className="shrink-0 text-[10px]">{PLATFORM[league.platform] ?? league.platform}</Badge>
         </div>
-        {league.swing !== null && league.swingFromWeek !== null && (
-          <Badge variant={league.swing >= 0 ? "default" : "destructive"}>
-            {league.swing >= 0 ? "+" : ""}{(league.swing * 100).toFixed(1)}% title since wk {league.swingFromWeek}
-          </Badge>
-        )}
-      </Link>
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-border text-left text-[10px] uppercase text-muted-foreground">
-            <th className="px-3 py-1.5 font-medium">#</th>
-            <th className="py-1.5 pr-2 font-medium">Team</th>
-            <th className="py-1.5 pr-2 font-medium">Record</th>
-            <th className="py-1.5 pr-2 text-right font-medium">Title</th>
-            <th className="py-1.5 pr-2 text-right font-medium">Playoffs</th>
-            {league.isDynasty && <th className="py-1.5 pr-3 text-right font-medium">Dynasty value</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {league.teams.map((team, index) => {
-            const playoffCut = league.teams.filter((t) => t.playoffOdds >= 0.5).length;
-            const bubble = !team.isMine && index < league.teams.length && team.playoffOdds > 0.05 && team.playoffOdds < 0.5 && playoffCut > 0 && Math.abs(team.playoffOdds - 0.5) <= 0.15;
-            return (
-              <tr key={team.id} className={`border-b border-border/60 last:border-0 ${team.isMine ? "bg-primary/10" : ""}`}>
-                <td className="px-3 py-1.5 tabular-nums text-muted-foreground">{index + 1}</td>
-                <td className="max-w-0 py-1.5 pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate font-medium">{team.name}</span>
-                    {team.isMine && <Badge className="text-[9px] uppercase">You</Badge>}
-                    <TeamBadge badge={team.badge} />
-                    {bubble && <span className="text-[9px] uppercase text-muted-foreground">Bubble</span>}
-                  </div>
-                </td>
-                <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">{team.record}</td>
-                <td className="py-1.5 pr-2 text-right tabular-nums">{(team.titleOdds * 100).toFixed(1)}%</td>
-                <td className="py-1.5 pr-2 text-right tabular-nums">{(team.playoffOdds * 100).toFixed(0)}%</td>
-                {league.isDynasty && (
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {team.dynastyValue === null ? "—" : <>{team.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {team.dynastyRank}{ordinal(team.dynastyRank)}</span></>}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {myTeam && (
-        <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
-          Your team: {myTeam.record} · {(myTeam.titleOdds * 100).toFixed(1)}% title · {(myTeam.playoffOdds * 100).toFixed(0)}% playoffs
-          {league.isDynasty && myTeam.dynastyValue !== null && ` · dynasty value ${myTeam.dynastyValue.toLocaleString()} (${myTeam.dynastyRank}${ordinal(myTeam.dynastyRank)})`}
-        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          {league.swing !== null && league.swingFromWeek !== null && (
+            <Badge variant={league.swing >= 0 ? "default" : "destructive"}>
+              {league.swing >= 0 ? "+" : ""}{(league.swing * 100).toFixed(1)}% title since wk {league.swingFromWeek}
+            </Badge>
+          )}
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? "Hide standings" : "Full standings"}
+            {expanded ? <ChevronUp className="ml-1 size-3" /> : <ChevronDown className="ml-1 size-3" />}
+          </Button>
+        </div>
+      </div>
+      {myTeam && !expanded && (
+        <table className="w-full text-xs">
+          <tbody>
+            <StandingsRow team={myTeam} index={myIndex} isDynasty={league.isDynasty} bubble={false} />
+          </tbody>
+        </table>
+      )}
+      {expanded && (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border text-left text-[10px] uppercase text-muted-foreground">
+              <th className="px-3 py-1.5 font-medium">#</th>
+              <th className="py-1.5 pr-2 font-medium">Team</th>
+              <th className="py-1.5 pr-2 font-medium">Record</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Title</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Playoffs</th>
+              {league.isDynasty && <th className="py-1.5 pr-3 text-right font-medium">Dynasty value</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {league.teams.map((team, index) => (
+              <StandingsRow key={team.id} team={team} index={index} isDynasty={league.isDynasty} bubble={bubbleOf(team)} />
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
