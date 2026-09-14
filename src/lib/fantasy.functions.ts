@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
+import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
