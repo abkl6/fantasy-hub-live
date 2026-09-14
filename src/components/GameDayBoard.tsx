@@ -32,7 +32,7 @@ function prefersReducedMotion() {
 }
 
 /** Tween a score up to its new value over 600ms; also reports when it changed. */
-function useCountUp(value: number, duration = 600) {
+export function useCountUp(value: number, duration = 600) {
   const [display, setDisplay] = useState(value);
   const [changed, setChanged] = useState(false);
   const from = useRef(value);
