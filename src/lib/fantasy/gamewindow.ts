@@ -37,3 +37,56 @@ export function gameWindow(now: Date = new Date()): GameWindow {
 export function pollInterval(now: Date = new Date()): number {
   return gameWindow(now).live ? 45_000 : 0;
 }
+
+export interface Kickoff {
+  at: Date;
+  label: string;
+}
+
+const KICKOFF_SLOTS: { day: number; hour: number; minute: number; label: string }[] = [
+  { day: 0, hour: 13, minute: 0, label: "Sunday early games" },
+  { day: 1, hour: 20, minute: 15, label: "Monday night" },
+  { day: 4, hour: 20, minute: 15, label: "Thursday night" },
+];
+
+const DAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+function easternMinuteOfWeek(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(date);
+  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "Sun";
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return (DAY_INDEX[weekday] ?? 0) * 1440 + hour * 60 + minute;
+}
+
+/** The next scheduled NFL kickoff after `now`. */
+export function nextKickoff(now: Date = new Date()): Kickoff {
+  const current = easternMinuteOfWeek(now);
+  let best = KICKOFF_SLOTS[0]!;
+  let bestDelta = Number.POSITIVE_INFINITY;
+  for (const slot of KICKOFF_SLOTS) {
+    const target = slot.day * 1440 + slot.hour * 60 + slot.minute;
+    const delta = (target - current + 10080) % 10080 || 10080;
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = slot;
+    }
+  }
+  return { at: new Date(now.getTime() + bestDelta * 60_000), label: best.label };
+}
+
+/** Human countdown such as "2d 4h" or "48m". */
+export function countdownLabel(target: Date, now: Date = new Date()): string {
+  const mins = Math.max(0, Math.round((target.getTime() - now.getTime()) / 60_000));
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins % 60}m`;
+  return `${mins}m`;
+}

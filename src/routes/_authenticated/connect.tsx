@@ -79,13 +79,7 @@ function readFiles(files: FileList): Promise<string[]> {
 function ConnectPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
-      <p className="eyebrow text-primary">Add a league</p>
-      <h1 className="mt-2 text-4xl font-bold uppercase">Bring your teams in</h1>
-      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Sleeper connects from your username and ESPN from your league ID. Yahoo, NFL.com and FFPC
-        have no public way to read a league right now, so add those from a screenshot of your roster
-        — the scoring settings can come from a screenshot too.
-      </p>
+      <h1 className="text-2xl font-bold uppercase">Add a league</h1>
 
       <Tabs defaultValue="sleeper" className="mt-8">
         <TabsList>

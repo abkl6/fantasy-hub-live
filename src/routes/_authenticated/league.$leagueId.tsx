@@ -14,7 +14,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { DraftPicksPanel } from "@/components/DraftPicksPanel";
@@ -103,7 +103,7 @@ function LeaguePage() {
   if (error || !data) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-3xl font-bold uppercase">We could not load this league</h1>
+        <h1 className="text-2xl font-bold uppercase">We could not load this league</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {error instanceof Error ? error.message : "Try refreshing in a moment."}
         </p>
@@ -121,7 +121,7 @@ function LeaguePage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-primary">Week {data.league.current_week}</p>
-          <h1 className="mt-2 text-4xl font-bold uppercase">{data.league.name}</h1>
+          <h1 className="mt-2 text-2xl font-bold uppercase">{data.league.name}</h1>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">
               {me.name} · {me.record} · {me.pointsFor.toFixed(1)} points for
@@ -185,7 +185,7 @@ function LeaguePage() {
                   </p>
                 </div>
                 {a.action && (
-                  <Button size="sm" variant="outline" onClick={() => setTab("waivers")}>
+                  <Button size="sm" variant="outline" onClick={() => setTab("moves")}>
                     {a.action.label}
                   </Button>
                 )}
@@ -197,17 +197,10 @@ function LeaguePage() {
 
       <Tabs value={tab} onValueChange={setTab} className="mt-8">
         <TabsList className="flex flex-wrap">
-          <TabsTrigger value="live">Live</TabsTrigger>
-          <TabsTrigger value="moves">Moves</TabsTrigger>
           <TabsTrigger value="lineup">Lineup</TabsTrigger>
-          <TabsTrigger value="grades">Grades</TabsTrigger>
-          <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
-          <TabsTrigger value="standings">Standings</TabsTrigger>
-          <TabsTrigger value="waivers">Waivers</TabsTrigger>
-          <TabsTrigger value="trade">Trade</TabsTrigger>
-          <TabsTrigger value="playoff">Playoff</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="draft">Draft</TabsTrigger>
+          <TabsTrigger value="moves">Moves</TabsTrigger>
+          <TabsTrigger value="league">League</TabsTrigger>
+          <TabsTrigger value="live">Live</TabsTrigger>
         </TabsList>
 
         <TabsContent value="live" className="mt-6">
@@ -237,6 +230,18 @@ function LeaguePage() {
           {data.suggestions.map((s) => (
             <MoveCard key={s.id} leagueId={leagueId} suggestion={s} onApplied={() => refetch()} />
           ))}
+
+          <Section title="Waiver wire">
+            <WaiverPanel leagueId={leagueId} onAdded={() => refetch()} />
+          </Section>
+
+          <Section title="Trades">
+            <div className="space-y-6">
+              <TradeBuilder leagueId={leagueId} />
+              <TradePanel leagueId={leagueId} />
+              <DraftPicksPanel leagueId={leagueId} />
+            </div>
+          </Section>
         </TabsContent>
 
         <TabsContent value="lineup" className="mt-6 space-y-4">
@@ -252,84 +257,91 @@ function LeaguePage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="grades" className="mt-6 space-y-3">
-          {data.grades.map((g) => (
-            <div key={g.position} className="rounded-xl border border-border bg-card p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-semibold uppercase">{g.position}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {g.myPoints.toFixed(1)} proj pts vs {g.leagueAverage.toFixed(1)} league average
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="stat-num text-3xl text-primary">{g.grade}</p>
-                  <p className="text-xs uppercase text-muted-foreground">{g.verdict}</p>
-                </div>
-              </div>
-              <Progress
-                className="mt-3"
-                value={Math.max(
-                  4,
-                  Math.min(100, (g.myPoints / Math.max(g.leagueAverage * 2, 1)) * 100),
-                )}
-              />
+        <TabsContent value="league" className="mt-6 space-y-6">
+          <Section title="Standings">
+            <div className="overflow-x-auto">
+              <StandingsTable leagueId={leagueId} standings={data.standings} />
             </div>
-          ))}
-        </TabsContent>
+          </Section>
 
-        <TabsContent value="scoreboard" className="mt-6 space-y-3">
-          {!data.scoreboard.length && (
-            <p className="text-sm text-muted-foreground">No matchups posted for this week yet.</p>
-          )}
-          {data.scoreboard.map((m, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
-            >
-              <TeamScore
-                name={m.home.name}
-                points={m.home.score}
-                winning={m.home.score >= m.away.score}
-              />
-              <span className="px-4 text-xs uppercase text-muted-foreground">vs</span>
-              <TeamScore
-                name={m.away.name}
-                points={m.away.score}
-                winning={m.away.score > m.home.score}
-                alignRight
-              />
+          <Section title="Scoreboard">
+            <div className="space-y-3">
+              {!data.scoreboard.length && (
+                <p className="text-sm text-muted-foreground">No matchups posted for this week yet.</p>
+              )}
+              {data.scoreboard.map((m, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
+                >
+                  <TeamScore
+                    name={m.home.name}
+                    points={m.home.score}
+                    winning={m.home.score >= m.away.score}
+                  />
+                  <span className="px-4 text-xs uppercase text-muted-foreground">vs</span>
+                  <TeamScore
+                    name={m.away.name}
+                    points={m.away.score}
+                    winning={m.away.score > m.home.score}
+                    alignRight
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </TabsContent>
+          </Section>
 
-        <TabsContent value="standings" className="mt-6 overflow-x-auto">
-          <StandingsTable leagueId={leagueId} standings={data.standings} />
-        </TabsContent>
+          <Section title="Position grades">
+            <div className="space-y-3">
+              {data.grades.map((g) => (
+                <div key={g.position} className="rounded-xl border border-border bg-card p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-lg font-semibold uppercase">{g.position}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {g.myPoints.toFixed(1)} proj pts vs {g.leagueAverage.toFixed(1)} league average
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="stat-num text-3xl text-primary">{g.grade}</p>
+                      <p className="text-xs uppercase text-muted-foreground">{g.verdict}</p>
+                    </div>
+                  </div>
+                  <Progress
+                    className="mt-3"
+                    value={Math.max(
+                      4,
+                      Math.min(100, (g.myPoints / Math.max(g.leagueAverage * 2, 1)) * 100),
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
+          </Section>
 
-        <TabsContent value="waivers" className="mt-6">
-          <WaiverPanel leagueId={leagueId} onAdded={() => refetch()} />
-        </TabsContent>
+          <Section title="Playoff picture">
+            <PlayoffPanel leagueId={leagueId} />
+          </Section>
 
-        <TabsContent value="trade" className="mt-6 space-y-6">
-          <TradeBuilder leagueId={leagueId} />
-          <TradePanel leagueId={leagueId} />
-          <DraftPicksPanel leagueId={leagueId} />
-        </TabsContent>
+          <Section title="Trends">
+            <TrendsPanel leagueId={leagueId} />
+          </Section>
 
-        <TabsContent value="playoff" className="mt-6">
-          <PlayoffPanel leagueId={leagueId} />
-        </TabsContent>
-
-        <TabsContent value="trends" className="mt-6">
-          <TrendsPanel leagueId={leagueId} />
-        </TabsContent>
-
-        <TabsContent value="draft" className="mt-6">
-          <DraftPanel leagueId={leagueId} />
+          <Section title="Draft">
+            <DraftPanel leagueId={leagueId} />
+          </Section>
         </TabsContent>
       </Tabs>
     </main>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      {children}
+    </section>
   );
 }
 

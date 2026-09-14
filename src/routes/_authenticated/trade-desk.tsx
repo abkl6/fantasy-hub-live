@@ -39,7 +39,6 @@ function TradeDeskPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Trade Simulator</h1>
-        <p className="text-sm text-muted-foreground">{DESCRIPTION}</p>
       </header>
 
       {leagues.isLoading ? (

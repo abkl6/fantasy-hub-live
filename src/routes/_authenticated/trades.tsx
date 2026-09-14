@@ -67,12 +67,7 @@ function TradesPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <p className="eyebrow text-primary">Trade history</p>
-      <h1 className="mt-2 text-4xl font-bold uppercase">Every deal you have made</h1>
-      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Each trade is stored with your championship odds before and after, so you can see across the
-        season which deals really helped.
-      </p>
+      <h1 className="text-2xl font-bold uppercase">Trade history</h1>
 
       {accepted.length > 0 && (
         <div className="mt-6 inline-flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-5 py-4">
