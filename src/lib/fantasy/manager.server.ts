@@ -215,7 +215,9 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
                     proj_wins: mine.projWins,
                     proj_losses: mine.projLosses,
                     power_score: mine.projPointsPerWeek,
-                    review: review as unknown as Database["public"]["Tables"]["weekly_snapshots"]["Insert"]["review"],
+                    review: review as unknown as NonNullable<
+                      Database["public"]["Tables"]["weekly_snapshots"]["Insert"]["review"]
+                    >,
                   },
                   { onConflict: "league_id,team_id,week" },
                 );
