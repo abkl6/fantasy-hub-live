@@ -3,7 +3,7 @@ import { buildAnalysis } from "@/lib/fantasy/analysis.server";
 import fs from "node:fs";
 const s = JSON.parse(fs.readFileSync("/root/.cache/lovable-auth/session.json","utf8"));
 const tok = (s.session ?? s).access_token;
-const sb = createClient(process.env['SUPABASE_URL']!, process.env['SUPABASE_ANON_KEY']!, {
+const sb = createClient(process.env['SUPABASE_URL']!, process.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ?? process.env['SUPABASE_ANON_KEY']!, {
   global: { headers: { Authorization: `Bearer ${tok}` } }, auth: { persistSession: false },
 });
 let t = Date.now();
