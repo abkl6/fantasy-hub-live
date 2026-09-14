@@ -1109,7 +1109,7 @@ function TrendsPanel({ leagueId }: { leagueId: string }) {
           const up = end >= start;
           return (
             <div key={s.teamId} className="flex items-center gap-2 text-sm">
-              <span className={`inline-block size-2 rounded-full ${up ? "bg-primary" : "bg-destructive"}`} />
+              <span className={`inline-block size-2 rounded-full bg-current ${colorFor(i)}`} />
               <span className={s.isMine ? "font-semibold" : ""}>{s.name}</span>
               {up ? <ChevronUp className="size-3 text-primary" /> : <ChevronDown className="size-3 text-destructive" />}
               <span className="text-xs text-muted-foreground">{pct(end)}</span>
