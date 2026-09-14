@@ -190,6 +190,29 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const format = asFormat((league as { format?: string }).format);
   const bestBall = !hasLineupDecisions(format);
 
+  // Dynasty trade currency: market values plus each team's future pick stock.
+  const values = await loadTradeValues(supabase, leagueValueFormat(slots));
+  const { data: pickRows } = await supabase
+    .from("team_draft_picks")
+    .select("team_id, season, round, slot, count")
+    .eq("league_id", league.id);
+  const pickAssets = new Map<string, TradeAsset[]>();
+  for (const row of pickRows ?? []) {
+    const slot = String(row.slot) as PickSlot;
+    const list = pickAssets.get(row.team_id) ?? [];
+    for (let i = 0; i < Math.min(Number(row.count ?? 1), 4); i += 1) {
+      list.push({
+        kind: "pick",
+        season: row.season,
+        round: row.round,
+        slot,
+        label: pickLabel(row.season, row.round, slot),
+        value: values.pick(row.season, row.round, slot),
+      });
+    }
+    pickAssets.set(row.team_id, list);
+  }
+
   // Anyone held by any team in the league is off the waiver wire, whatever
   // position label the platform used for them.
   const rosteredNames = new Set(spots.map((s) => normalizeName(s.player_name)));
