@@ -273,7 +273,7 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
       )}
 
       <div className="grid gap-4">
-        {data.matchups.map((m) => (
+        {sortedMatchups.map((m) => (
           <MatchupCard key={m.leagueId} m={m} />
         ))}
       </div>
