@@ -13,6 +13,7 @@ import type { Database } from "@/integrations/supabase/types";
 
 import { slotAccepts } from "./engine";
 import { normalizeName } from "./names";
+import { loadProjections } from "./projections.server";
 
 type DB = SupabaseClient<Database>;
 
@@ -171,6 +172,7 @@ export async function leagueWaiverWire(
       .order("proj_points_week", { ascending: false }),
   ]);
 
+  const proj = await loadProjections(supabase);
   const taken = new Set((spots ?? []).map((s) => key(s.player_name)));
   const usable = (position: string) =>
     slots.some((slot) => slotAccepts(slot, position)) || BENCH_POSITIONS.includes(position);
@@ -189,7 +191,7 @@ export async function leagueWaiverWire(
       name: p.full_name,
       position: p.position.toUpperCase(),
       nflTeam: p.nfl_team,
-      proj: Number(p.proj_points_week),
+      proj: proj.week(p.id, p.full_name, Number(p.proj_points_week)),
       byeWeek: p.bye_week,
       status: p.status,
     }));
