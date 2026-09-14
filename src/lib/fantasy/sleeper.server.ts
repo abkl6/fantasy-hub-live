@@ -200,9 +200,15 @@ export async function sleeperCurrentWeek(): Promise<{ week: number; season: stri
   return { week: Math.max(1, state.display_week ?? state.week ?? 1), season: state.season };
 }
 
-export async function sleeperUserLeagues(username: string, season: string) {
+/** Resolve a Sleeper username to its numeric user id. */
+export async function sleeperUserId(username: string): Promise<string> {
   const user = await getJson<{ user_id: string } | null>(`${BASE}/user/${encodeURIComponent(username)}`);
   if (!user?.user_id) throw new Error("That Sleeper username was not found.");
+  return user.user_id;
+}
+
+export async function sleeperUserLeagues(username: string, season: string) {
+  const user = { user_id: await sleeperUserId(username) };
   const leagues = await getJson<
     { league_id: string; name: string; season: string; total_rosters: number; avatar: string | null }[]
   >(`${BASE}/user/${user.user_id}/leagues/nfl/${season}`);
