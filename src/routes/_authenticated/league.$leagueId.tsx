@@ -18,6 +18,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { DraftPicksPanel } from "@/components/DraftPicksPanel";
+import { TradeBuilder } from "@/components/TradeBuilder";
 import { GameDayBoard } from "@/components/GameDayBoard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
