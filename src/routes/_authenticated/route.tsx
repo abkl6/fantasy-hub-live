@@ -1,6 +1,6 @@
-import { Link, Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { BarChart3, LogOut, Menu, Plus, Radio, Repeat2, Users } from "lucide-react";
+import { BarChart3, LogOut, Menu, Monitor, Plus, Radio, Repeat2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ const TABS = [
 function AuthenticatedLayout() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
+  const bare = useRouterState({ select: (s) => s.location.pathname === "/tv" });
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
