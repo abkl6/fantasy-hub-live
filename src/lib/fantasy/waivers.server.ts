@@ -128,6 +128,13 @@ export async function buildWaiverBoard(
   const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
   // Dynasty market prices, matched by the same normalized names as everywhere else.
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
+  // Put projection-implied worth on the market's scale before comparing.
+  const valueScale = calibratedScale(
+    players.map((p) => ({
+      market: values.market(p.id, p.full_name, p.position.toUpperCase()) ?? 0,
+      proj: fallbackValue(p.position.toUpperCase(), seasonOfProbe(p)),
+    })),
+  );
   const seasonOf = (p: {
     id?: string;
     full_name?: string;
