@@ -372,11 +372,16 @@ function TradeValuesPanel() {
   const [format, setFormat] = useState<"sf" | "1qb">("sf");
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("ALL");
+  const [gemsFirst, setGemsFirst] = useState(false);
 
   const values = useQuery({
     queryKey: ["trade-values", format, search, position],
     queryFn: () => load({ data: { format, search, position, limit: 150 } }),
   });
+
+  const rows = [...(values.data?.rows ?? [])].sort((a, b) =>
+    gemsFirst ? Number(b.undervalued) - Number(a.undervalued) || (b.gap ?? 0) - (a.gap ?? 0) : 0,
+  );
 
   const refreshing = useMutation({
     mutationFn: () => refresh({}),
@@ -413,6 +418,9 @@ function TradeValuesPanel() {
             <Button key={p} size="sm" variant={position === p ? "default" : "outline"} onClick={() => setPosition(p)}>{p}</Button>
           ))}
         </div>
+        <Button size="sm" variant={gemsFirst ? "secondary" : "outline"} onClick={() => setGemsFirst((v) => !v)}>
+          Undervalued first
+        </Button>
         {values.data?.admin && (
           <Button size="sm" variant="secondary" onClick={() => refreshing.mutate()} disabled={refreshing.isPending}>
             {refreshing.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null} Refresh now
@@ -437,17 +445,38 @@ function TradeValuesPanel() {
                   <th className="px-4 py-3">Player</th>
                   <th className="px-4 py-3">Pos</th>
                   <th className="px-4 py-3">Team</th>
-                  <th className="px-4 py-3 text-right">Value</th>
+                  <th className="px-4 py-3 text-right">Market</th>
+                  <th className="px-4 py-3 text-right">Our worth</th>
+                  <th className="px-4 py-3 text-right">Gap</th>
                   <th className="px-4 py-3 text-right">Rank</th>
                 </tr>
               </thead>
               <tbody>
-                {(values.data?.rows ?? []).map((row) => (
+                {rows.map((row) => (
                   <tr key={`${row.name}-${row.position}`} className="border-t border-border">
-                    <td className="px-4 py-2 font-medium">{row.name}</td>
+                    <td className="px-4 py-2 font-medium">
+                      {row.name}
+                      {row.undervalued && (
+                        <Badge className="ml-2 text-[10px] uppercase">Undervalued</Badge>
+                      )}
+                    </td>
                     <td className="px-4 py-2">{row.position}</td>
                     <td className="px-4 py-2 text-muted-foreground">{row.nflTeam ?? "—"}</td>
                     <td className="px-4 py-2 text-right font-mono">{row.value.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right font-mono text-muted-foreground">
+                      {row.projValue !== null ? row.projValue.toLocaleString() : "—"}
+                    </td>
+                    <td
+                      className={`px-4 py-2 text-right font-mono ${
+                        row.gap !== null && row.gap >= 400
+                          ? "text-primary"
+                          : row.gap !== null && row.gap <= -400
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                      }`}
+                    >
+                      {row.gap !== null ? `${row.gap > 0 ? "+" : ""}${row.gap.toLocaleString()}` : "—"}
+                    </td>
                     <td className="px-4 py-2 text-right text-muted-foreground">{row.overallRank ?? "—"}</td>
                   </tr>
                 ))}

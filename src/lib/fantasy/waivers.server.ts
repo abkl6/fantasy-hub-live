@@ -19,6 +19,7 @@ import { normalizeName } from "./names";
 import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
+import { fallbackValue, leagueValueFormat, loadTradeValues, type ValueFormat } from "./trade-value";
 import {
   FORMAT_LABELS,
   asFormat,
@@ -54,6 +55,12 @@ export interface WaiverBoardRow {
   projSeason: number;
   /** Season points above the replacement-level starter at this position. */
   tradeValue: number;
+  /** Keep Trade Cut dynasty market price; null when the market has not loaded. */
+  ktcValue: number | null;
+  /** What our projections imply this player should be worth on the market. */
+  projValue: number;
+  /** True when our projections price this player well above the market. */
+  undervalued: boolean;
   /** Suggested bid as a percentage of a $100 FAAB budget. */
   bid: number;
   /** Points your best starting lineup gains this week, if scored. */
@@ -77,6 +84,8 @@ export interface WaiverBoard {
   formatLabel: string;
   scoringLabel: string;
   showLongTerm: boolean;
+  valueFormat: ValueFormat;
+  valuesCovered: boolean;
 }
 
 export async function buildWaiverBoard(
@@ -117,6 +126,8 @@ export async function buildWaiverBoard(
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
   // The member's own projection adjustments replace the shared baseline.
   const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
+  // Dynasty market prices, matched by the same normalized names as everywhere else.
+  const values = await loadTradeValues(supabase, leagueValueFormat(slots));
   const seasonOf = (p: {
     id?: string;
     full_name?: string;
@@ -169,6 +180,10 @@ export async function buildWaiverBoard(
             (p as { years_exp?: number | null }).years_exp ?? null,
           )
         : null;
+      const projValue = fallbackValue(pos, projSeason);
+      // Market price comes back only when KTC covers the player; the
+      // projection-based fallback doubles as the "what they should cost" line.
+      const marketValue = values.covered ? values.player(p.id, p.full_name, pos, projSeason) : null;
       return {
         id: p.id,
         name: p.full_name,
@@ -180,6 +195,9 @@ export async function buildWaiverBoard(
         projSeason,
         volatility: Number(p.volatility),
         tradeValue: Math.round((projSeason - (replacement.get(pos) ?? 0)) * 10) / 10,
+        ktcValue: marketValue,
+        projValue,
+        undervalued: marketValue !== null && projValue >= marketValue * 1.25 && projValue - marketValue >= 400,
         longTermValue: longTerm,
         rank: showLongTerm
           ? blendedValue(format, projSeason, bestSeason, longTerm ?? 0)
@@ -341,6 +359,9 @@ export async function buildWaiverBoard(
         projWeek: p.projWeek,
         projSeason: Math.round(p.projSeason * 10) / 10,
         tradeValue: p.tradeValue,
+        ktcValue: p.ktcValue,
+        projValue: p.projValue,
+        undervalued: p.undervalued,
         bid,
         lineupGain: impact ? impact.lineupGain : null,
         titleDelta: impact ? impact.titleDelta : null,
@@ -365,5 +386,7 @@ export async function buildWaiverBoard(
     formatLabel: FORMAT_LABELS[format],
     scoringLabel: scoring.label,
     showLongTerm,
+    valueFormat: values.format,
+    valuesCovered: values.covered,
   };
 }
