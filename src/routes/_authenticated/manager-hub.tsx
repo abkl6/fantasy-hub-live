@@ -1,129 +1,90 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Activity, ArrowRight, BellRing, ShieldAlert, Sparkles, Trophy, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { deleteLeague, listLeagues } from "@/lib/fantasy.functions";
+import { getManagerHubFn } from "@/lib/fantasy.functions";
 
 export const Route = createFileRoute("/_authenticated/manager-hub")({
   head: () => ({
     meta: [
-      { title: "Your leagues — Gridiron Edge" },
-      {
-        name: "description",
-        content: "Every fantasy football league you track, with your record, current week and championship outlook.",
-      },
-      { property: "og:title", content: "Your leagues — Gridiron Edge" },
-      { property: "og:description", content: "All of your fantasy football teams in one dashboard." },
+      { title: "Manager Hub — Gridiron Edge" },
+      { name: "description", content: "Your highest-impact moves, roster risks and player exposure across every fantasy league." },
     ],
   }),
   component: ManagerHub,
 });
 
-const PLATFORM_LABEL: Record<string, string> = {
-  sleeper: "Sleeper",
-  yahoo: "Yahoo",
-  espn: "ESPN",
-  nfl: "NFL.com",
-  ffpc: "FFPC",
-  manual: "Manual",
-};
+const PLATFORM: Record<string, string> = { sleeper: "Sleeper", yahoo: "Yahoo", espn: "ESPN", nfl: "NFL.com", ffpc: "FFPC", manual: "Manual" };
+
+function Percent({ value }: { value: number }) {
+  return <span className="font-display font-bold tabular-nums">{(value * 100).toFixed(1)}%</span>;
+}
 
 function ManagerHub() {
-  const fetchLeagues = useServerFn(listLeagues);
-  const removeLeague = useServerFn(deleteLeague);
-  const queryClient = useQueryClient();
+  const fetchHub = useServerFn(getManagerHubFn);
+  const { data, isLoading, error, refetch } = useQuery({ queryKey: ["manager-hub"], queryFn: () => fetchHub() });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["leagues"],
-    queryFn: () => fetchLeagues(),
-  });
-
-  const remove = useMutation({
-    mutationFn: (leagueId: string) => removeLeague({ data: { leagueId } }),
-    onSuccess: () => {
-      toast.success("League removed.");
-      queryClient.invalidateQueries({ queryKey: ["leagues"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove that league."),
-  });
+  if (isLoading) return <main className="mx-auto max-w-6xl space-y-5 px-6 py-10"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-72 rounded-xl" /></main>;
+  if (error || !data) return <main className="mx-auto max-w-6xl px-6 py-10"><p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : "Manager Hub is unavailable."}</p><Button className="mt-4" onClick={() => refetch()}>Try again</Button></main>;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow text-primary">Your teams</p>
-          <h1 className="mt-2 text-4xl font-bold uppercase">League board</h1>
-        </div>
-        <Button asChild>
-          <Link to="/connect">Add a league</Link>
-        </Button>
+        <div><p className="eyebrow text-primary">Cross-league command center</p><h1 className="mt-2 text-4xl font-bold uppercase">Manager Hub</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">The moves and risks that matter most across every team you manage.</p></div>
+        <Button asChild><Link to="/connect">Add a league</Link></Button>
       </div>
 
-      {isLoading && (
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <Skeleton className="h-36 w-full rounded-xl" />
-          <Skeleton className="h-36 w-full rounded-xl" />
-        </div>
-      )}
+      {!data.leagues.length && <section className="mt-8 rounded-xl border border-dashed p-10 text-center"><h2 className="text-2xl font-bold uppercase">Build your hub</h2><p className="mt-2 text-sm text-muted-foreground">Add a league to see recommendations, alerts and exposure.</p><Button asChild className="mt-5"><Link to="/connect">Add your first league</Link></Button></section>}
 
-      {!isLoading && !data?.length && (
-        <div className="mt-10 rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
-          <h2 className="text-2xl font-bold uppercase">No leagues yet</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Connect a Sleeper account in seconds, or add a Yahoo, ESPN, NFL.com or FFPC team from a
-            screenshot of your roster.
-          </p>
-          <Button asChild className="mt-6">
-            <Link to="/connect">Add your first league</Link>
-          </Button>
-        </div>
-      )}
+      {!!data.leagues.length && <>
+        <section className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border bg-card p-5"><Users className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.leagues.length}</p><p className="text-xs text-muted-foreground">Teams tracked</p></div>
+          <div className="rounded-xl border bg-card p-5"><BellRing className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.alerts.length}</p><p className="text-xs text-muted-foreground">Roster alerts</p></div>
+          <div className="rounded-xl border bg-card p-5"><Sparkles className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.moves.length}</p><p className="text-xs text-muted-foreground">Recommended moves</p></div>
+        </section>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        {(data ?? []).map((l) => (
-          <article
-            key={l.id}
-            className="group relative rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/60"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <Badge variant="secondary" className="uppercase">
-                  {PLATFORM_LABEL[l.platform] ?? l.platform}
-                </Badge>
-                <h2 className="mt-3 text-2xl font-bold uppercase leading-tight">{l.name}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {l.myTeamName ? `${l.myTeamName} · ${l.myRecord}` : "No team marked as yours yet"}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="eyebrow text-muted-foreground">Week</p>
-                <p className="stat-num text-3xl text-primary">{l.current_week}</p>
-              </div>
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <section className="rounded-xl border bg-card p-5">
+            <div className="flex items-center gap-2"><Sparkles className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Recommended moves</h2></div>
+            <div className="mt-3 divide-y divide-border">
+              {!data.moves.length && <p className="py-4 text-sm text-muted-foreground">No lineup or waiver upgrade is currently projected.</p>}
+              {data.moves.slice(0, 6).map((move) => <div key={`${move.leagueId}-${move.id}`} className="py-3">
+                <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{move.headline}</p><p className="mt-1 text-xs text-muted-foreground">{move.detail}</p></div>{move.titleDelta > 0 && <Badge>+{(move.titleDelta * 100).toFixed(1)}% title</Badge>}</div>
+                <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0"><Link to="/league/$leagueId" params={{ leagueId: move.leagueId }}>{move.leagueName}<ArrowRight className="size-3" /></Link></Button>
+              </div>)}
             </div>
+          </section>
 
-            <div className="mt-6 flex items-center justify-between">
-              <Button asChild size="sm">
-                <Link to="/league/$leagueId" params={{ leagueId: l.id }}>
-                  Open analyzer
-                </Link>
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label={`Remove ${l.name}`}
-                onClick={() => remove.mutate(l.id)}
-              >
-                <Trash2 className="size-4" aria-hidden="true" />
-              </Button>
+          <section className="rounded-xl border bg-card p-5">
+            <div className="flex items-center gap-2"><ShieldAlert className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Roster alerts</h2></div>
+            <div className="mt-3 divide-y divide-border">
+              {!data.alerts.length && <p className="py-4 text-sm text-muted-foreground">No urgent injuries, byes or roster risks.</p>}
+              {data.alerts.slice(0, 8).map((alert) => <Link key={`${alert.leagueId}-${alert.id}`} to="/league/$leagueId" params={{ leagueId: alert.leagueId }} className="flex items-start justify-between gap-3 py-3">
+                <div><p className="text-sm font-semibold">{alert.playerName} <span className="font-normal text-muted-foreground">· {alert.position}</span></p><p className="mt-1 text-xs text-muted-foreground">{alert.message} · {alert.leagueName}</p></div><Badge variant={alert.severity === "high" ? "destructive" : "outline"}>{alert.severity}</Badge>
+              </Link>)}
             </div>
-          </article>
-        ))}
-      </div>
+          </section>
+        </div>
+
+        <section className="mt-6 rounded-xl border bg-card p-5">
+          <div className="flex items-center gap-2"><Activity className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">Player exposure</h2></div>
+          <p className="mt-1 text-xs text-muted-foreground">Your most repeated players and concentrated injury risk.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {data.exposure.slice(0, 12).map((player) => <div key={`${player.name}-${player.position}`} className="flex items-center justify-between rounded-lg border p-3"><div><p className="text-sm font-semibold">{player.name} <span className="text-xs font-normal text-muted-foreground">{player.position}{player.nflTeam ? ` · ${player.nflTeam}` : ""}</span></p><p className="text-xs text-muted-foreground">{player.leagueNames.join(" · ")}</p></div><div className="text-right"><p className="font-display font-bold">{player.leagues}/{player.totalLeagues}</p><p className={`text-[10px] uppercase ${player.status === "Active" ? "text-muted-foreground" : "text-destructive"}`}>{player.status}</p></div></div>)}
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold uppercase">League shortcuts</h2></div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {data.leagues.map((league) => <article key={league.id} className="rounded-xl border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><Badge variant="secondary">{PLATFORM[league.platform] ?? league.platform}</Badge><h3 className="mt-2 font-bold">{league.name}</h3><p className="text-xs text-muted-foreground">{league.teamName} · {league.record}</p></div><div className="text-right text-xs"><p className="text-muted-foreground">Title</p><Percent value={league.titleOdds} /></div></div><div className="mt-4 flex items-center justify-between"><p className="text-xs text-muted-foreground">Playoffs <Percent value={league.playoffOdds} /></p><Button asChild size="sm"><Link to="/league/$leagueId" params={{ leagueId: league.id }}>Manage</Link></Button></div></article>)}
+          </div>
+        </section>
+      </>}
     </main>
   );
 }
