@@ -16,6 +16,7 @@ import {
   type ScheduleGame,
 } from "./engine";
 import { normalizeName } from "./names";
+import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { leagueScoring } from "./scoring";
 import {
@@ -91,18 +92,18 @@ export async function buildWaiverBoard(
   if (error) throw new Error(error.message);
   if (!league) throw new Error("League not found.");
 
-  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, { data: playerRows }] =
+  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, playerRows] =
     await Promise.all([
       supabase.from("teams").select("*").eq("league_id", leagueId),
       supabase.from("roster_spots").select("*").eq("league_id", leagueId),
       supabase.from("matchups").select("*").eq("league_id", leagueId),
-      supabase.from("players").select("*"),
+      fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
     ]);
 
   const slots = asSlots(league.roster_slots);
   const teams = teamRows ?? [];
   const spots = spotRows ?? [];
-  const players = playerRows ?? [];
+  const players = playerRows;
 
   const rostered = new Set(spots.map((s) => key(s.player_name)));
   const usablePosition = (position: string) =>

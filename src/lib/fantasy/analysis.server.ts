@@ -17,6 +17,7 @@ import {
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
 import { loadProjections } from "./projections.server";
+import { fetchAllRows } from "./paginate";
 import { leagueScoring } from "./scoring";
 import {
   asFormat,
@@ -153,19 +154,19 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   if (leagueError) throw new Error(leagueError.message);
   if (!league) throw new Error("League not found.");
 
-  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, { data: playerRows }] =
+  const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, playerRows] =
     await Promise.all([
       supabase.from("teams").select("*").eq("league_id", leagueId),
       supabase.from("roster_spots").select("*").eq("league_id", leagueId),
       supabase.from("matchups").select("*").eq("league_id", leagueId),
-      supabase.from("players").select("*"),
+      fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
     ]);
 
   const slots = asSlots(league.roster_slots);
   const teams = teamRows ?? [];
   const spots = spotRows ?? [];
   const matchups = matchupRows ?? [];
-  const players = playerRows ?? [];
+  const players = playerRows;
 
   // Every projection below is re-scored against this league's own rules, so
   // half-PPR, TE-premium or 6-point passing TDs change the numbers.

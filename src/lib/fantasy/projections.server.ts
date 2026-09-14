@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { normalizeName } from "./names";
+import { fetchAllRows } from "./paginate";
 import type { LeagueScoring, StatLine } from "./scoring";
 
 type DB = SupabaseClient<Database>;
@@ -79,15 +80,19 @@ export async function loadProjections(
   const week = Math.min(18, Math.max(1, opts.week ?? 1));
   const scoring = opts.scoring;
 
-  const [overrideRes, weekRes] = await Promise.all([
+  const [overrideRes, weekRows] = await Promise.all([
     supabase
       .from("player_projection_overrides")
       .select("player_id, proj_points_week, proj_points_season, players(full_name)"),
-    supabase
-      .from("player_week_stats")
-      .select("player_id, opponent, stats, src_points")
-      .eq("season", season)
-      .eq("week", week),
+    fetchAllRows<{ player_id: string; opponent: string | null; stats: unknown }>((from, to) =>
+      supabase
+        .from("player_week_stats")
+        .select("player_id, opponent, stats")
+        .eq("season", season)
+        .eq("week", week)
+        .order("player_id")
+        .range(from, to),
+    ),
   ]);
 
   const byId = new Map<string, OverrideValue>();
@@ -103,7 +108,7 @@ export async function loadProjections(
   }
 
   const weekStats = new Map<string, { stats: StatLine | null; opponent: string | null }>();
-  for (const row of weekRes.data ?? []) {
+  for (const row of weekRows) {
     weekStats.set(row.player_id, {
       stats: asStats(row.stats),
       opponent: row.opponent,
