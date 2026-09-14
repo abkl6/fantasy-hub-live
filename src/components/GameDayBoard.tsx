@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronUp, Loader2, RefreshCw, Radio, TrendingUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Loader2, RefreshCw, Radio } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
