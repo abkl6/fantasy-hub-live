@@ -77,11 +77,66 @@ export type Database = {
           },
         ]
       }
+      faab_bids: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          league_id: string
+          player_name: string
+          team_id: string | null
+          updated_at: string
+          user_id: string
+          week: number
+          won: boolean
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          league_id: string
+          player_name: string
+          team_id?: string | null
+          updated_at?: string
+          user_id: string
+          week?: number
+          won?: boolean
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          league_id?: string
+          player_name?: string
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string
+          week?: number
+          won?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faab_bids_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faab_bids_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leagues: {
         Row: {
           created_at: string
           current_week: number
           external_id: string | null
+          faab_budget: number
           format: string
           id: string
           last_synced_at: string | null
@@ -101,6 +156,7 @@ export type Database = {
           created_at?: string
           current_week?: number
           external_id?: string | null
+          faab_budget?: number
           format?: string
           id?: string
           last_synced_at?: string | null
@@ -120,6 +176,7 @@ export type Database = {
           created_at?: string
           current_week?: number
           external_id?: string | null
+          faab_budget?: number
           format?: string
           id?: string
           last_synced_at?: string | null
@@ -867,6 +924,8 @@ export type Database = {
         Row: {
           created_at: string
           external_id: string | null
+          faab_remaining: number | null
+          faab_spent: number
           id: string
           is_mine: boolean
           league_id: string
@@ -883,6 +942,8 @@ export type Database = {
         Insert: {
           created_at?: string
           external_id?: string | null
+          faab_remaining?: number | null
+          faab_spent?: number
           id?: string
           is_mine?: boolean
           league_id: string
@@ -899,6 +960,8 @@ export type Database = {
         Update: {
           created_at?: string
           external_id?: string | null
+          faab_remaining?: number | null
+          faab_spent?: number
           id?: string
           is_mine?: boolean
           league_id?: string

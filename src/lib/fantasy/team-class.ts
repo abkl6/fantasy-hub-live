@@ -13,7 +13,15 @@ export type TeamBadgeKey =
   | "win-now"
   | "future-star"
   | "eternal-mediocrity"
-  | "donator";
+  | "donator"
+  // guillotine: survival is the only thing that matters
+  | "safe"
+  | "comfortable"
+  | "bubble"
+  | "chopping-block"
+  | "broke-exposed"
+  | "loaded";
+
 
 export interface TeamBadge {
   key: TeamBadgeKey;
@@ -36,6 +44,90 @@ export interface ClassifyInput {
 }
 
 const pctText = (v: number) => `${Math.round(v * 100)}%`;
+
+// --- guillotine survival badges -------------------------------------------
+
+export interface SurvivalClassifyInput {
+  /** 0-1 chance of NOT being eliminated this coming week. */
+  surviveWeekOdds: number;
+  /** 0-1 chance of being the last team standing. */
+  winOdds: number;
+  /** 1 = strongest team left. */
+  powerRank: number;
+  /** How many teams are still alive. */
+  teamCount: number;
+  /** Dollars of bidding money left; null when we don't know. */
+  faabRemaining?: number | null;
+  /** The league's starting budget, used to read "a lot" vs "nothing". */
+  faabBudget?: number | null;
+}
+
+/**
+ * Guillotine has no playoffs and no title race: the only question each week is
+ * whether you outscore the worst team. Badges read off weekly survival odds,
+ * with budget deciding between "dangerous" and "dangerous but broke".
+ */
+export function classifySurvivalTeam(input: SurvivalClassifyInput): TeamBadge {
+  const { surviveWeekOdds, winOdds, powerRank, teamCount } = input;
+  const budget = input.faabBudget && input.faabBudget > 0 ? input.faabBudget : 100;
+  const left = input.faabRemaining ?? null;
+  const share = left != null ? left / budget : null;
+  const risk = 1 - surviveWeekOdds;
+  const evenRisk = 1 / Math.max(2, teamCount);
+  const line = `${pctText(surviveWeekOdds)} to survive the week, ${pctText(winOdds)} to win it all`;
+  const money = left != null ? ` $${Math.round(left)} left in budget.` : "";
+
+  const inDanger = risk >= evenRisk * 1.6 || powerRank > teamCount - 2;
+
+  if (inDanger && share != null && share <= 0.15) {
+    return {
+      key: "broke-exposed",
+      label: "Broke and Exposed",
+      tone: "bad",
+      reason: `On the edge and nearly out of money — ${line}.${money}`,
+    };
+  }
+  if (powerRank === teamCount || risk >= evenRisk * 2.2) {
+    return {
+      key: "chopping-block",
+      label: "Chopping Block",
+      tone: "bad",
+      reason: `Weakest projection in the league — ${line}.${money}`,
+    };
+  }
+  if (inDanger) {
+    return {
+      key: "bubble",
+      label: "On the Bubble",
+      tone: "neutral",
+      reason: `One bad week from elimination — ${line}.${money}`,
+    };
+  }
+  const veryStrong = risk <= evenRisk * 0.45 || powerRank <= 2;
+  if (veryStrong && share != null && share >= 0.6) {
+    return {
+      key: "loaded",
+      label: "Loaded",
+      tone: "gold",
+      reason: `Safe and still holding most of the budget — ${line}.${money}`,
+    };
+  }
+  if (veryStrong) {
+    return {
+      key: "safe",
+      label: "Safe",
+      tone: "gold",
+      reason: `Nowhere near the cut line — ${line}.${money}`,
+    };
+  }
+  return {
+    key: "comfortable",
+    label: "Comfortable",
+    tone: "good",
+    reason: `Clear of the chopping block, but not untouchable — ${line}.${money}`,
+  };
+}
+
 
 /**
  * "Win now" means this team can realistically win the title this season:

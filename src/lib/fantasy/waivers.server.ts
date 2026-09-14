@@ -34,7 +34,10 @@ import {
   dynastyValue,
   hasLineupDecisions,
   isMultiYear,
+  isSurvival,
+  simulateGuillotine,
 } from "./format";
+import { bidLadder, type BidLadder, type FaabRival } from "./faab";
 import { classifyTeam } from "./team-class";
 import { strategyFor, type StrategyMode } from "./strategy";
 
@@ -71,6 +74,8 @@ export interface WaiverBoardRow {
   undervalued: boolean;
   /** Suggested bid as a percentage of a $100 FAAB budget. */
   bid: number;
+  /** Guillotine only: aggressive / optimal / passive dollar bids. */
+  bids: BidLadder | null;
   /** Points your best starting lineup gains this week, if scored. */
   lineupGain: number | null;
   titleDelta: number | null;
@@ -97,6 +102,11 @@ export interface WaiverBoard {
   /** My team's posture: rebuilding boards lead with keepers, not weekly bumps. */
   strategy: StrategyMode | null;
   strategyNote: string | null;
+  /** True in guillotine leagues, where the three-tier bid ladder is shown. */
+  isSurvivalLeague: boolean;
+  faabBudget: number;
+  myFaabRemaining: number | null;
+  myTeamId: string | null;
 }
 
 export async function buildWaiverBoard(
@@ -243,6 +253,13 @@ export async function buildWaiverBoard(
     string,
     { titleDelta: number; playoffDelta: number; winDelta: number; lineupGain: number; drop: string | null }
   >();
+  const bidLadders = new Map<string, BidLadder>();
+  const survivalLeague = isSurvival(format);
+  const faabBudget = Number((league as { faab_budget?: number }).faab_budget ?? 100) || 100;
+  const myFaabRemaining =
+    mine && (mine as { faab_remaining?: number | null }).faab_remaining != null
+      ? Number((mine as { faab_remaining?: number | null }).faab_remaining)
+      : null;
   let strategy: StrategyMode | null = null;
   let strategyNote: string | null = null;
 
@@ -297,6 +314,15 @@ export async function buildWaiverBoard(
       currentWeek: league.current_week,
     };
 
+    const survivalInputs = simInputs.map((t) => ({
+      id: t.id,
+      name: t.name,
+      isMine: t.isMine,
+      mean: t.mean,
+      sd: t.sd,
+    }));
+    const weeksLeft = Math.max(1, league.regular_season_weeks - league.current_week + 1);
+    const survivalBase = survivalLeague ? simulateGuillotine(survivalInputs, weeksLeft, 1200, 7) : null;
     const baseline = simulateSeason(simInputs, simConfig, schedule, 1500, 7);
     const baseMine = baseline.find((r) => r.id === mine.id)!;
 
@@ -356,6 +382,55 @@ export async function buildWaiverBoard(
       const res = simulateSeason(inputs, simConfig, schedule, 1500, 7);
       const m = res.find((r) => r.id === mine.id)!;
 
+      if (survivalLeague && survivalBase) {
+        // Survival is the only currency here: re-simulate the week with him in
+        // my lineup, then read what each rival would pay for the same help.
+        const myBase = survivalBase.find((r) => r.id === mine.id)!;
+        const withMe = survivalInputs.map((t) =>
+          t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t,
+        );
+        const after = simulateGuillotine(withMe, weeksLeft, 1200, 7).find((r) => r.id === mine.id)!;
+        const myGain = Math.max(0, after.surviveWeekOdds - myBase.surviveWeekOdds);
+
+        const rivals: FaabRival[] = engineTeams
+          .filter((t) => t.id !== mine.id && t.roster.length)
+          .map((t) => {
+            const theirBase = survivalBase.find((r) => r.id === t.id);
+            const before = optimalLineup(t.roster, slots).total;
+            const theirDrop = [...t.roster].sort((a, b) => a.proj - b.proj)[0];
+            const swapped = theirDrop
+              ? t.roster.map((p) => (p.name === theirDrop.name ? candidate : p))
+              : [...t.roster, candidate];
+            const gainPts = Math.max(0, optimalLineup(swapped, slots).total - before);
+            const risk = Math.max(0, 1 - (theirBase?.surviveWeekOdds ?? 1));
+            const team = teams.find((x) => x.id === t.id);
+            return {
+              id: t.id,
+              name: t.name,
+              surviveWeekOdds: theirBase?.surviveWeekOdds ?? 1,
+              // Points added shave elimination risk roughly in proportion to
+              // how big the gain is against a week's scoring spread.
+              survivalGain: risk * Math.min(0.9, gainPts / 15),
+              faabRemaining:
+                team && team.faab_remaining != null ? Number(team.faab_remaining) : null,
+            };
+          });
+
+        bidLadders.set(
+          fa.id,
+          bidLadder({
+            budget: faabBudget,
+            myRemaining: myFaabRemaining ?? faabBudget,
+            mySurviveWeekOdds: myBase.surviveWeekOdds,
+            mySurvivalGain: myGain,
+            rivals,
+            teamCount: teams.length,
+            weeksLeft,
+            poolFlooded: false,
+          }),
+        );
+      }
+
       // A pickup that does not improve the optimal lineup cannot move the
       // season odds; anything the simulation reports there is noise.
       const meaningful = lineupGain > 0.05;
@@ -400,6 +475,7 @@ export async function buildWaiverBoard(
         projValue: p.projValue,
         undervalued: p.undervalued,
         bid,
+        bids: bidLadders.get(p.id) ?? null,
         lineupGain: impact ? impact.lineupGain : null,
         titleDelta: impact ? impact.titleDelta : null,
         playoffDelta: impact ? impact.playoffDelta : null,
@@ -436,5 +512,9 @@ export async function buildWaiverBoard(
     valuesCovered: values.covered,
     strategy,
     strategyNote,
+    isSurvivalLeague: survivalLeague,
+    faabBudget,
+    myFaabRemaining,
+    myTeamId: mine?.id ?? null,
   };
 }
