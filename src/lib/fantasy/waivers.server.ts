@@ -106,6 +106,7 @@ export interface WaiverBoard {
   isSurvivalLeague: boolean;
   faabBudget: number;
   myFaabRemaining: number | null;
+  myTeamId: string | null;
 }
 
 export async function buildWaiverBoard(
@@ -514,5 +515,6 @@ export async function buildWaiverBoard(
     isSurvivalLeague: survivalLeague,
     faabBudget,
     myFaabRemaining,
+    myTeamId: mine?.id ?? null,
   };
 }
