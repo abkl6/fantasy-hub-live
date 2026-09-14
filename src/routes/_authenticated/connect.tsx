@@ -790,7 +790,7 @@ function YahooPanel() {
       <div className="mt-5 flex flex-wrap gap-3">
         <Button
           disabled={signIn.isPending || state.isLoading || state.data?.configured === false}
-          onClick={() => signIn.mutate()}
+          onClick={beginSignIn}
         >
           {signIn.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
           {state.data?.connected ? "Reconnect Yahoo" : "Sign in with Yahoo"}
