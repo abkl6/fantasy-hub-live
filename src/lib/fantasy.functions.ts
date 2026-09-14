@@ -53,11 +53,27 @@ export const listLeagues = createServerFn({ method: "GET" })
 
 export const getAnalysis = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ leagueId: z.string().uuid(), force: z.boolean().optional() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { buildAnalysis } = await import("./fantasy/analysis.server");
     const { syncLeagueRosters } = await import("./fantasy/rosters.server");
     const { syncPlayerNews } = await import("./fantasy/sleeper.server");
+    const { refreshSleeperLeague, SLEEPER_STALE_MS } = await import("./fantasy/sleeper-sync.server");
+
+    // Pull trades, adds and lineup changes back from Sleeper when the stored
+    // copy has gone stale (or the user asked for a refresh).
+    const { data: meta } = await context.supabase
+      .from("leagues")
+      .select("platform, last_synced_at")
+      .eq("id", data.leagueId)
+      .maybeSingle();
+    const age = meta?.last_synced_at ? Date.now() - new Date(meta.last_synced_at).getTime() : Infinity;
+    if (meta?.platform === "sleeper" && (data.force || age > SLEEPER_STALE_MS)) {
+      await refreshSleeperLeague(context.supabase, context.userId, data.leagueId).catch(() => {});
+    }
+
     // Backfill any team still missing a roster so availability stays accurate.
     await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
     // Refresh injury/status data in the background.
