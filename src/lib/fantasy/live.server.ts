@@ -159,6 +159,154 @@ export async function gameStates(week: number): Promise<Map<string, GameInfo>> {
   return out;
 }
 
+interface ScoreboardGame {
+  home: string;
+  away: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  state: "pre" | "in" | "post";
+  clock: string | null;
+  kickoff: string | null;
+}
+
+/** Kickoffs, scores and clocks for a week, keyed by both team abbreviations. */
+async function scoreboardGames(week: number): Promise<Map<string, ScoreboardGame>> {
+  const data = await getJson<{
+    events?: {
+      date?: string;
+      status?: { type?: { state?: string }; displayClock?: string };
+      competitions?: {
+        competitors?: {
+          homeAway?: string;
+          score?: string | number;
+          team?: { abbreviation?: string };
+        }[];
+      }[];
+    }[];
+  }>(`${ESPN_SCOREBOARD}?week=${week}`);
+
+  const out = new Map<string, ScoreboardGame>();
+  for (const ev of data?.events ?? []) {
+    const competitors = ev.competitions?.[0]?.competitors ?? [];
+    const home = competitors.find((c) => c.homeAway === "home");
+    const away = competitors.find((c) => c.homeAway === "away");
+    const homeAbbr = home?.team?.abbreviation;
+    const awayAbbr = away?.team?.abbreviation;
+    if (!homeAbbr || !awayAbbr) continue;
+    const score = (value: string | number | undefined) =>
+      value === undefined || value === null || value === "" ? null : Number(value);
+    const game: ScoreboardGame = {
+      home: teamKey(homeAbbr),
+      away: teamKey(awayAbbr),
+      homeScore: score(home?.score),
+      awayScore: score(away?.score),
+      state: (ev.status?.type?.state ?? "pre") as ScoreboardGame["state"],
+      clock: ev.status?.displayClock ?? null,
+      kickoff: ev.date ?? null,
+    };
+    out.set(game.home, game);
+    out.set(game.away, game);
+  }
+  return out;
+}
+
+function easternDayHour(iso: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return {
+    weekday: get("weekday"),
+    hour: Number(get("hour") || "0") % 24,
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+  };
+}
+
+function windowLabel(kickoff: string | null): string {
+  if (!kickoff) return "Kickoff time to come";
+  const { weekday, hour } = easternDayHour(kickoff);
+  if (weekday === "Thu") return "Thursday night";
+  if (weekday === "Fri") return "Friday";
+  if (weekday === "Sat") return "Saturday";
+  if (weekday === "Mon") return "Monday night";
+  if (weekday === "Tue") return "Tuesday";
+  if (weekday === "Wed") return "Wednesday";
+  if (hour < 15) return "Sunday early";
+  if (hour < 19) return "Sunday afternoon";
+  return "Sunday night";
+}
+
+/**
+ * This week's NFL slate: every scheduled pairing, enriched with the live score
+ * and clock from the same ESPN scoreboard the rest of game day uses.
+ */
+export async function weekGames(
+  supabase: DB,
+  season: number,
+  week: number,
+): Promise<LiveGame[]> {
+  const [{ data: scheduleRows }, board] = await Promise.all([
+    supabase
+      .from("nfl_schedule")
+      .select("nfl_team, opponent")
+      .eq("season", season)
+      .eq("week", week),
+    scoreboardGames(week).catch(() => new Map<string, ScoreboardGame>()),
+  ]);
+
+  const pairs = new Map<string, { home: string; away: string }>();
+  for (const row of scheduleRows ?? []) {
+    if (!row.opponent) continue;
+    const a = teamKey(row.nfl_team);
+    const b = teamKey(row.opponent);
+    if (!a || !b) continue;
+    const known = board.get(a) ?? board.get(b);
+    const home = known ? known.home : [a, b].sort()[1]!;
+    const away = known ? known.away : [a, b].sort()[0]!;
+    pairs.set([home, away].sort().join("@"), { home, away });
+  }
+  // Fall back to the scoreboard when the schedule table is empty.
+  if (!pairs.size) {
+    for (const game of new Set(board.values())) {
+      pairs.set([game.home, game.away].sort().join("@"), { home: game.home, away: game.away });
+    }
+  }
+
+  const todayEt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+  }).format(new Date());
+
+  const games: LiveGame[] = [...pairs.values()].map(({ home, away }) => {
+    const info = board.get(home) ?? board.get(away);
+    const kickoff = info?.kickoff ?? null;
+    return {
+      id: `${away}@${home}`,
+      home,
+      away,
+      homeScore: info?.homeScore ?? null,
+      awayScore: info?.awayScore ?? null,
+      gameState: info?.state ?? "pre",
+      gameClock: info?.clock ?? null,
+      kickoff,
+      window: windowLabel(kickoff),
+      today: kickoff ? easternDayHour(kickoff).date === todayEt : false,
+    };
+  });
+
+  games.sort((a, b) => {
+    if (!a.kickoff) return 1;
+    if (!b.kickoff) return -1;
+    return a.kickoff.localeCompare(b.kickoff) || a.id.localeCompare(b.id);
+  });
+  return games;
+}
+
 const ESPN_ALIAS: Record<string, string> = { WSH: "WAS", JAX: "JAX", LAR: "LAR", LV: "LV" };
 const teamKey = (t: string | null | undefined) =>
   t ? (ESPN_ALIAS[t.toUpperCase()] ?? t.toUpperCase()) : "";
