@@ -41,12 +41,16 @@ export const Route = createFileRoute("/api/public/yahoo/callback")({
           (pending.payload as Record<string, string> | null)?.["origin"] ?? origin;
 
         try {
+          const { encryptToken } = await import("@/lib/fantasy/token-crypto.server");
           const tokens = await yahooExchangeCode(code, storedOrigin);
           await supabaseAdmin.from("platform_credentials").upsert(
             {
               user_id: pending.user_id,
               platform: "yahoo",
-              payload: { access_token: tokens.accessToken, refresh_token: tokens.refreshToken },
+              payload: {
+                access_token: await encryptToken(tokens.accessToken),
+                refresh_token: await encryptToken(tokens.refreshToken),
+              },
               expires_at: new Date(tokens.expiresAt).toISOString(),
             },
             { onConflict: "user_id,platform" },

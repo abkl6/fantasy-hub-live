@@ -95,7 +95,8 @@ export const importEspnLeague = createServerFn({ method: "POST" })
 export const yahooStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { yahooConfigured } = await import("./fantasy/yahoo.server");
+    const { yahooConfigured, YAHOO_NOT_CONFIGURED } = await import("./fantasy/yahoo.server");
+    const configured = yahooConfigured();
     const { data } = await context.supabase
       .from("platform_credentials")
       .select("expires_at, payload")
@@ -103,8 +104,9 @@ export const yahooStatus = createServerFn({ method: "GET" })
       .maybeSingle();
     const payload = (data?.payload ?? {}) as Record<string, unknown>;
     return {
-      configured: yahooConfigured(),
+      configured,
       connected: Boolean(payload["refresh_token"]),
+      notice: configured ? null : YAHOO_NOT_CONFIGURED,
     };
   });
 
@@ -112,7 +114,10 @@ export const startYahooSignIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ origin: z.string().url() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { yahooAuthorizeUrl } = await import("./fantasy/yahoo.server");
+    const { yahooAuthorizeUrl, yahooConfigured, YAHOO_NOT_CONFIGURED } = await import(
+      "./fantasy/yahoo.server"
+    );
+    if (!yahooConfigured()) throw new Error(YAHOO_NOT_CONFIGURED);
     const state = crypto.randomUUID();
     const { error } = await context.supabase.from("platform_credentials").upsert(
       {
@@ -131,24 +136,36 @@ async function yahooAccessToken(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<string> {
-  const { yahooRefresh } = await import("./fantasy/yahoo.server");
+  const { yahooRefresh, yahooConfigured, YAHOO_NOT_CONFIGURED } = await import(
+    "./fantasy/yahoo.server"
+  );
+  if (!yahooConfigured()) throw new Error(YAHOO_NOT_CONFIGURED);
+  const { encryptToken, decryptToken } = await import("./fantasy/token-crypto.server");
+
   const { data } = await supabase
     .from("platform_credentials")
     .select("payload, expires_at")
     .eq("platform", "yahoo")
     .maybeSingle();
   const payload = (data?.payload ?? {}) as Record<string, string>;
-  if (!payload["refresh_token"]) throw new Error("Connect your Yahoo account first.");
+  const refreshToken = await decryptToken(payload["refresh_token"]);
+  if (!refreshToken) throw new Error("Connect your Yahoo account first.");
 
   const expiresAt = data?.expires_at ? Date.parse(data.expires_at) : 0;
-  if (payload["access_token"] && expiresAt > Date.now()) return payload["access_token"];
+  if (payload["access_token"] && expiresAt > Date.now()) {
+    const access = await decryptToken(payload["access_token"]);
+    if (access) return access;
+  }
 
-  const tokens = await yahooRefresh(payload["refresh_token"]);
+  const tokens = await yahooRefresh(refreshToken);
   await supabase.from("platform_credentials").upsert(
     {
       user_id: userId,
       platform: "yahoo",
-      payload: { access_token: tokens.accessToken, refresh_token: tokens.refreshToken },
+      payload: {
+        access_token: await encryptToken(tokens.accessToken),
+        refresh_token: await encryptToken(tokens.refreshToken),
+      },
       expires_at: new Date(tokens.expiresAt).toISOString(),
     },
     { onConflict: "user_id,platform" },
@@ -179,6 +196,52 @@ export const importYahooLeague = createServerFn({ method: "POST" })
       bundle.teams.find((t) => t.isMine)?.externalId ?? null,
     );
     return { leagueId: saved.leagueId, name: saved.name };
+  });
+
+/** Imports every league on the Yahoo account for the current season. */
+export const importAllYahooLeagues = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ leagueKeys: z.array(z.string().min(3).max(60)).max(30).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { yahooLeagues, yahooLeagueBundle } = await import("./fantasy/yahoo.server");
+    const { persistBundle } = await import("./fantasy/persist.server");
+    const token = await yahooAccessToken(context.supabase, context.userId);
+
+    const season = String(new Date().getFullYear());
+    const all = await yahooLeagues(token);
+    const wanted = data.leagueKeys?.length
+      ? all.filter((l) => data.leagueKeys!.includes(l.leagueKey))
+      : all.filter((l) => l.season === season || all.every((x) => x.season !== season));
+
+    const results: { leagueKey: string; name: string; leagueId: string | null; error: string | null }[] =
+      [];
+    for (const league of wanted) {
+      try {
+        const bundle = await yahooLeagueBundle(league.leagueKey, token);
+        const saved = await persistBundle(
+          context.supabase,
+          context.userId,
+          { ...bundle, platform: "yahoo" },
+          bundle.teams.find((t) => t.isMine)?.externalId ?? null,
+        );
+        results.push({
+          leagueKey: league.leagueKey,
+          name: saved.name,
+          leagueId: saved.leagueId,
+          error: null,
+        });
+      } catch (error) {
+        results.push({
+          leagueKey: league.leagueKey,
+          name: league.name,
+          leagueId: null,
+          error: error instanceof Error ? error.message : "Import failed.",
+        });
+      }
+    }
+    return { results };
   });
 
 // ---------------------------------------------------------------- trade history

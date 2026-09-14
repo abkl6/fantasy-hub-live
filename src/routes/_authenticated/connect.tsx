@@ -27,6 +27,7 @@ import {
   saveRoster,
 } from "@/lib/fantasy.functions";
 import {
+  importAllYahooLeagues,
   importEspnLeague,
   importYahooLeague,
   listYahooLeagues,
@@ -835,6 +836,7 @@ function YahooPanel() {
   const start = useServerFn(startYahooSignIn);
   const leagues = useServerFn(listYahooLeagues);
   const doImport = useServerFn(importYahooLeague);
+  const doImportAll = useServerFn(importAllYahooLeagues);
 
   const state = useQuery({ queryKey: ["yahoo-status"], queryFn: () => status({}) });
 
@@ -888,6 +890,24 @@ function YahooPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
   });
 
+  const importAll = useMutation({
+    mutationFn: () => doImportAll({ data: {} }),
+    onSuccess: (res) => {
+      const ok = res.results.filter((r) => r.leagueId);
+      const failed = res.results.length - ok.length;
+      if (!ok.length) {
+        toast.error("No Yahoo leagues could be imported.");
+        return;
+      }
+      toast.success(
+        `${ok.length} Yahoo league${ok.length === 1 ? "" : "s"} imported${failed ? `, ${failed} failed` : ""}.`,
+      );
+      const first = ok[0]!.leagueId!;
+      navigate({ to: "/league/$leagueId", params: { leagueId: first } });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
+  });
+
   useEffect(() => {
     const result = new URLSearchParams(window.location.search).get("yahoo");
     if (!result) return;
@@ -931,6 +951,12 @@ function YahooPanel() {
           prove who you are but can't read your leagues — use the screenshot route above meanwhile.
         </p>
 
+      {state.data?.configured === false && (
+        <p className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-foreground">
+          {state.data.notice ?? "Yahoo isn't configured yet."}
+        </p>
+      )}
+
       <div className="mt-5 flex flex-wrap gap-3">
         <Button
           disabled={signIn.isPending || state.isLoading || state.data?.configured === false}
@@ -940,10 +966,20 @@ function YahooPanel() {
           {state.data?.connected ? "Reconnect Yahoo" : "Sign in with Yahoo"}
         </Button>
         {state.data?.connected && (
-          <Button variant="outline" disabled={find.isPending} onClick={() => find.mutate()}>
-            {find.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Show my Yahoo leagues
-          </Button>
+          <>
+            <Button variant="outline" disabled={find.isPending} onClick={() => find.mutate()}>
+              {find.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Show my Yahoo leagues
+            </Button>
+            <Button
+              variant="outline"
+              disabled={importAll.isPending}
+              onClick={() => importAll.mutate()}
+            >
+              {importAll.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Import all my leagues
+            </Button>
+          </>
         )}
       </div>
 
