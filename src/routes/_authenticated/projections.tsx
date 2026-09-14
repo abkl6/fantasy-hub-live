@@ -53,7 +53,7 @@ export const Route = createFileRoute("/_authenticated/projections")({
   component: ProjectionsPage,
 });
 
-const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
+const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"];
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function ProjectionsPage() {

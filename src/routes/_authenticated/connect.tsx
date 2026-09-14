@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/connect")({
   component: ConnectPage,
 });
 
-const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
+const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"];
 
 interface DraftPlayer {
   name: string;
