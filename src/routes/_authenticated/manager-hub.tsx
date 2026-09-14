@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, ArrowRight, BellRing, LineChart, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
-import { useState } from "react";
+import { Activity, ArrowRight, BellRing, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { TeamBadge } from "@/components/TeamBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -221,6 +222,33 @@ function ordinal(rank: number | null) {
 function ManagerHub() {
   const fetchHub = useServerFn(getManagerHubFn);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["manager-hub"], queryFn: () => fetchHub() });
+  const [standingsSort, setStandingsSort] = useState<"title" | "playoff" | "dynasty">("title");
+
+  const sortedStandings = useMemo(() => {
+    const rows = [...(data?.standings ?? [])];
+    const mine = (league: (typeof rows)[number]) => league.teams.find((t) => t.isMine);
+    return rows.sort((a, b) => {
+      const value = (league: (typeof rows)[number]) => {
+        const team = mine(league);
+        if (standingsSort === "playoff") return team?.playoffOdds ?? -1;
+        if (standingsSort === "dynasty") return team?.dynastyValue ?? -1;
+        return team?.titleOdds ?? -1;
+      };
+      return value(b) - value(a);
+    });
+  }, [data, standingsSort]);
+
+  const summary = useMemo(() => {
+    const rows = data?.standings ?? [];
+    const mineTeams = rows.map((league) => league.teams.find((t) => t.isMine)).filter((t) => !!t);
+    return {
+      bestTitle: mineTeams.length ? Math.max(...mineTeams.map((t) => t.titleOdds)) : null,
+      playoffBound: mineTeams.filter((t) => t.playoffOdds >= 0.5).length,
+      dynastyTotal: mineTeams.some((t) => t.dynastyValue !== null)
+        ? mineTeams.reduce((sum, t) => sum + (t.dynastyValue ?? 0), 0)
+        : null,
+    };
+  }, [data]);
 
   if (isLoading) return <main className="mx-auto max-w-6xl space-y-5 px-6 py-10"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-72 rounded-xl" /></main>;
   if (error || !data) return <main className="mx-auto max-w-6xl px-6 py-10"><p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : "Manager Hub is unavailable."}</p><Button className="mt-4" onClick={() => refetch()}>Try again</Button></main>;
