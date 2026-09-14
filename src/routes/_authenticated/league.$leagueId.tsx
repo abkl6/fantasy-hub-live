@@ -54,6 +54,12 @@ const statusTone: Record<string, "default" | "secondary" | "destructive" | "outl
   IR: "destructive",
 };
 
+interface LeagueSearch {
+  tab?: string;
+  swap?: string;
+  with?: string;
+}
+
 export const Route = createFileRoute("/_authenticated/league/$leagueId")({
   head: () => ({
     meta: [
