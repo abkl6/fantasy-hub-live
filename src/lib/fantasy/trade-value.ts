@@ -51,6 +51,8 @@ export interface TradeValueBook {
   format: ValueFormat;
   /** Market value for a rostered player; falls back to projection-based value. */
   player: (id: string | null, name: string, position: string, projSeason: number) => number;
+  /** Real KTC market price only — null when the player is not in the book. */
+  market: (id: string | null, name: string, position: string) => number | null;
   pick: (season: number, round: number, slot: PickSlot) => number;
   lastRefreshed: string | null;
   covered: boolean;
@@ -118,18 +120,37 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
     return Math.round(known.value * Math.pow(0.88, gap));
   };
 
+  const market = (id: string | null, name: string, position: string) => {
+    if (id && byId.has(id)) return byId.get(id)!;
+    const norm = normalizeName(name);
+    const pos = position.toUpperCase();
+    return byName.get(`${norm}|${pos}`) ?? byName.get(norm) ?? null;
+  };
+
   return {
     format,
     lastRefreshed,
     covered: byName.size > 0,
-    player: (id, name, position, projSeason) => {
-      if (id && byId.has(id)) return byId.get(id)!;
-      const norm = normalizeName(name);
-      const pos = position.toUpperCase();
-      return byName.get(`${norm}|${pos}`) ?? byName.get(norm) ?? fallbackValue(pos, projSeason);
-    },
+    market,
+    player: (id, name, position, projSeason) =>
+      market(id, name, position) ?? fallbackValue(position.toUpperCase(), projSeason),
     pick,
   };
+}
+
+/**
+ * Projection-derived worth and KTC prices live on different scales. The
+ * median market/projection ratio across players present in both puts our
+ * "what they should be worth" number on the market's scale.
+ */
+export function calibratedScale(pairs: { market: number; proj: number }[]): number {
+  const ratios = pairs
+    .filter((p) => p.market > 0 && p.proj > 0)
+    .map((p) => p.market / p.proj)
+    .sort((a, b) => a - b);
+  if (ratios.length < 10) return 1;
+  const median = ratios[Math.floor(ratios.length / 2)]!;
+  return Math.min(20, Math.max(0.25, median));
 }
 
 export type Fairness = "even" | "you-win" | "they-win";
