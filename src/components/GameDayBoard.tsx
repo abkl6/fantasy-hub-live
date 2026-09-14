@@ -293,6 +293,23 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
         </Button>}
       </section>
 
+      {!!data.matchups.length && (
+        <section className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="size-4 text-primary" />
+              <h2 className="font-display text-lg font-bold uppercase">Weekly odds</h2>
+            </div>
+            <Badge variant="outline">{data.matchups.length} {data.matchups.length === 1 ? "league" : "leagues"}</Badge>
+          </div>
+          <div className="space-y-2 p-3">
+            {data.matchups.map((m) => (
+              <OddsRow key={`odds-${m.leagueId}`} m={m} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {!data.matchups.length && (
         <p className="text-sm text-muted-foreground">
           No matchup to track yet. Import a league and make sure your own team is marked as yours.
