@@ -75,13 +75,25 @@ function TradesPage() {
       </p>
 
       {accepted.length > 0 && (
-        <div className="mt-6 inline-flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4">
-          <span className="eyebrow text-muted-foreground">Net title odds from accepted trades</span>
-          <span
-            className={`stat-num text-2xl font-bold ${netTitle >= 0 ? "text-primary" : "text-destructive"}`}
-          >
-            {netTitle >= 0 ? "+" : ""}
-            {(netTitle * 100).toFixed(1)}%
+        <div className="mt-6 inline-flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-5 py-4">
+          <span className="eyebrow text-muted-foreground">Net odds from accepted trades</span>
+          <span className="flex items-baseline gap-2">
+            <span className="eyebrow text-muted-foreground">Title</span>
+            <span
+              className={`stat-num text-2xl font-bold ${netTitle >= 0 ? "text-primary" : "text-destructive"}`}
+            >
+              {netTitle >= 0 ? "+" : ""}
+              {(netTitle * 100).toFixed(1)}%
+            </span>
+          </span>
+          <span className="flex items-baseline gap-2">
+            <span className="eyebrow text-muted-foreground">Playoff</span>
+            <span
+              className={`stat-num text-2xl font-bold ${netPlayoff >= 0 ? "text-primary" : "text-destructive"}`}
+            >
+              {netPlayoff >= 0 ? "+" : ""}
+              {(netPlayoff * 100).toFixed(1)}%
+            </span>
           </span>
         </div>
       )}
