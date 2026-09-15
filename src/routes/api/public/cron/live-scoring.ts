@@ -19,12 +19,18 @@ export const Route = createFileRoute("/api/public/cron/live-scoring")({
         const denied = await authenticateCronRequest(request);
         if (denied) {
           const token = /^Bearer ([^\s,]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
-          const { data: key } = await supabaseAdmin
+          const { data } = await (supabaseAdmin as unknown as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data: { token?: string } | null }> };
+              };
+            };
+          })
             .from("cron_keys")
             .select("token")
             .eq("name", "live-scoring")
             .maybeSingle();
-          if (!token || !key?.token || token !== key.token) return denied;
+          if (!token || !data?.token || token !== data.token) return denied;
         }
 
         const { refreshLiveScoring } = await import("@/lib/fantasy/live.server");
