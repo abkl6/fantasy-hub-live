@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      cron_keys: {
+        Row: {
+          created_at: string
+          name: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+          token?: string
+        }
+        Relationships: []
+      }
       draft_picks: {
         Row: {
           created_at: string
