@@ -89,6 +89,7 @@ export interface LeagueRow {
   external_id: string | null;
   last_synced_at: string | null;
   format: string;
+  projection_source: string;
 }
 
 export interface DynastyRow {
@@ -177,6 +178,8 @@ export interface AnalysisPayload {
   format: LeagueFormat;
   formatLabel: string;
   scoringLabel: string;
+  /** Where the projections on this page come from. */
+  projectionLabel: string;
   /** Guillotine only: weekly survival odds instead of playoff/title odds. */
   survival: SurvivalResult[] | null;
   mySurvival: SurvivalResult | null;
@@ -445,6 +448,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     format,
     formatLabel: FORMAT_LABELS[format],
     scoringLabel: scoring.label,
+    projectionLabel: proj.sourceLabel,
     survival,
   };
 
