@@ -142,18 +142,20 @@ export function ManualLeagueWizard() {
     queryFn: () => copyLeagues(),
   });
 
+  const clamp = (value: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, Math.round(Number(value) || min)));
+
   const names = () => {
+    const count = clamp(form.teamCount, 2, 20);
     const typed = teamNames
       .split(/[\n,]/)
       .map((n) => n.trim())
       .filter(Boolean);
     const out = [...typed];
-    while (out.length < form.teamCount) out.push(`Team ${out.length + 1}`);
-    return out.slice(0, form.teamCount);
+    while (out.length < count) out.push(`Team ${out.length + 1}`);
+    return out.slice(0, count);
   };
 
-  const clamp = (value: number, min: number, max: number) =>
-    Math.min(max, Math.max(min, Math.round(Number(value) || min)));
 
   const createMutation = useMutation({
     mutationFn: () =>
