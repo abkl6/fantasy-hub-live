@@ -24,6 +24,7 @@ import { Route as AuthenticatedThisWeekRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedTradeDeskRouteImport } from './routes/_authenticated/trade-desk'
 import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated/trades'
 import { Route as AuthenticatedTvRouteImport } from './routes/_authenticated/tv'
+import { Route as AuthenticatedWaiversRouteImport } from './routes/_authenticated/waivers'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
 import { Route as ApiPublicCronInactivesRouteImport } from './routes/api/public/cron/inactives'
 import { Route as ApiPublicCronLiveScoringRouteImport } from './routes/api/public/cron/live-scoring'
@@ -107,6 +108,11 @@ const AuthenticatedTvRoute = AuthenticatedTvRouteImport.update({
   path: '/tv',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWaiversRoute = AuthenticatedWaiversRouteImport.update({
+  id: '/waivers',
+  path: '/waivers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLeagueLeagueIdRoute =
   AuthenticatedLeagueLeagueIdRouteImport.update({
     id: '/league/$leagueId',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
+  '/waivers': typeof AuthenticatedWaiversRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
+  '/waivers': typeof AuthenticatedWaiversRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/_authenticated/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/_authenticated/trades': typeof AuthenticatedTradesRoute
   '/_authenticated/tv': typeof AuthenticatedTvRoute
+  '/_authenticated/waivers': typeof AuthenticatedWaiversRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -227,6 +236,7 @@ export interface FileRouteTypes {
     | '/trade-desk'
     | '/trades'
     | '/tv'
+    | '/waivers'
     | '/league/$leagueId'
     | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/trade-desk'
     | '/trades'
     | '/tv'
+    | '/waivers'
     | '/league/$leagueId'
     | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/_authenticated/trade-desk'
     | '/_authenticated/trades'
     | '/_authenticated/tv'
+    | '/_authenticated/waivers'
     | '/_authenticated/league/$leagueId'
     | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
@@ -398,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTvRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/waivers': {
+      id: '/_authenticated/waivers'
+      path: '/waivers'
+      fullPath: '/waivers'
+      preLoaderRoute: typeof AuthenticatedWaiversRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/league/$leagueId': {
       id: '/_authenticated/league/$leagueId'
       path: '/league/$leagueId'
@@ -456,6 +475,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTradeDeskRoute: typeof AuthenticatedTradeDeskRoute
   AuthenticatedTradesRoute: typeof AuthenticatedTradesRoute
   AuthenticatedTvRoute: typeof AuthenticatedTvRoute
+  AuthenticatedWaiversRoute: typeof AuthenticatedWaiversRoute
   AuthenticatedLeagueLeagueIdRoute: typeof AuthenticatedLeagueLeagueIdRoute
 }
 
@@ -472,6 +492,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTradeDeskRoute: AuthenticatedTradeDeskRoute,
   AuthenticatedTradesRoute: AuthenticatedTradesRoute,
   AuthenticatedTvRoute: AuthenticatedTvRoute,
+  AuthenticatedWaiversRoute: AuthenticatedWaiversRoute,
   AuthenticatedLeagueLeagueIdRoute: AuthenticatedLeagueLeagueIdRoute,
 }
 
