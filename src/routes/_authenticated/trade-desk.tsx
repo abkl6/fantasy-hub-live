@@ -63,7 +63,20 @@ function TradeDeskPage() {
               </SelectContent>
             </Select>
           </div>
-          {leagueId && <TradeBuilder key={leagueId} leagueId={leagueId} />}
+          {leagueId && (
+            <Tabs defaultValue="builder">
+              <TabsList>
+                <TabsTrigger value="builder">Builder</TabsTrigger>
+                <TabsTrigger value="finder">Trade finder</TabsTrigger>
+              </TabsList>
+              <TabsContent value="builder" className="mt-4">
+                <TradeBuilder key={leagueId} leagueId={leagueId} />
+              </TabsContent>
+              <TabsContent value="finder" className="mt-4">
+                <TradeFinder key={leagueId} leagueId={leagueId} />
+              </TabsContent>
+            </Tabs>
+          )}
         </>
       )}
     </div>
