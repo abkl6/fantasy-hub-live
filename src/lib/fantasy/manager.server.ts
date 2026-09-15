@@ -33,6 +33,12 @@ export interface ManagerHubPayload {
     totalLeagues: number;
     status: string;
     leagueNames: string[];
+    /** His projected points this week, added up across every league I own him in. */
+    projPoints: number;
+    /** That total as a share (0-1) of everything I project to start this week. */
+    share: number;
+    /** True when he carries more than 15% of my week. */
+    concentrated: boolean;
   }[];
   /** Full standings per league, with my team flagged and dynasty values where relevant. */
   standings: {
