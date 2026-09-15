@@ -476,6 +476,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         scoringType: z.string().max(20).optional(),
         format: z.enum(LEAGUE_FORMATS).optional(),
         color: z.string().max(20).optional(),
+        projectionSource: z.enum(["platform", "app", "user"]).optional(),
       })
       .parse(d),
   )
@@ -487,6 +488,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.scoringType !== undefined) patch["scoring_type"] = data.scoringType;
     if (data.format !== undefined) patch["format"] = data.format;
     if (data.color !== undefined) patch["color"] = data.color;
+    if (data.projectionSource !== undefined) patch["projection_source"] = data.projectionSource;
     const { error } = await context.supabase
       .from("leagues")
       .update(patch as never)
