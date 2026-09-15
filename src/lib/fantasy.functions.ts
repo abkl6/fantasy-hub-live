@@ -1012,3 +1012,18 @@ export const getLineupCheckFn = createServerFn({ method: "GET" })
     const { buildLineupCheck } = await import("./fantasy/lineup-check.server");
     return buildLineupCheck(context.supabase);
   });
+
+export const getWaiverHubFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { buildWaiverHub } = await import("./fantasy/waiver-hub.server");
+    return buildWaiverHub(context.supabase);
+  });
+
+export const getTradeFinderFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { buildTradeFinder } = await import("./fantasy/trade-finder.server");
+    return buildTradeFinder(context.supabase, data.leagueId);
+  });
