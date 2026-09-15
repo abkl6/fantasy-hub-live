@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { lovable } from "@/integrations/lovable/index";
+import { homeRoute } from "@/lib/fantasy/gamewindow";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/auth")({
@@ -34,7 +35,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/gameday" });
+    if (!loading && session) navigate({ to: homeRoute() });
   }, [loading, session, navigate]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -46,7 +47,7 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/gameday`,
+            emailRedirectTo: `${window.location.origin}${homeRoute()}`,
             data: { display_name: name || email.split("@")[0] },
           },
         });
@@ -56,7 +57,7 @@ function AuthPage() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/gameday" });
+        navigate({ to: homeRoute() });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong.");
@@ -74,7 +75,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/gameday" });
+    navigate({ to: homeRoute() });
   }
 
   return (

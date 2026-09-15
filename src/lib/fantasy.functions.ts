@@ -998,3 +998,10 @@ export const getManagerHubFn = createServerFn({ method: "GET" })
     const { buildManagerHub } = await import("./fantasy/manager.server");
     return buildManagerHub(context.supabase);
   });
+
+export const getThisWeekFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { buildThisWeek } = await import("./fantasy/this-week.server");
+    return buildThisWeek(context.supabase);
+  });

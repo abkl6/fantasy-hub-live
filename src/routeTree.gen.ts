@@ -19,6 +19,7 @@ import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedManagerHubRouteImport } from './routes/_authenticated/manager-hub'
 import { Route as AuthenticatedProjectionsRouteImport } from './routes/_authenticated/projections'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedThisWeekRouteImport } from './routes/_authenticated/this-week'
 import { Route as AuthenticatedTradeDeskRouteImport } from './routes/_authenticated/trade-desk'
 import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated/trades'
 import { Route as AuthenticatedTvRouteImport } from './routes/_authenticated/tv'
@@ -77,6 +78,11 @@ const AuthenticatedProjectionsRoute =
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedThisWeekRoute = AuthenticatedThisWeekRouteImport.update({
+  id: '/this-week',
+  path: '/this-week',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedTradeDeskRoute = AuthenticatedTradeDeskRouteImport.update({
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/manager-hub': typeof AuthenticatedManagerHubRoute
   '/projections': typeof AuthenticatedProjectionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/this-week': typeof AuthenticatedThisWeekRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/manager-hub': typeof AuthenticatedManagerHubRoute
   '/projections': typeof AuthenticatedProjectionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/this-week': typeof AuthenticatedThisWeekRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/trades': typeof AuthenticatedTradesRoute
   '/tv': typeof AuthenticatedTvRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   '/_authenticated/manager-hub': typeof AuthenticatedManagerHubRoute
   '/_authenticated/projections': typeof AuthenticatedProjectionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/this-week': typeof AuthenticatedThisWeekRoute
   '/_authenticated/trade-desk': typeof AuthenticatedTradeDeskRoute
   '/_authenticated/trades': typeof AuthenticatedTradesRoute
   '/_authenticated/tv': typeof AuthenticatedTvRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/manager-hub'
     | '/projections'
     | '/settings'
+    | '/this-week'
     | '/trade-desk'
     | '/trades'
     | '/tv'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/manager-hub'
     | '/projections'
     | '/settings'
+    | '/this-week'
     | '/trade-desk'
     | '/trades'
     | '/tv'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/_authenticated/manager-hub'
     | '/_authenticated/projections'
     | '/_authenticated/settings'
+    | '/_authenticated/this-week'
     | '/_authenticated/trade-desk'
     | '/_authenticated/trades'
     | '/_authenticated/tv'
@@ -338,6 +350,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/this-week': {
+      id: '/_authenticated/this-week'
+      path: '/this-week'
+      fullPath: '/this-week'
+      preLoaderRoute: typeof AuthenticatedThisWeekRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/trade-desk': {
       id: '/_authenticated/trade-desk'
       path: '/trade-desk'
@@ -412,6 +431,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedManagerHubRoute: typeof AuthenticatedManagerHubRoute
   AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedThisWeekRoute: typeof AuthenticatedThisWeekRoute
   AuthenticatedTradeDeskRoute: typeof AuthenticatedTradeDeskRoute
   AuthenticatedTradesRoute: typeof AuthenticatedTradesRoute
   AuthenticatedTvRoute: typeof AuthenticatedTvRoute
@@ -426,6 +446,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedManagerHubRoute: AuthenticatedManagerHubRoute,
   AuthenticatedProjectionsRoute: AuthenticatedProjectionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedThisWeekRoute: AuthenticatedThisWeekRoute,
   AuthenticatedTradeDeskRoute: AuthenticatedTradeDeskRoute,
   AuthenticatedTradesRoute: AuthenticatedTradesRoute,
   AuthenticatedTvRoute: AuthenticatedTvRoute,

@@ -81,6 +81,32 @@ export function nextKickoff(now: Date = new Date()): Kickoff {
   return { at: new Date(now.getTime() + bestDelta * 60_000), label: best.label };
 }
 
+/**
+ * The planning stretch between Monday night's final whistle and the first
+ * kickoff of the new week: Tuesday 5am ET through Thursday 8pm ET.
+ */
+export function inPrepWindow(now: Date = new Date()): boolean {
+  if (gameWindow(now).live) return false;
+  const { weekday, hour } = easternParts(now);
+  if (weekday === "Tue") return hour >= 5;
+  if (weekday === "Wed") return true;
+  if (weekday === "Thu") return hour < 20;
+  return false;
+}
+
+/** Where a signed-in manager should land right now. */
+export function homeRoute(now: Date = new Date()): "/this-week" | "/gameday" {
+  return inPrepWindow(now) ? "/this-week" : "/gameday";
+}
+
+/** When waivers typically clear: Wednesday 3am ET. */
+export function nextWaiverRun(now: Date = new Date()): Date {
+  const current = easternMinuteOfWeek(now);
+  const target = 3 * 1440 + 3 * 60;
+  const delta = (target - current + 10080) % 10080 || 10080;
+  return new Date(now.getTime() + delta * 60_000);
+}
+
 /** Human countdown such as "2d 4h" or "48m". */
 export function countdownLabel(target: Date, now: Date = new Date()): string {
   const mins = Math.max(0, Math.round((target.getTime() - now.getTime()) / 60_000));
