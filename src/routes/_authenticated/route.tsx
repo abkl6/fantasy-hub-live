@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { homeRoute, inPrepWindow } from "@/lib/fantasy/gamewindow";
+import { homeRoute } from "@/lib/fantasy/gamewindow";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({

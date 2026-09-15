@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, ArrowRight, Clock, Repeat2, Sparkles, Ticket } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -9,11 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCachedQuery } from "@/hooks/useCachedQuery";
 import type { ThisWeekItem, ThisWeekPayload } from "@/lib/fantasy/this-week-types";
-import { countdownLabel } from "@/lib/fantasy/gamewindow";
+import { countdownLabel, gameWindow } from "@/lib/fantasy/gamewindow";
 import { getThisWeekFn } from "@/lib/fantasy.functions";
 import { leagueColor } from "@/lib/league-colors";
 
 export const Route = createFileRoute("/_authenticated/this-week")({
+  // Once the games start, Game Day takes over.
+  beforeLoad: () => {
+    if (gameWindow().live) throw redirect({ to: "/gameday" });
+  },
   head: () => ({
     meta: [
       { title: "This week — Gridiron Edge" },
