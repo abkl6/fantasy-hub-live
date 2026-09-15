@@ -311,6 +311,10 @@ export async function yahooLeagueBundle(
     playoffTeams: num(settings["num_playoff_teams"], 6),
     regularSeasonWeeks: Math.max(4, playoffStart - 1),
     scoringType: recValue >= 1 ? "ppr" : recValue > 0 ? "half_ppr" : "standard",
+    // Yahoo exposes how the league is won: "head" or "point".
+    contestFormat: String(leagueMeta["scoring_type"] ?? "head").startsWith("point")
+      ? ("points" as const)
+      : ("h2h" as const),
     rosterSlots: rosterPositions.length
       ? rosterPositions
       : ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"],
