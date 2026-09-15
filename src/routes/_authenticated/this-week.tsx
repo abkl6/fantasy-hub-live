@@ -1,6 +1,6 @@
 import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, ArrowRight, Clock, Repeat2, Sparkles, Ticket } from "lucide-react";
+import { AlertTriangle, ArrowRight, ClipboardCheck, Clock, Repeat2, Sparkles, Ticket } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CacheStatus } from "@/components/CacheStatus";
@@ -102,11 +102,19 @@ function ThisWeekPage() {
     <main className="mx-auto max-w-4xl px-4 py-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">This week</h1>
+        <div className="flex items-center gap-2">
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/lineup-check">
+            <ClipboardCheck className="size-4" aria-hidden="true" />
+            Lineup check
+          </Link>
+        </Button>
         {data ? (
           <span className="text-xs text-muted-foreground">
             {data.kickoffLabel} in {countdownLabel(new Date(data.kickoffAt), now)}
           </span>
         ) : null}
+        </div>
       </div>
       <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
 
