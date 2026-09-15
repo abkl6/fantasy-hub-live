@@ -1,7 +1,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronUp, Clock, Loader2, Monitor, RefreshCw, Share2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardCheck, Clock, Loader2, Monitor, RefreshCw, Share2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
