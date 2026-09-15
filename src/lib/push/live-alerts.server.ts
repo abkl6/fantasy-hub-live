@@ -24,7 +24,13 @@ const ESPN_SCOREBOARD =
 /** Which NFL teams currently have the ball inside the opponent's 20. */
 export async function redZoneTeams(week: number): Promise<RedZoneTeam[]> {
   try {
-    const response = await fetch(`${ESPN_SCOREBOARD}?week=${week}`);
+    const response = await fetch(`${ESPN_SCOREBOARD}?week=${week}`, {
+      headers: {
+        accept: "application/json, text/plain, */*",
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+      },
+    });
     if (!response.ok) return [];
     const data = (await response.json()) as {
       events?: {
