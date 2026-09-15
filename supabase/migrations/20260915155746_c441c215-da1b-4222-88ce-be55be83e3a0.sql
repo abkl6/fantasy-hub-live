@@ -1,0 +1,1 @@
+ALTER TABLE public.projection_batches ADD COLUMN IF NOT EXISTS rows jsonb NOT NULL DEFAULT '[]'::jsonb;

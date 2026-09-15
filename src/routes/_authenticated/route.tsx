@@ -1,4 +1,6 @@
 import { Link, Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
 import {
   BarChart3,
@@ -11,6 +13,7 @@ import {
   Radio,
   ListChecks,
   Repeat2,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
@@ -23,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { amIAdmin } from "@/lib/admin.functions";
 import { homeRoute } from "@/lib/fantasy/gamewindow";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,6 +47,13 @@ function AuthenticatedLayout() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const bare = useRouterState({ select: (s) => s.location.pathname === "/tv" });
+  const checkAdmin = useServerFn(amIAdmin);
+  const admin = useQuery({
+    queryKey: ["admin", "gate"],
+    queryFn: () => checkAdmin(),
+    enabled: !!session,
+    staleTime: 5 * 60_000,
+  });
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
@@ -93,6 +104,14 @@ function AuthenticatedLayout() {
                   Notifications
                 </Link>
               </DropdownMenuItem>
+              {admin.data?.admin ? (
+                <DropdownMenuItem asChild>
+                  <Link to="/admin">
+                    <ShieldCheck className="size-4" aria-hidden="true" />
+                    Admin
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={async () => {

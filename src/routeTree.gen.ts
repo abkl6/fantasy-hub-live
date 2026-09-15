@@ -12,8 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedConnectRouteImport } from './routes/_authenticated/connect'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedGamedayRouteImport } from './routes/_authenticated/gameday'
 import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
 import { Route as AuthenticatedLineupCheckRouteImport } from './routes/_authenticated/lineup-check'
@@ -46,14 +46,14 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConnectRoute = AuthenticatedConnectRouteImport.update({
   id: '/connect',
   path: '/connect',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedGamedayRoute = AuthenticatedGamedayRouteImport.update({
@@ -151,8 +151,8 @@ const ApiPublicYahooCallbackRoute = ApiPublicYahooCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/connect': typeof AuthenticatedConnectRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
   '/gameday': typeof AuthenticatedGamedayRoute
   '/games': typeof AuthenticatedGamesRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
@@ -174,8 +174,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/connect': typeof AuthenticatedConnectRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
   '/gameday': typeof AuthenticatedGamedayRoute
   '/games': typeof AuthenticatedGamesRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
@@ -199,8 +199,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/connect': typeof AuthenticatedConnectRoute
-  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/gameday': typeof AuthenticatedGamedayRoute
   '/_authenticated/games': typeof AuthenticatedGamesRoute
   '/_authenticated/lineup-check': typeof AuthenticatedLineupCheckRoute
@@ -224,8 +224,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/admin'
     | '/connect'
-    | '/dashboard'
     | '/gameday'
     | '/games'
     | '/lineup-check'
@@ -247,8 +247,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/admin'
     | '/connect'
-    | '/dashboard'
     | '/gameday'
     | '/games'
     | '/lineup-check'
@@ -271,8 +271,8 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/admin'
     | '/_authenticated/connect'
-    | '/_authenticated/dashboard'
     | '/_authenticated/gameday'
     | '/_authenticated/games'
     | '/_authenticated/lineup-check'
@@ -326,18 +326,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/connect': {
       id: '/_authenticated/connect'
       path: '/connect'
       fullPath: '/connect'
       preLoaderRoute: typeof AuthenticatedConnectRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/gameday': {
@@ -463,8 +463,8 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedConnectRoute: typeof AuthenticatedConnectRoute
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedGamedayRoute: typeof AuthenticatedGamedayRoute
   AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
   AuthenticatedLineupCheckRoute: typeof AuthenticatedLineupCheckRoute
@@ -480,8 +480,8 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedConnectRoute: AuthenticatedConnectRoute,
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedGamedayRoute: AuthenticatedGamedayRoute,
   AuthenticatedGamesRoute: AuthenticatedGamesRoute,
   AuthenticatedLineupCheckRoute: AuthenticatedLineupCheckRoute,

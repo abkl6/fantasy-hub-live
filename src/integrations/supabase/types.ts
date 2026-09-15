@@ -32,6 +32,39 @@ export type Database = {
         }
         Relationships: []
       }
+      defense_ranks: {
+        Row: {
+          created_at: string
+          id: string
+          nfl_team: string
+          points_allowed: number
+          rank: number
+          season: number
+          updated_at: string
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nfl_team: string
+          points_allowed?: number
+          rank: number
+          season: number
+          updated_at?: string
+          week: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nfl_team?: string
+          points_allowed?: number
+          rank?: number
+          season?: number
+          updated_at?: string
+          week?: number
+        }
+        Relationships: []
+      }
       draft_picks: {
         Row: {
           created_at: string
@@ -149,6 +182,39 @@ export type Database = {
           },
         ]
       }
+      job_errors: {
+        Row: {
+          created_at: string
+          detail: Json
+          id: string
+          message: string
+          platform: string | null
+          scope: string | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          id?: string
+          message: string
+          platform?: string | null
+          scope?: string | null
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          id?: string
+          message?: string
+          platform?: string | null
+          scope?: string | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       leagues: {
         Row: {
           color: string | null
@@ -158,6 +224,7 @@ export type Database = {
           faab_budget: number
           format: string
           id: string
+          last_sync_error: string | null
           last_synced_at: string | null
           name: string
           platform: string
@@ -180,6 +247,7 @@ export type Database = {
           faab_budget?: number
           format?: string
           id?: string
+          last_sync_error?: string | null
           last_synced_at?: string | null
           name: string
           platform?: string
@@ -202,6 +270,7 @@ export type Database = {
           faab_budget?: number
           format?: string
           id?: string
+          last_sync_error?: string | null
           last_synced_at?: string | null
           name?: string
           platform?: string
@@ -775,6 +844,51 @@ export type Database = {
         }
         Relationships: []
       }
+      projection_batches: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          matched_count: number
+          published: boolean
+          row_count: number
+          rows: Json
+          season: number
+          source: string
+          updated_at: string
+          uploaded_by: string | null
+          week: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          matched_count?: number
+          published?: boolean
+          row_count?: number
+          rows?: Json
+          season: number
+          source: string
+          updated_at?: string
+          uploaded_by?: string | null
+          week?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          matched_count?: number
+          published?: boolean
+          row_count?: number
+          rows?: Json
+          season?: number
+          source?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          week?: number | null
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -1230,6 +1344,60 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      unmatched_players: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          id: string
+          nfl_team: string | null
+          payload: Json
+          position: string | null
+          raw_name: string
+          resolved_player_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          id?: string
+          nfl_team?: string | null
+          payload?: Json
+          position?: string | null
+          raw_name: string
+          resolved_player_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          id?: string
+          nfl_team?: string | null
+          payload?: Json
+          position?: string | null
+          raw_name?: string
+          resolved_player_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unmatched_players_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "projection_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unmatched_players_resolved_player_id_fkey"
+            columns: ["resolved_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
