@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCachedQuery } from "@/hooks/useCachedQuery";
-import type { ThisWeekItem, ThisWeekPayload } from "@/lib/fantasy/this-week.server";
+import type { ThisWeekItem, ThisWeekPayload } from "@/lib/fantasy/this-week-types";
 import { countdownLabel } from "@/lib/fantasy/gamewindow";
 import { getThisWeekFn } from "@/lib/fantasy.functions";
 import { leagueColor } from "@/lib/league-colors";
@@ -80,7 +80,7 @@ function ItemRow({ item }: { item: ThisWeekItem }) {
 function ThisWeekPage() {
   const load = useServerFn(getThisWeekFn);
   const [now] = useState(() => new Date());
-  const { data, isLoading, isFetching, error, updating, stale, lastUpdated } = useCachedQuery<ThisWeekPayload>({
+  const { data, isLoading, error, updating, stale, lastUpdated } = useCachedQuery<ThisWeekPayload>({
     cacheKey: "this-week",
     queryKey: ["this-week"],
     queryFn: () => load(),
