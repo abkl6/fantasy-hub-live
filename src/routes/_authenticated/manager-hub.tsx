@@ -5,6 +5,7 @@ import { Activity, ArrowRight, BellRing, ChevronDown, ChevronUp, Repeat2, Shield
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ManualFreshnessBadge } from "@/components/ManualUpkeep";
 import { TeamBadge } from "@/components/TeamBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

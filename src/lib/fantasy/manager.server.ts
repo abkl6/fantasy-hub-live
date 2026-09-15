@@ -18,6 +18,8 @@ export interface ManagerHubPayload {
     record: string;
     titleOdds: number;
     playoffOdds: number;
+    /** Manual leagues only: when the rosters were last confirmed. */
+    lastConfirmedAt: string | null;
   }[];
   moves: (MoveSuggestion & { leagueId: string; leagueName: string })[];
   /** Trade ideas only, best title impact first. */
