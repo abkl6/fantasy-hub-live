@@ -152,15 +152,18 @@ export function ManualLeagueWizard() {
     return out.slice(0, form.teamCount);
   };
 
+  const clamp = (value: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, Math.round(Number(value) || min)));
+
   const createMutation = useMutation({
     mutationFn: () =>
       create({
         data: {
           name: form.name.trim() || "My league",
-          teamCount: Number(form.teamCount),
-          playoffTeams: Number(form.playoffTeams),
-          regularSeasonWeeks: Number(form.regularSeasonWeeks),
-          currentWeek: Number(form.currentWeek),
+          teamCount: clamp(form.teamCount, 2, 20),
+          playoffTeams: clamp(form.playoffTeams, 2, 12),
+          regularSeasonWeeks: clamp(form.regularSeasonWeeks, 4, 18),
+          currentWeek: clamp(form.currentWeek, 1, 18),
           scoringType: form.scoringType,
           scoringRules,
           format: form.format,
