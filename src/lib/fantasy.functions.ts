@@ -1005,3 +1005,10 @@ export const getThisWeekFn = createServerFn({ method: "GET" })
     const { buildThisWeek } = await import("./fantasy/this-week.server");
     return buildThisWeek(context.supabase);
   });
+
+export const getLineupCheckFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { buildLineupCheck } = await import("./fantasy/lineup-check.server");
+    return buildLineupCheck(context.supabase);
+  });

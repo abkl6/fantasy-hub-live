@@ -432,6 +432,12 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
           {window.live ? " · refreshing every 45s" : ""}
         </p>
         <div className="flex items-center gap-1">
+          <Button size="sm" variant="secondary" asChild>
+            <Link to="/lineup-check">
+              <ClipboardCheck className="size-4" aria-hidden="true" />
+              Lineup check
+            </Link>
+          </Button>
           <Button size="sm" variant="ghost" asChild>
             <Link to="/tv">
               <Monitor className="size-4" aria-hidden="true" />
