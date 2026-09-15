@@ -125,15 +125,14 @@ function SyncTab() {
         {(q.data?.leagues ?? []).map((l) => (
           <div key={l.id} className="flex flex-wrap items-center gap-3 px-3 py-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">
-                {l.name}{" "}
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold">{l.name}</span>
                 <Badge
                   variant={l.status === "error" ? "destructive" : l.status === "ok" ? "secondary" : "outline"}
-                  className="ml-1"
                 >
                   {l.status}
                 </Badge>
-              </p>
+              </div>
               <p className="truncate text-xs text-muted-foreground">
                 {l.platform} · {l.ownerName} · week {l.week} · synced {when(l.lastSyncedAt)}
               </p>
