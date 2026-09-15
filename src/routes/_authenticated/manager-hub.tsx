@@ -498,30 +498,6 @@ function ManagerHub() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-xl bg-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold">League standings</h2></div>
-              <p className="mt-1 text-xs text-muted-foreground">Every league at a glance — your row is highlighted, with title, playoff and dynasty value for every team.</p>
-            </div>
-            <div className="flex gap-1">
-              {([["title", "Title chance"], ["playoff", "Playoff chance"], ["dynasty", "Dynasty value"]] as const).map(([key, label]) => (
-                <Button key={key} size="sm" variant={standingsSort === key ? "default" : "outline"} onClick={() => setStandingsSort(key)}>{label}</Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Best title chance</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.bestTitle === null ? "—" : `${(summary.bestTitle * 100).toFixed(1)}%`}</p></div>
-            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Playoff-bound leagues</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.playoffBound}/{data.standings.length}</p></div>
-            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Total dynasty value</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.dynastyTotal === null ? "—" : summary.dynastyTotal.toLocaleString()}</p></div>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {sortedStandings.map((league) => <StandingsCard key={league.leagueId} league={league} />)}
-          </div>
-        </section>
-
         <section className="mt-6">
           <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold">League shortcuts</h2></div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
