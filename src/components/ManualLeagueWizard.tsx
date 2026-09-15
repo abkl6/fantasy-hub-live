@@ -21,7 +21,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import type { ManualDraftPreview } from "@/lib/fantasy/manual-types";
-import { readScreenshot } from "@/lib/fantasy.functions";
+import { readScreenshot, updateLeagueSettings } from "@/lib/fantasy.functions";
+import {
+  CONTEST_DESCRIPTIONS,
+  CONTEST_FORMATS,
+  CONTEST_LABELS,
+  type ContestFormat,
+} from "@/lib/fantasy/contest";
 import {
   applyDraftBoard,
   copyableLeagues,
@@ -45,7 +51,7 @@ const FFPC_RULES: Record<string, number> = {
   fum_lost: -2,
 };
 
-const STEPS = ["League", "Draft board", "Schedule", "My team"];
+const STEPS = ["League", "Draft board", "Format", "Schedule", "My team"];
 
 function readFiles(files: FileList): Promise<string[]> {
   return Promise.all(
@@ -114,6 +120,7 @@ export function ManualLeagueWizard() {
   const applyDraft = useServerFn(applyDraftBoard);
   const saveSchedule = useServerFn(saveManualSchedule);
   const setMine = useServerFn(setMyManualTeam);
+  const saveSettings = useServerFn(updateLeagueSettings);
 
   const [step, setStep] = useState(0);
   const [leagueId, setLeagueId] = useState<string | null>(null);
@@ -135,6 +142,12 @@ export function ManualLeagueWizard() {
   const [draftText, setDraftText] = useState("");
   const [draft, setDraft] = useState<ManualDraftPreview | null>(null);
   const [scheduleText, setScheduleText] = useState("");
+
+  const [contest, setContest] = useState<ContestFormat>("h2h");
+  const [pointsPlayoffTeams, setPointsPlayoffTeams] = useState(0);
+  const [pointsPlayoffWeek, setPointsPlayoffWeek] = useState("");
+  const [weeklyHighBonus, setWeeklyHighBonus] = useState(false);
+  const [weeklyHighLabel, setWeeklyHighLabel] = useState("");
 
   const copyLeagues = useServerFn(copyableLeagues);
   const copyFrom = useQuery({
@@ -220,9 +233,29 @@ export function ManualLeagueWizard() {
       }),
     onSuccess: (res) => {
       toast.success(`${res.games} games saved.`);
-      setStep(3);
+      setStep(4);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the schedule."),
+  });
+
+  const formatMutation = useMutation({
+    mutationFn: () =>
+      saveSettings({
+        data: {
+          leagueId: leagueId!,
+          contestFormat: contest,
+          weeklyHighBonus,
+          weeklyHighLabel: weeklyHighLabel.trim() || null,
+          ...(contest === "h2h"
+            ? {}
+            : {
+                pointsPlayoffTeams: pointsPlayoffTeams || 0,
+                pointsPlayoffWeek: pointsPlayoffWeek ? Number(pointsPlayoffWeek) : null,
+              }),
+        },
+      }),
+    onSuccess: () => setStep(contest === "points" ? 4 : 3),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the format."),
   });
 
   const mineMutation = useMutation({
@@ -514,6 +547,92 @@ export function ManualLeagueWizard() {
 
       {step === 2 && (
         <div className="mt-6">
+          <h2 className="text-lg font-semibold">How is this league won?</h2>
+
+          <div className="mt-4 space-y-2">
+            {CONTEST_FORMATS.map((key) => (
+              <label
+                key={key}
+                className="flex cursor-pointer items-start gap-3 rounded-lg bg-background/40 p-3 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="contest"
+                  className="mt-1"
+                  checked={contest === key}
+                  onChange={() => setContest(key)}
+                />
+                <span>
+                  <span className="block font-medium">{CONTEST_LABELS[key]}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {CONTEST_DESCRIPTIONS[key]}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          {contest === "points" && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="m-pp-teams">Playoff teams by total points</Label>
+                <Input
+                  id="m-pp-teams"
+                  type="number"
+                  min={0}
+                  max={32}
+                  value={pointsPlayoffTeams}
+                  onChange={(e) => setPointsPlayoffTeams(Number(e.target.value) || 0)}
+                />
+                <p className="text-xs text-muted-foreground">Leave at 0 for no playoffs.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="m-pp-week">Qualifying after week</Label>
+                <Input
+                  id="m-pp-week"
+                  type="number"
+                  min={1}
+                  max={18}
+                  value={pointsPlayoffWeek}
+                  onChange={(e) => setPointsPlayoffWeek(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={weeklyHighBonus}
+                onChange={(e) => setWeeklyHighBonus(e.target.checked)}
+              />
+              This league pays a weekly high score bonus
+            </label>
+            {weeklyHighBonus && (
+              <Input
+                aria-label="Weekly high payout"
+                placeholder="e.g. $20"
+                className="max-w-[160px]"
+                value={weeklyHighLabel}
+                onChange={(e) => setWeeklyHighLabel(e.target.value)}
+              />
+            )}
+          </div>
+
+          <Button
+            className="mt-6"
+            disabled={formatMutation.isPending}
+            onClick={() => formatMutation.mutate()}
+          >
+            {formatMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            {contest === "points" ? "Next: pick your team" : "Next: schedule"}
+          </Button>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="mt-6">
           <h2 className="text-lg font-semibold">Schedule</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Paste the league schedule, or let us build a standard round robin.
@@ -550,7 +669,7 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">Which team is yours?</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
