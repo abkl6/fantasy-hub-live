@@ -18,6 +18,8 @@ export interface ManagerHubPayload {
     record: string;
     titleOdds: number;
     playoffOdds: number;
+    /** Manual leagues only: when the rosters were last confirmed. */
+    lastConfirmedAt: string | null;
   }[];
   moves: (MoveSuggestion & { leagueId: string; leagueName: string })[];
   /** Trade ideas only, best title impact first. */
@@ -69,10 +71,11 @@ export interface ManagerHubPayload {
 export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> {
   const { data: leagueRows, error } = await supabase
     .from("leagues")
-    .select("id, user_id")
+    .select("id, user_id, last_confirmed_at")
     .order("created_at");
   if (error) throw new Error(error.message);
   const ownerByLeague = new Map((leagueRows ?? []).map((l) => [l.id, l.user_id]));
+  const confirmedByLeague = new Map((leagueRows ?? []).map((l) => [l.id, l.last_confirmed_at]));
 
 
   const analyses = await Promise.all((leagueRows ?? []).map((league) => buildAnalysis(supabase, league.id)));
@@ -86,6 +89,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
           record: analysis.myTeam.record,
           titleOdds: analysis.myTeam.titleOdds,
           playoffOdds: analysis.myTeam.playoffOdds,
+          lastConfirmedAt: confirmedByLeague.get(analysis.league.id) ?? null,
         }]
       : [],
   );

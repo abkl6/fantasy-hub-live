@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ImageUp, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { ManualLeagueWizard } from "@/components/ManualLeagueWizard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -84,12 +85,16 @@ function ConnectPage() {
       <h1 className="text-2xl font-bold">Add a league</h1>
 
       <Tabs defaultValue="sleeper" className="mt-8">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="sleeper">Sleeper</TabsTrigger>
           <TabsTrigger value="espn">ESPN</TabsTrigger>
           <TabsTrigger value="yahoo">Yahoo</TabsTrigger>
-          <TabsTrigger value="manual">Screenshot or manual</TabsTrigger>
+          <TabsTrigger value="wizard">Manual league</TabsTrigger>
+          <TabsTrigger value="manual">Screenshot</TabsTrigger>
         </TabsList>
+        <TabsContent value="wizard" className="mt-6">
+          <ManualLeagueWizard />
+        </TabsContent>
         <TabsContent value="sleeper" className="mt-6">
           <SleeperPanel />
         </TabsContent>

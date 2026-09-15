@@ -42,9 +42,11 @@ const ICONS = {
   "trade-offer": Repeat2,
   "waiver-deadline": Clock,
   rising: Sparkles,
+  upkeep: ClipboardCheck,
 } as const;
 
 const GROUPS: { kind: ThisWeekItem["kind"]; label: string }[] = [
+  { kind: "upkeep", label: "Keep your manual leagues current" },
   { kind: "lineup", label: "Lineup risks" },
   { kind: "claim", label: "Pending claims" },
   { kind: "trade-offer", label: "Trade offers" },

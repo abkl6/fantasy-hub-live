@@ -1,6 +1,12 @@
 /** Client-safe shapes for the "This week" list. */
 
-export type ThisWeekKind = "claim" | "lineup" | "trade-offer" | "waiver-deadline" | "rising";
+export type ThisWeekKind =
+  | "claim"
+  | "lineup"
+  | "trade-offer"
+  | "waiver-deadline"
+  | "rising"
+  | "upkeep";
 
 export interface ThisWeekItem {
   id: string;

@@ -573,7 +573,7 @@ export const readScreenshot = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        mode: z.enum(["roster", "scoring"]),
+        mode: z.enum(["roster", "scoring", "text"]),
         images: z.array(z.string().min(20)).min(1).max(4),
       })
       .parse(d),
@@ -592,13 +592,20 @@ Return ONLY minified JSON of this exact shape:
 {"scoringType":"ppr|half_ppr|standard","rules":{"pass_yd":0.04,"pass_td":4,"rec":1,"rush_yd":0.1,"rec_yd":0.1,"rush_td":6,"rec_td":6,"int":-2,"fum_lost":-2},"rosterSlots":["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],"confidence":0.0}
 Include every scoring rule you can read using short snake_case keys and numeric values. Only include rosterSlots if the screenshot shows starting lineup slots. No commentary.`;
 
+    const textPrompt = `You are reading a screenshot from a fantasy football site: a draft board, a schedule, a transaction log or a roster.
+Return ONLY minified JSON of this exact shape: {"lines":["one row of the screenshot per entry"]}
+Keep each row on its own line exactly as shown, including team names, dates, player names, positions and NFL teams. Keep team headings as their own line ending with a colon. No commentary.`;
+
+    const prompt =
+      data.mode === "roster" ? rosterPrompt : data.mode === "scoring" ? scoringPrompt : textPrompt;
+
     const body = {
       model: SCREENSHOT_MODELS,
       messages: [
         {
           role: "user",
           content: [
-            { type: "text", text: data.mode === "roster" ? rosterPrompt : scoringPrompt },
+            { type: "text", text: prompt },
             ...data.images.map((img) => ({ type: "image_url", image_url: { url: img } })),
           ],
         },
@@ -651,6 +658,19 @@ Include every scoring rule you can read using short snake_case keys and numeric 
       confidence: z.number().nullish(),
     });
 
+    if (data.mode === "text") {
+      const out = z.object({ lines: z.array(z.string()).default([]) }).safeParse(parsed);
+      if (!out.success || !out.data.lines.length) {
+        throw new Error("Nothing readable was found in that screenshot.");
+      }
+      return {
+        mode: "text" as const,
+        players: null,
+        scoring: null,
+        text: out.data.lines.join("\n"),
+      };
+    }
+
     if (data.mode === "roster") {
       const out = rosterShape.safeParse(parsed);
       if (!out.success) throw new Error("That screenshot did not look like a roster.");
@@ -665,6 +685,7 @@ Include every scoring rule you can read using short snake_case keys and numeric 
           confidence: p.confidence ?? 1,
         })),
         scoring: null,
+        text: null,
       };
     }
 
@@ -679,6 +700,7 @@ Include every scoring rule you can read using short snake_case keys and numeric 
         rosterSlots: out.data.rosterSlots ?? null,
         confidence: out.data.confidence ?? 1,
       },
+      text: null,
     };
   });
 

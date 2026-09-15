@@ -24,6 +24,7 @@ import type { TeamBadge as TeamBadgeValue } from "@/lib/fantasy/team-class";
 import { TeamBadge } from "@/components/TeamBadge";
 import { TradeBuilder } from "@/components/TradeBuilder";
 import { GameDayBoard } from "@/components/GameDayBoard";
+import { ManualUpkeep } from "@/components/ManualUpkeep";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -173,6 +174,8 @@ function LeaguePage() {
           Refresh
         </Button>
       </div>
+
+      {data.league.platform === "manual" && <ManualUpkeep leagueId={leagueId} />}
 
       {me && !data.mySurvival && (
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
