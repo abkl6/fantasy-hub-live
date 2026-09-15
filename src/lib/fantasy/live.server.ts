@@ -92,9 +92,16 @@ const LABELS: Record<string, (n: number) => string> = {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/** ESPN rejects requests with no browser-style user agent (403), so send one. */
+const FEED_HEADERS = {
+  accept: "application/json, text/plain, */*",
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+};
+
 async function getJson<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: FEED_HEADERS });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
