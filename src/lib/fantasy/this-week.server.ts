@@ -8,6 +8,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis } from "./analysis.server";
 import { nextKickoff, nextWaiverRun } from "./gamewindow";
+import { manualFreshness } from "./manual-types";
+
+/** Day of week in US Eastern time, 0 = Sunday. */
+function easternWeekday(now: Date): number {
+  const label = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+  }).format(now);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(label);
+}
 import type { ThisWeekItem, ThisWeekKind, ThisWeekLeague, ThisWeekPayload } from "./this-week-types";
 
 export type { ThisWeekItem, ThisWeekKind, ThisWeekLeague, ThisWeekPayload } from "./this-week-types";
@@ -15,6 +25,7 @@ export type { ThisWeekItem, ThisWeekKind, ThisWeekLeague, ThisWeekPayload } from
 type DB = SupabaseClient<Database>;
 
 const PRIORITY: Record<ThisWeekKind, number> = {
+  upkeep: -1,
   lineup: 0,
   claim: 1,
   "trade-offer": 2,
@@ -29,7 +40,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
 
   const { data: leagueRows, error } = await supabase
     .from("leagues")
-    .select("id, name, platform, color, current_week")
+    .select("id, name, platform, color, current_week, last_confirmed_at")
     .order("created_at");
   if (error) throw new Error(error.message);
 
@@ -66,6 +77,42 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         replacement,
       });
     };
+
+    // 0. Manual leagues only stay accurate if the manager feeds them.
+    if (row.platform === "manual") {
+      const day = easternWeekday(now);
+      const fresh = manualFreshness(row.last_confirmed_at, now);
+      if (day === 3) {
+        add(
+          "upkeep",
+          "transactions",
+          "Paste this week's transaction log",
+          "Adds, drops and trades from the league keep every roster right. Duplicates are ignored.",
+          fresh.label,
+          "league",
+        );
+      }
+      if (day === 6 || day === 0) {
+        add(
+          "upkeep",
+          "lineup",
+          "Confirm your lineup",
+          "We have the best lineup ready — one tap confirms it.",
+          fresh.label,
+          "lineup",
+        );
+      }
+      if (fresh.state === "stale") {
+        add(
+          "upkeep",
+          "reconcile",
+          "Rosters may be out of date",
+          "Paste a full roster and we will work out what changed.",
+          "Stale",
+          "league",
+        );
+      }
+    }
 
     // 1. Starters who are hurt, out or on bye for the coming week.
     const startSits = analysis.suggestions.filter((s) => s.kind === "start-sit");

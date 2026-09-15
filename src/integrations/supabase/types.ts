@@ -224,6 +224,7 @@ export type Database = {
           faab_budget: number
           format: string
           id: string
+          last_confirmed_at: string | null
           last_sync_error: string | null
           last_synced_at: string | null
           name: string
@@ -247,6 +248,7 @@ export type Database = {
           faab_budget?: number
           format?: string
           id?: string
+          last_confirmed_at?: string | null
           last_sync_error?: string | null
           last_synced_at?: string | null
           name: string
@@ -270,6 +272,7 @@ export type Database = {
           faab_budget?: number
           format?: string
           id?: string
+          last_confirmed_at?: string | null
           last_sync_error?: string | null
           last_synced_at?: string | null
           name?: string
@@ -333,6 +336,130 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_lineups: {
+        Row: {
+          confirmed: boolean
+          created_at: string
+          id: string
+          league_id: string
+          slots: Json
+          team_id: string
+          updated_at: string
+          user_id: string
+          week: number
+        }
+        Insert: {
+          confirmed?: boolean
+          created_at?: string
+          id?: string
+          league_id: string
+          slots?: Json
+          team_id: string
+          updated_at?: string
+          user_id: string
+          week: number
+        }
+        Update: {
+          confirmed?: boolean
+          created_at?: string
+          id?: string
+          league_id?: string
+          slots?: Json
+          team_id?: string
+          updated_at?: string
+          user_id?: string
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_lineups_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_lineups_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_transactions: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          from_team_id: string | null
+          id: string
+          kind: string
+          league_id: string
+          norm_name: string
+          occurred_on: string
+          player_name: string
+          position: string | null
+          raw_line: string | null
+          to_team_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          from_team_id?: string | null
+          id?: string
+          kind: string
+          league_id: string
+          norm_name: string
+          occurred_on: string
+          player_name: string
+          position?: string | null
+          raw_line?: string | null
+          to_team_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          from_team_id?: string | null
+          id?: string
+          kind?: string
+          league_id?: string
+          norm_name?: string
+          occurred_on?: string
+          player_name?: string
+          position?: string | null
+          raw_line?: string | null
+          to_team_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_transactions_from_team_id_fkey"
+            columns: ["from_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_transactions_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_transactions_to_team_id_fkey"
+            columns: ["to_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
