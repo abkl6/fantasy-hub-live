@@ -307,6 +307,11 @@ type HubReview = {
   median: number;
   beatMedian: boolean;
   luck: "lucky" | "unlucky" | "deserved";
+  rank?: number;
+  teamCount?: number;
+  seasonRank?: number;
+  seasonRankChange?: number;
+  weeklyHigh?: { won: boolean; margin: number; topTeam: string; label: string | null } | null;
   recommendation: { headline: string; detail: string } | null;
 };
 
@@ -361,6 +366,29 @@ function ReviewCard({ review }: { review: HubReview }) {
                 ? " — unlucky draw."
                 : "."}
           </p>
+          {review.rank ? (
+            <p>
+              <span className="font-semibold text-foreground">Standing</span> ·{" "}
+              {ordinal(review.rank)} of {review.teamCount} that week
+              {review.seasonRank
+                ? ` · ${ordinal(review.seasonRank)} on total points${
+                    review.seasonRankChange
+                      ? ` (${review.seasonRankChange > 0 ? "up" : "down"} ${Math.abs(review.seasonRankChange)})`
+                      : " (no change)"
+                  }`
+                : ""}
+              .
+            </p>
+          ) : null}
+          {review.weeklyHigh && (
+            <p>
+              <span className="font-semibold text-foreground">Weekly high</span> ·{" "}
+              {review.weeklyHigh.won
+                ? `Won it by ${review.weeklyHigh.margin.toFixed(1)}`
+                : `Missed by ${review.weeklyHigh.margin.toFixed(1)} — ${review.weeklyHigh.topTeam} took it`}
+              {review.weeklyHigh.label ? ` (${review.weeklyHigh.label})` : ""}.
+            </p>
+          )}
           {review.recommendation && (
             <div className="rounded-lg bg-secondary/30 p-3">
               <p className="font-semibold text-foreground">Do this next: {review.recommendation.headline}</p>

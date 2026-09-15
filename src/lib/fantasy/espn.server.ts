@@ -72,6 +72,7 @@ export interface EspnLeagueBundle {
   regularSeasonWeeks: number;
   scoringType: string;
   rosterSlots: string[];
+  contestFormat?: "h2h" | "points" | "hybrid";
   teams: EspnTeam[];
   schedule: {
     week: number;
@@ -256,6 +257,13 @@ export async function espnLeagueBundle(
     playoffTeams: league.settings?.scheduleSettings?.playoffTeamCount ?? 6,
     regularSeasonWeeks: league.settings?.scheduleSettings?.matchupPeriodCount ?? 14,
     scoringType: scoringTypeOf(league),
+    // ESPN reports H2H_POINTS / TOTAL_POINTS on the scoring settings.
+    contestFormat:
+      String(
+        (league.settings?.scoringSettings as { scoringType?: string } | undefined)?.scoringType ?? "",
+      ).toUpperCase() === "TOTAL_POINTS"
+        ? ("points" as const)
+        : ("h2h" as const),
     rosterSlots: slots.length ? slots : ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"],
     teams,
     schedule,

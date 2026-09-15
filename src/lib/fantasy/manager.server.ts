@@ -233,6 +233,8 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
                 rosterSlots: analysis.slots as Slot[],
                 myTeamId: mine.id,
                 recommendation: top ? { headline: top.headline, detail: top.detail } : null,
+                weeklyHighBonus: analysis.weeklyHighBonus,
+                weeklyHighLabel: analysis.weeklyHighLabel,
               });
               if (review) {
                 await supabase.from("weekly_snapshots").upsert(

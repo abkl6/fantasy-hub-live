@@ -36,6 +36,8 @@ export interface NormalizedBundle {
   scoringType: string;
   scoringRules?: Record<string, number>;
   rosterSlots: string[];
+  /** How the platform says the league is won, when it exposes it. */
+  contestFormat?: "h2h" | "points" | "hybrid";
   teams: NormalizedTeam[];
   schedule: {
     week: number;
@@ -78,6 +80,7 @@ export async function persistBundle(
       scoring_type: bundle.scoringType,
       scoring_rules: bundle.scoringRules ?? {},
       roster_slots: bundle.rosterSlots,
+      contest_format: bundle.contestFormat ?? "h2h",
       last_synced_at: new Date().toISOString(),
     })
     .select()

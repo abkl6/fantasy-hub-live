@@ -218,6 +218,7 @@ export type Database = {
       leagues: {
         Row: {
           color: string | null
+          contest_format: string
           created_at: string
           current_week: number
           external_id: string | null
@@ -230,6 +231,8 @@ export type Database = {
           name: string
           platform: string
           playoff_teams: number
+          points_playoff_teams: number | null
+          points_playoff_week: number | null
           projection_source: string
           regular_season_weeks: number
           roster_slots: Json
@@ -239,9 +242,12 @@ export type Database = {
           team_count: number
           updated_at: string
           user_id: string
+          weekly_high_bonus: boolean
+          weekly_high_label: string | null
         }
         Insert: {
           color?: string | null
+          contest_format?: string
           created_at?: string
           current_week?: number
           external_id?: string | null
@@ -254,6 +260,8 @@ export type Database = {
           name: string
           platform?: string
           playoff_teams?: number
+          points_playoff_teams?: number | null
+          points_playoff_week?: number | null
           projection_source?: string
           regular_season_weeks?: number
           roster_slots?: Json
@@ -263,9 +271,12 @@ export type Database = {
           team_count?: number
           updated_at?: string
           user_id: string
+          weekly_high_bonus?: boolean
+          weekly_high_label?: string | null
         }
         Update: {
           color?: string | null
+          contest_format?: string
           created_at?: string
           current_week?: number
           external_id?: string | null
@@ -278,6 +289,8 @@ export type Database = {
           name?: string
           platform?: string
           playoff_teams?: number
+          points_playoff_teams?: number | null
+          points_playoff_week?: number | null
           projection_source?: string
           regular_season_weeks?: number
           roster_slots?: Json
@@ -287,6 +300,8 @@ export type Database = {
           team_count?: number
           updated_at?: string
           user_id?: string
+          weekly_high_bonus?: boolean
+          weekly_high_label?: string | null
         }
         Relationships: []
       }

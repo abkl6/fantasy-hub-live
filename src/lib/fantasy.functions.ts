@@ -214,6 +214,13 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         scoring_rules: bundle.league.scoring_settings ?? {},
         roster_slots: slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],
         format: sleeperFormat(bundle.league.settings as Record<string, unknown> | undefined),
+        // Sleeper best-ball leagues are decided on total points, not matchups.
+        contest_format:
+          Number(
+            (bundle.league.settings as Record<string, unknown> | undefined)?.["best_ball"] ?? 0,
+          ) === 1
+            ? "points"
+            : "h2h",
         last_synced_at: new Date().toISOString(),
       })
       .select()
@@ -477,11 +484,23 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         format: z.enum(LEAGUE_FORMATS).optional(),
         color: z.string().max(20).optional(),
         projectionSource: z.enum(["platform", "app", "user"]).optional(),
+        contestFormat: z.enum(["h2h", "points", "hybrid"]).optional(),
+        pointsPlayoffTeams: z.number().int().min(0).max(32).nullable().optional(),
+        pointsPlayoffWeek: z.number().int().min(1).max(18).nullable().optional(),
+        weeklyHighBonus: z.boolean().optional(),
+        weeklyHighLabel: z.string().max(40).nullable().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = {};
+    if (data.contestFormat !== undefined) patch["contest_format"] = data.contestFormat;
+    if (data.pointsPlayoffTeams !== undefined)
+      patch["points_playoff_teams"] = data.pointsPlayoffTeams || null;
+    if (data.pointsPlayoffWeek !== undefined) patch["points_playoff_week"] = data.pointsPlayoffWeek;
+    if (data.weeklyHighBonus !== undefined) patch["weekly_high_bonus"] = data.weeklyHighBonus;
+    if (data.weeklyHighLabel !== undefined)
+      patch["weekly_high_label"] = data.weeklyHighLabel?.trim() || null;
     if (data.currentWeek !== undefined) patch["current_week"] = data.currentWeek;
     if (data.scoringRules !== undefined) patch["scoring_rules"] = data.scoringRules;
     if (data.rosterSlots !== undefined) patch["roster_slots"] = data.rosterSlots;

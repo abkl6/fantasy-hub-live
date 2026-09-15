@@ -6,6 +6,7 @@ import type { Database } from "@/integrations/supabase/types";
 import {
   optimalLineup,
   positionGrades,
+  simulatePointsRace,
   simulateSeason,
   slotAccepts,
   teamDistribution,
@@ -16,6 +17,7 @@ import {
   type SimTeamResult,
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
+import { asContestFormat, CONTEST_LABELS, hasPointsRace, type ContestFormat } from "./contest";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { fetchAllRows } from "./paginate";
@@ -135,6 +137,26 @@ export interface MoveSuggestion {
 }
 
 
+/** One row of the season-long total points table. */
+export interface PointsStandingRow {
+  teamId: string;
+  name: string;
+  isMine: boolean;
+  totalPoints: number;
+  weeklyAverage: number;
+  /** Best single week, null when no finished weeks are stored. */
+  highWeek: number | null;
+  gapToLeader: number;
+  /** Times this team was the league's top scorer in a week. */
+  weeklyHighs: number;
+  firstOdds: number;
+  topThreeOdds: number;
+  topNOdds: number | null;
+  rank: number;
+  /** Gap to the leader after each finished week, for the trend line. */
+  gapHistory: { week: number; gap: number }[];
+}
+
 export interface ScoreboardGame {
   week: number;
   home: { id: string; name: string; score: number; isMine: boolean };
@@ -165,6 +187,8 @@ export interface AnalysisPayload {
     /** KTC market value of roster + picks; dynasty leagues only. */
     dynastyValue: number | null;
     dynastyRank: number | null;
+    /** Weeks this team was the league's top scorer. */
+    weeklyHighs: number;
   })[];
   grades: PositionGrade[];
   lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
@@ -177,6 +201,14 @@ export interface AnalysisPayload {
   alerts: Alert[];
   format: LeagueFormat;
   formatLabel: string;
+  /** How the league is won: head to head, total points, or both. */
+  contestFormat: ContestFormat;
+  contestLabel: string;
+  /** Total points table; null on pure head-to-head leagues. */
+  pointsStandings: PointsStandingRow[] | null;
+  pointsPlayoff: { teams: number | null; afterWeek: number | null };
+  weeklyHighBonus: boolean;
+  weeklyHighLabel: string | null;
   scoringLabel: string;
   /** Where the projections on this page come from. */
   projectionLabel: string;
@@ -424,6 +456,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         }),
         dynastyValue: dynastyValueById.get(r.id) ?? null,
         dynastyRank: dynastyRankById.get(r.id) ?? null,
+        weeklyHighs: 0,
       };
     });
 
@@ -444,9 +477,114 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
 
 
+  // --- season-long total points race ---------------------------------------
+  const contestFormat = asContestFormat((league as { contest_format?: string }).contest_format);
+  const pointsPlayoff = {
+    teams: (league as { points_playoff_teams?: number | null }).points_playoff_teams ?? null,
+    afterWeek: (league as { points_playoff_week?: number | null }).points_playoff_week ?? null,
+  };
+  const weeklyHighBonus = Boolean((league as { weekly_high_bonus?: boolean }).weekly_high_bonus);
+  const weeklyHighLabel = (league as { weekly_high_label?: string | null }).weekly_high_label ?? null;
+
+  /** Finished weekly scores per team, drawn from the stored matchups. */
+  const weekScores = new Map<string, Map<number, number>>();
+  for (const m of matchups) {
+    if (!m.is_final) continue;
+    for (const side of [
+      { id: m.home_team_id, score: Number(m.home_score) },
+      { id: m.away_team_id, score: Number(m.away_score) },
+    ]) {
+      if (!side.id) continue;
+      const byWeek = weekScores.get(side.id) ?? new Map<number, number>();
+      byWeek.set(m.week, side.score);
+      weekScores.set(side.id, byWeek);
+    }
+  }
+  const finishedWeeks = [...new Set([...weekScores.values()].flatMap((m) => [...m.keys()]))].sort(
+    (a, b) => a - b,
+  );
+  const weeklyHighCount = new Map<string, number>();
+  for (const w of finishedWeeks) {
+    let best: { id: string; score: number } | null = null;
+    for (const [teamId, byWeek] of weekScores) {
+      const score = byWeek.get(w);
+      if (score === undefined) continue;
+      if (!best || score > best.score) best = { id: teamId, score };
+    }
+    if (best) weeklyHighCount.set(best.id, (weeklyHighCount.get(best.id) ?? 0) + 1);
+  }
+
+  for (const row of standings) row.weeklyHighs = weeklyHighCount.get(row.id) ?? 0;
+
+  let pointsStandings: PointsStandingRow[] | null = null;
+  if (hasPointsRace(contestFormat) && teams.length) {
+    const raceWeeksLeft = Math.max(0, league.regular_season_weeks - (league.current_week - 1));
+    const race = simulatePointsRace(
+      simInputs.map((t) => ({
+        id: t.id,
+        name: t.name,
+        isMine: t.isMine,
+        pointsFor: t.pointsFor,
+        mean: t.mean,
+        sd: t.sd,
+      })),
+      { weeksLeft: raceWeeksLeft, topN: pointsPlayoff.teams },
+      2000,
+      31,
+    );
+    const raceById = new Map(race.map((r) => [r.id, r]));
+    const leaderTotal = Math.max(...teams.map((t) => Number(t.points_for)), 0);
+
+    // Running gap to the leader after each finished week.
+    const cumulative = new Map<string, number>();
+    const gapHistory = new Map<string, { week: number; gap: number }[]>();
+    for (const w of finishedWeeks) {
+      for (const t of teams) {
+        const add = weekScores.get(t.id)?.get(w) ?? 0;
+        cumulative.set(t.id, (cumulative.get(t.id) ?? 0) + add);
+      }
+      const lead = Math.max(...teams.map((t) => cumulative.get(t.id) ?? 0));
+      for (const t of teams) {
+        const list = gapHistory.get(t.id) ?? [];
+        list.push({ week: w, gap: Math.round((lead - (cumulative.get(t.id) ?? 0)) * 10) / 10 });
+        gapHistory.set(t.id, list);
+      }
+    }
+
+    pointsStandings = teams
+      .map((t) => {
+        const total = Number(t.points_for);
+        const weeks = [...(weekScores.get(t.id)?.values() ?? [])];
+        const played = weeks.length || t.wins + t.losses + t.ties;
+        return {
+          teamId: t.id,
+          name: t.name,
+          isMine: t.is_mine,
+          totalPoints: Math.round(total * 10) / 10,
+          weeklyAverage: played > 0 ? Math.round((total / played) * 10) / 10 : 0,
+          highWeek: weeks.length ? Math.round(Math.max(...weeks) * 10) / 10 : null,
+          gapToLeader: Math.round((leaderTotal - total) * 10) / 10,
+          weeklyHighs: weeklyHighCount.get(t.id) ?? 0,
+          firstOdds: raceById.get(t.id)?.firstOdds ?? 0,
+          topThreeOdds: raceById.get(t.id)?.topThreeOdds ?? 0,
+          topNOdds: raceById.get(t.id)?.topNOdds ?? null,
+          rank: 0,
+          gapHistory: gapHistory.get(t.id) ?? [],
+        };
+      })
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .map((row, i) => ({ ...row, rank: i + 1 }));
+  }
+
   const formatMeta = {
     format,
     formatLabel: FORMAT_LABELS[format],
+    contestFormat,
+    contestLabel: CONTEST_LABELS[contestFormat],
+    pointsStandings,
+    pointsPlayoff,
+    weeklyHighBonus,
+    weeklyHighLabel,
     scoringLabel: scoring.label,
     projectionLabel: proj.sourceLabel,
     survival,

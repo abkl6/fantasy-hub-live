@@ -290,6 +290,146 @@ export function simulateSeason(
   return results;
 }
 
+// --- total points race -----------------------------------------------------
+
+export interface PointsRaceTeam {
+  id: string;
+  name: string;
+  isMine: boolean;
+  /** Points already banked this season. */
+  pointsFor: number;
+  mean: number;
+  sd: number;
+}
+
+export interface PointsRaceResult {
+  id: string;
+  name: string;
+  isMine: boolean;
+  /** Projected final season total. */
+  projTotal: number;
+  firstOdds: number;
+  topThreeOdds: number;
+  /** Chance of finishing inside the league's qualifying cut, when one is set. */
+  topNOdds: number | null;
+  rank: number;
+}
+
+/**
+ * A total-points league has no matchups: every team simply accumulates points,
+ * so the whole season is one race. Returns the chance of finishing first, in
+ * the top three, and inside the qualifying cut.
+ */
+export function simulatePointsRace(
+  teams: PointsRaceTeam[],
+  config: { weeksLeft: number; topN?: number | null },
+  iterations = 2000,
+  seed = 31,
+): PointsRaceResult[] {
+  const n = teams.length;
+  if (!n) return [];
+  const rand = mulberry32(seed);
+  const weeksLeft = Math.max(0, config.weeksLeft);
+  const topN = config.topN && config.topN > 0 ? Math.min(config.topN, n) : null;
+
+  const first = new Array(n).fill(0);
+  const topThree = new Array(n).fill(0);
+  const inCut = new Array(n).fill(0);
+  const totals = new Array(n).fill(0);
+
+  for (let it = 0; it < iterations; it++) {
+    const finals = teams.map((t) => {
+      let total = t.pointsFor;
+      for (let w = 0; w < weeksLeft; w++) total += Math.max(0, t.mean + gaussian(rand) * t.sd);
+      return total;
+    });
+    for (let i = 0; i < n; i++) totals[i] += finals[i]!;
+    const order = finals.map((_, i) => i).sort((a, b) => finals[b]! - finals[a]!);
+    if (order.length) first[order[0]!] += 1;
+    for (const i of order.slice(0, Math.min(3, n))) topThree[i] += 1;
+    if (topN) for (const i of order.slice(0, topN)) inCut[i] += 1;
+  }
+
+  const results = teams.map((t, i) => ({
+    id: t.id,
+    name: t.name,
+    isMine: t.isMine,
+    projTotal: Math.round((totals[i]! / iterations) * 10) / 10,
+    firstOdds: first[i]! / iterations,
+    topThreeOdds: topThree[i]! / iterations,
+    topNOdds: topN ? inCut[i]! / iterations : null,
+    rank: 0,
+  }));
+
+  [...results]
+    .sort((a, b) => b.projTotal - a.projTotal)
+    .forEach((r, i) => {
+      r.rank = i + 1;
+    });
+
+  return results;
+}
+
+// --- weekly high bonus -----------------------------------------------------
+
+export interface WeeklyHighTeam {
+  id: string;
+  name: string;
+  isMine: boolean;
+  /** Points already scored this week. */
+  livePoints: number;
+  /** Projected points still to come from players who have not finished. */
+  projectedRemaining: number;
+  /** Spread of that remaining projection. */
+  sd: number;
+}
+
+export interface WeeklyHighResult {
+  id: string;
+  name: string;
+  isMine: boolean;
+  probability: number;
+  projectedFinal: number;
+}
+
+/**
+ * Chance each team finishes as the league's top scorer this week. Before
+ * kickoff every team's live score is zero, so it runs on full projections;
+ * once games start, banked points carry no uncertainty.
+ */
+export function simulateWeeklyHigh(
+  teams: WeeklyHighTeam[],
+  iterations = 3000,
+  seed = 53,
+): WeeklyHighResult[] {
+  const n = teams.length;
+  if (!n) return [];
+  const rand = mulberry32(seed);
+  const wins = new Array(n).fill(0);
+
+  for (let it = 0; it < iterations; it++) {
+    let bestIndex = 0;
+    let bestScore = -Infinity;
+    for (let i = 0; i < n; i++) {
+      const t = teams[i]!;
+      const score = t.livePoints + Math.max(0, t.projectedRemaining + gaussian(rand) * t.sd);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+      }
+    }
+    wins[bestIndex] += 1;
+  }
+
+  return teams.map((t, i) => ({
+    id: t.id,
+    name: t.name,
+    isMine: t.isMine,
+    probability: wins[i]! / iterations,
+    projectedFinal: Math.round((t.livePoints + t.projectedRemaining) * 10) / 10,
+  }));
+}
+
 // --- grades ---------------------------------------------------------------
 
 export const GRADE_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];

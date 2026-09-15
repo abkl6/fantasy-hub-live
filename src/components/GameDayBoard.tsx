@@ -95,6 +95,53 @@ function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
   );
 }
 
+export function ordinal(n: number) {
+  const rest = n % 100;
+  if (rest >= 11 && rest <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+}
+
+/** Total-points leagues have no opponent: the score sits beside my standing. */
+function PointsRaceScore({ m, display }: { m: LiveMatchup; display: number }) {
+  const race = m.pointsRace;
+  return (
+    <div className="mt-4 grid grid-cols-[1fr_1fr] items-center gap-4">
+      <div className="min-w-0">
+        <p className="truncate text-[12px] text-muted-foreground">{m.myTeam}</p>
+        <p className="stat-num text-5xl font-bold leading-none">{display.toFixed(1)}</p>
+        <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">proj {m.myProjected.toFixed(1)}</p>
+      </div>
+      <div className="min-w-0 space-y-1 text-right text-[12px] text-muted-foreground">
+        {race ? (
+          <>
+            <p>
+              <span className="stat-num text-base font-bold text-foreground">
+                {ordinal(race.rankThisWeek)}
+              </span>{" "}
+              this week
+            </p>
+            <p>
+              {ordinal(race.seasonRank)} of {race.teamCount} on the season ·{" "}
+              <span className="tabular-nums">{race.seasonTotal.toFixed(1)}</span>
+            </p>
+            <p className="tabular-nums">
+              {race.gapAbove ? `${race.gapAbove.points.toFixed(1)} behind ${race.gapAbove.name}` : "Leading the league"}
+            </p>
+            <p className="tabular-nums">
+              {race.gapBelow ? `${race.gapBelow.points.toFixed(1)} ahead of ${race.gapBelow.name}` : "Last place"}
+            </p>
+            <p className="tabular-nums">
+              {race.playersLeft} left to play · proj {race.projectedRemaining.toFixed(1)} more
+            </p>
+          </>
+        ) : (
+          <p>Standing unavailable.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MatchupCard({ m }: { m: LiveMatchup }) {
   const [expanded, setExpanded] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -105,6 +152,7 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
   const live = m.gameState === "in";
   const final = m.gameState === "post";
   const history = m.oddsHistory ?? [];
+  const pointsOnly = m.contestFormat === "points";
 
   return (
     <article
@@ -123,6 +171,11 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
             {m.leagueName}
           </p>
           <span className="shrink-0 text-xs text-muted-foreground">Week {m.week}</span>
+          {m.weeklyHigh?.leading && (
+            <Badge variant="secondary" className="shrink-0 text-[10px]">
+              Weekly high
+            </Badge>
+          )}
         </div>
         <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
           {m.isBestBall ? `Best ball · ${m.leagueRank ?? "—"} of ${m.teamCount}` : m.scoringLabel}
@@ -158,33 +211,57 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-[12px] text-muted-foreground">{m.myTeam}</p>
-          <p className="stat-num text-5xl font-bold leading-none">{mine.display.toFixed(1)}</p>
-          <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">proj {m.myProjected.toFixed(1)}</p>
-        </div>
-
-        <div className="w-16 sm:w-24">
-          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${odds ?? 0}%` }} />
+      {pointsOnly ? (
+        <PointsRaceScore m={m} display={mine.display} />
+      ) : (
+        <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <div className="min-w-0">
+            <p className="truncate text-[12px] text-muted-foreground">{m.myTeam}</p>
+            <p className="stat-num text-5xl font-bold leading-none">{mine.display.toFixed(1)}</p>
+            <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">proj {m.myProjected.toFixed(1)}</p>
           </div>
-          <p className="mt-1 text-center text-[11px] tabular-nums text-muted-foreground">
-            {odds === null ? "—" : `${odds}%`}
-          </p>
-        </div>
 
-        <div className="min-w-0 text-right">
-          <p className="truncate text-[12px] text-muted-foreground">
-            {m.isBestBall ? `${m.oppTeam ?? "—"} · leader` : m.oppTeam ?? "Opponent unavailable"}
-          </p>
-          <p className="stat-num text-5xl font-bold leading-none">{theirs.display.toFixed(1)}</p>
-          <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">proj {m.oppProjected.toFixed(1)}</p>
-        </div>
-      </div>
+          <div className="w-16 sm:w-24">
+            <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${odds ?? 0}%` }} />
+            </div>
+            <p className="mt-1 text-center text-[11px] tabular-nums text-muted-foreground">
+              {odds === null ? "—" : `${odds}%`}
+            </p>
+          </div>
 
-      {m.needLine && (
+          <div className="min-w-0 text-right">
+            <p className="truncate text-[12px] text-muted-foreground">
+              {m.isBestBall ? `${m.oppTeam ?? "—"} · leader` : m.oppTeam ?? "Opponent unavailable"}
+            </p>
+            <p className="stat-num text-5xl font-bold leading-none">{theirs.display.toFixed(1)}</p>
+            <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">proj {m.oppProjected.toFixed(1)}</p>
+          </div>
+        </div>
+      )}
+
+      {m.needLine && !pointsOnly && (
         <p className="mt-3 text-center text-[12px] text-muted-foreground">{m.needLine}</p>
+      )}
+
+      {m.contestFormat === "hybrid" && m.pointsRace && (
+        <p className="mt-2 text-center text-[12px] text-muted-foreground">
+          Points race: {ordinal(m.pointsRace.seasonRank)} of {m.pointsRace.teamCount} ·{" "}
+          {Math.round(m.pointsRace.firstOdds * 100)}% to win it
+          {m.pointsRace.topN
+            ? ` · ${Math.round((m.pointsRace.topNOdds ?? 0) * 100)}% top ${m.pointsRace.topN}`
+            : ""}
+        </p>
+      )}
+
+      {m.weeklyHigh && m.gameState !== "post" && (
+        <p className="mt-2 text-center text-[12px] text-muted-foreground">
+          Weekly high{m.weeklyHigh.label ? ` (${m.weeklyHigh.label})` : ""}:{" "}
+          {Math.round(m.weeklyHigh.probability * 100)}% ·{" "}
+          {m.weeklyHigh.leading
+            ? `you lead ${m.weeklyHigh.leaderName} by ${Math.abs(m.weeklyHigh.gap).toFixed(1)}`
+            : `you're ${m.weeklyHigh.gap.toFixed(1)} behind ${m.weeklyHigh.leaderName}`}
+        </p>
       )}
 
       <Button className="mt-4 w-full" size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>
@@ -196,11 +273,26 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
         <div className="mt-3 space-y-6 pt-4">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
             <span>
-              {m.yetToPlay} yours · {m.oppYetToPlay} {m.isBestBall ? "leader" : "opponent"} left to play
+              {m.yetToPlay} yours
+              {pointsOnly ? " left to play" : ` · ${m.oppYetToPlay} ${m.isBestBall ? "leader" : "opponent"} left to play`}
             </span>
             <span className="flex items-center gap-3">
-              {m.titleOdds !== null && <span>Title {(m.titleOdds * 100).toFixed(1)}%</span>}
-              {m.playoffOdds !== null && <span>Playoffs {(m.playoffOdds * 100).toFixed(1)}%</span>}
+              {pointsOnly && m.pointsRace ? (
+                <>
+                  <span>1st {(m.pointsRace.firstOdds * 100).toFixed(1)}%</span>
+                  <span>Top 3 {(m.pointsRace.topThreeOdds * 100).toFixed(1)}%</span>
+                  {m.pointsRace.topN !== null && (
+                    <span>
+                      Top {m.pointsRace.topN} {((m.pointsRace.topNOdds ?? 0) * 100).toFixed(1)}%
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {m.titleOdds !== null && <span>Title {(m.titleOdds * 100).toFixed(1)}%</span>}
+                  {m.playoffOdds !== null && <span>Playoffs {(m.playoffOdds * 100).toFixed(1)}%</span>}
+                </>
+              )}
               {history.length > 1 && (
                 <Sparkline
                   values={history.map((h) => h.titleOdds)}
@@ -222,16 +314,18 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
                 ))}
               </div>
             </div>
-            <div>
-              <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader lineup" : "Opponent starters"}</p>
-              <div className="divide-y divide-border/60">
-                {m.oppStarters.length ? (
-                  m.oppStarters.map((p) => <PlayerLine key={`o-${p.name}-${p.slot}`} p={p} />)
-                ) : (
-                  <p className="py-2 text-sm text-muted-foreground">No opponent lineup yet.</p>
-                )}
+            {!pointsOnly && (
+              <div>
+                <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader lineup" : "Opponent starters"}</p>
+                <div className="divide-y divide-border/60">
+                  {m.oppStarters.length ? (
+                    m.oppStarters.map((p) => <PlayerLine key={`o-${p.name}-${p.slot}`} p={p} />)
+                  ) : (
+                    <p className="py-2 text-sm text-muted-foreground">No opponent lineup yet.</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
             {(m.bench.length > 0 || m.oppBench.length > 0) && (
               <>
                 <div>
@@ -242,14 +336,16 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
                     ))}
                   </div>
                 </div>
-                <div>
-                  <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader bench" : "Opponent bench"}</p>
-                  <div className="divide-y divide-border/60">
-                    {m.oppBench.map((p) => (
-                      <PlayerLine key={`ob-${p.name}-${p.slot}`} p={p} dim />
-                    ))}
+                {!pointsOnly && (
+                  <div>
+                    <p className="eyebrow mb-1 text-muted-foreground">{m.isBestBall ? "Leader bench" : "Opponent bench"}</p>
+                    <div className="divide-y divide-border/60">
+                      {m.oppBench.map((p) => (
+                        <PlayerLine key={`ob-${p.name}-${p.slot}`} p={p} dim />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
           </div>
