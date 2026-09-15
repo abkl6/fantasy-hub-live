@@ -35,6 +35,7 @@ type HubLeague = {
   record: string;
   titleOdds: number;
   playoffOdds: number;
+  lastConfirmedAt?: string | null;
 };
 
 function LeagueCard({ league }: { league: HubLeague }) {
@@ -56,7 +57,16 @@ function LeagueCard({ league }: { league: HubLeague }) {
   return (
     <article className="rounded-xl bg-card p-4">
       <div className="flex items-start justify-between gap-3">
-        <div><Badge variant="secondary">{PLATFORM[league.platform] ?? league.platform}</Badge><h3 className="mt-2 font-bold">{league.name}</h3><p className="text-xs text-muted-foreground">{league.teamName} · {league.record}</p></div>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{PLATFORM[league.platform] ?? league.platform}</Badge>
+            {league.platform === "manual" && (
+              <ManualFreshnessBadge lastConfirmedAt={league.lastConfirmedAt ?? null} />
+            )}
+          </div>
+          <h3 className="mt-2 font-bold">{league.name}</h3>
+          <p className="text-xs text-muted-foreground">{league.teamName} · {league.record}</p>
+        </div>
         <div className="text-right text-xs"><p className="text-muted-foreground">Title</p><Percent value={league.titleOdds} /></div>
       </div>
       <div className="mt-4 flex items-center justify-between gap-2">
