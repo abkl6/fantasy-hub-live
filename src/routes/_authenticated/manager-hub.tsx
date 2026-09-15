@@ -435,6 +435,30 @@ function ManagerHub() {
           <div className="rounded-xl bg-card p-5"><BellRing className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.alerts.length}</p><p className="text-xs text-muted-foreground">Injury &amp; bye alerts</p></div>
         </section>
 
+        <section className="mt-6 rounded-xl bg-card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold">League standings</h2></div>
+              <p className="mt-1 text-xs text-muted-foreground">Every league at a glance — your row is highlighted, with title, playoff and dynasty value for every team.</p>
+            </div>
+            <div className="flex gap-1">
+              {([["title", "Title chance"], ["playoff", "Playoff chance"], ["dynasty", "Dynasty value"]] as const).map(([key, label]) => (
+                <Button key={key} size="sm" variant={standingsSort === key ? "default" : "outline"} onClick={() => setStandingsSort(key)}>{label}</Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Best title chance</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.bestTitle === null ? "—" : `${(summary.bestTitle * 100).toFixed(1)}%`}</p></div>
+            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Playoff-bound leagues</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.playoffBound}/{data.standings.length}</p></div>
+            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Total dynasty value</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.dynastyTotal === null ? "—" : summary.dynastyTotal.toLocaleString()}</p></div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {sortedStandings.map((league) => <StandingsCard key={league.leagueId} league={league} />)}
+          </div>
+        </section>
+
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <section className="rounded-xl bg-card p-5">
             <div className="flex items-center gap-2"><Repeat2 className="size-5 text-primary" /><h2 className="text-xl font-bold">Trade suggestions</h2></div>
@@ -471,30 +495,6 @@ function ManagerHub() {
           <p className="mt-1 text-xs text-muted-foreground">Your most repeated players and concentrated injury risk.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {data.exposure.slice(0, 12).map((player) => <div key={`${player.name}-${player.position}`} className="flex items-center justify-between rounded-lg bg-secondary/30 p-3"><div><p className="text-sm font-semibold">{player.name} <span className="text-xs font-normal text-muted-foreground">{player.position}{player.nflTeam ? ` · ${player.nflTeam}` : ""}</span></p><p className="text-xs text-muted-foreground">{player.leagueNames.join(" · ")}</p></div><div className="text-right"><p className="font-display font-bold">{player.leagues}/{player.totalLeagues}</p><p className={`text-[10px] ${player.status === "Active" ? "text-muted-foreground" : "text-destructive"}`}>{player.status}</p></div></div>)}
-          </div>
-        </section>
-
-        <section className="mt-6 rounded-xl bg-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2"><Trophy className="size-5 text-primary" /><h2 className="text-xl font-bold">League standings</h2></div>
-              <p className="mt-1 text-xs text-muted-foreground">Every league at a glance — your row is highlighted, with title, playoff and dynasty value for every team.</p>
-            </div>
-            <div className="flex gap-1">
-              {([["title", "Title chance"], ["playoff", "Playoff chance"], ["dynasty", "Dynasty value"]] as const).map(([key, label]) => (
-                <Button key={key} size="sm" variant={standingsSort === key ? "default" : "outline"} onClick={() => setStandingsSort(key)}>{label}</Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Best title chance</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.bestTitle === null ? "—" : `${(summary.bestTitle * 100).toFixed(1)}%`}</p></div>
-            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Playoff-bound leagues</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.playoffBound}/{data.standings.length}</p></div>
-            <div className="rounded-lg bg-secondary/30 p-3"><p className="text-[10px] text-muted-foreground">Total dynasty value</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{summary.dynastyTotal === null ? "—" : summary.dynastyTotal.toLocaleString()}</p></div>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {sortedStandings.map((league) => <StandingsCard key={league.leagueId} league={league} />)}
           </div>
         </section>
 
