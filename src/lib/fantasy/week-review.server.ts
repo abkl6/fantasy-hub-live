@@ -27,6 +27,14 @@ export interface WeekReview {
   median: number;
   beatMedian: boolean;
   luck: "lucky" | "unlucky" | "deserved";
+  /** Where my score ranked in the league that week. */
+  rank: number;
+  teamCount: number;
+  /** Season standing on total points, and how it moved that week. */
+  seasonRank: number;
+  seasonRankChange: number;
+  /** The league's weekly top-scorer bonus, when it runs one. */
+  weeklyHigh: { won: boolean; margin: number; topTeam: string; label: string | null } | null;
   recommendation: { headline: string; detail: string } | null;
 }
 
@@ -68,6 +76,8 @@ export async function buildWeekReview(
     rosterSlots: Slot[];
     myTeamId: string;
     recommendation: { headline: string; detail: string } | null;
+    weeklyHighBonus?: boolean;
+    weeklyHighLabel?: string | null;
   },
 ): Promise<WeekReview | null> {
   const { data: matchupRows } = await supabase
@@ -156,6 +166,55 @@ export async function buildWeekReview(
     }
   }
 
+  // Rank this week, and the season points standing before and after it.
+  const weekByTeam = new Map<string, number>();
+  for (const m of weekRows) {
+    if (m.home_team_id) weekByTeam.set(m.home_team_id, Number(m.home_score));
+    if (m.away_team_id) weekByTeam.set(m.away_team_id, Number(m.away_score));
+  }
+  const weekOrder = [...weekByTeam.entries()].sort((a, b) => b[1] - a[1]);
+  const rank = Math.max(1, weekOrder.findIndex(([id]) => id === input.myTeamId) + 1);
+  const teamCount = weekOrder.length;
+
+  const cumulative = new Map<string, number>();
+  const cumulativeBefore = new Map<string, number>();
+  for (const m of finals) {
+    if (m.week > week) continue;
+    for (const side of [
+      { id: m.home_team_id, score: Number(m.home_score) },
+      { id: m.away_team_id, score: Number(m.away_score) },
+    ]) {
+      if (!side.id) continue;
+      cumulative.set(side.id, (cumulative.get(side.id) ?? 0) + side.score);
+      if (m.week < week) cumulativeBefore.set(side.id, (cumulativeBefore.get(side.id) ?? 0) + side.score);
+    }
+  }
+  const rankIn = (totals: Map<string, number>) => {
+    const order = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+    const i = order.findIndex(([id]) => id === input.myTeamId);
+    return i >= 0 ? i + 1 : order.length + 1;
+  };
+  const seasonRank = rankIn(cumulative);
+  const seasonRankChange = cumulativeBefore.size ? rankIn(cumulativeBefore) - seasonRank : 0;
+
+  let weeklyHigh: WeekReview["weeklyHigh"] = null;
+  if (input.weeklyHighBonus && weekOrder.length) {
+    const [topId, topScore] = weekOrder[0]!;
+    const won = topId === input.myTeamId;
+    const runnerUp = weekOrder[1]?.[1] ?? topScore;
+    const { data: topTeamRow } = await supabase
+      .from("teams")
+      .select("name")
+      .eq("id", topId)
+      .maybeSingle();
+    weeklyHigh = {
+      won,
+      margin: round1(won ? myScore - runnerUp : topScore - myScore),
+      topTeam: (topTeamRow as { name?: string } | null)?.name ?? "the top scorer",
+      label: input.weeklyHighLabel ?? null,
+    };
+  }
+
   const result = myScore > oppScore ? "win" : myScore < oppScore ? "loss" : "tie";
   const beatMedian = myScore > med;
   const luck =
@@ -174,6 +233,11 @@ export async function buildWeekReview(
     median: round1(med),
     beatMedian,
     luck,
+    rank,
+    teamCount,
+    seasonRank,
+    seasonRankChange,
+    weeklyHigh,
     recommendation: input.recommendation,
   };
 }
