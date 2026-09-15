@@ -4,7 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 
 import { TradeBuilder } from "@/components/TradeBuilder";
+import { TradeFinder } from "@/components/TradeFinder";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listLeagues } from "@/lib/fantasy.functions";
 
 const TITLE = "Trade Simulator — price any trade before you send it";
