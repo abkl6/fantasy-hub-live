@@ -9,6 +9,7 @@ import {
   Monitor,
   Plus,
   Radio,
+  ListChecks,
   Repeat2,
   Users,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { homeRoute, inPrepWindow } from "@/lib/fantasy/gamewindow";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -30,6 +32,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 const TABS = [
   { to: "/gameday", label: "Game Day", icon: Radio },
+  { to: "/this-week", label: "This week", icon: ListChecks },
   { to: "/games", label: "Games", icon: CalendarDays },
   { to: "/manager-hub", label: "Hub", icon: BarChart3 },
   { to: "/trade-desk", label: "Trades", icon: Repeat2 },
@@ -59,7 +62,7 @@ function AuthenticatedLayout() {
     <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/gameday" className="font-display text-lg font-bold tracking-wider">
+          <Link to={homeRoute()} className="font-display text-lg font-bold tracking-wider">
             Gridiron<span className="text-primary">Edge</span>
           </Link>
           <DropdownMenu>

@@ -3,6 +3,7 @@ import { Activity, LineChart, Trophy, Zap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { homeRoute } from "@/lib/fantasy/gamewindow";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -57,7 +58,7 @@ function Landing() {
           Gridiron<span className="text-primary">Edge</span>
         </span>
         <Button asChild variant={session ? "default" : "outline"} size="sm">
-          <Link to={session ? "/gameday" : "/auth"}>
+          <Link to={session ? homeRoute() : "/auth"}>
             {loading ? "…" : session ? "Open game day" : "Sign in"}
           </Link>
         </Button>
@@ -75,7 +76,7 @@ function Landing() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link to={session ? "/gameday" : "/auth"}>Start tracking your teams</Link>
+            <Link to={session ? homeRoute() : "/auth"}>Start tracking your teams</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link to="/auth">Create an account</Link>
