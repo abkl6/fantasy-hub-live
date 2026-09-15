@@ -72,6 +72,7 @@ export interface EspnLeagueBundle {
   regularSeasonWeeks: number;
   scoringType: string;
   rosterSlots: string[];
+  contestFormat?: "h2h" | "points" | "hybrid";
   teams: EspnTeam[];
   schedule: {
     week: number;

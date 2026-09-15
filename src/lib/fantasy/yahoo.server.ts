@@ -181,6 +181,7 @@ export interface YahooLeagueBundle {
   regularSeasonWeeks: number;
   scoringType: string;
   rosterSlots: string[];
+  contestFormat?: "h2h" | "points" | "hybrid";
   teams: YahooTeam[];
   schedule: {
     week: number;
