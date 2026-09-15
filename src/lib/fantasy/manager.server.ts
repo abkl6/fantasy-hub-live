@@ -111,14 +111,26 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
     .sort((a, b) => ({ high: 0, medium: 1, low: 2 })[a.severity] - ({ high: 0, medium: 1, low: 2 })[b.severity]);
 
   const exposureMap = new Map<string, ManagerHubPayload["exposure"][number]>();
+  // Everything I project to start this week, added up across every league —
+  // the denominator behind each player's share.
+  let weekTotal = 0;
   for (const analysis of analyses) {
     const roster = [...analysis.lineup, ...analysis.bench].filter((player) => player.name !== "Empty");
+    for (const starter of analysis.lineup) {
+      if (starter.name !== "Empty") weekTotal += starter.proj;
+    }
     for (const player of roster) {
       const key = `${normalizeName(player.name)}::${player.position}`;
+      // Only a starting spot puts points on my board this week.
+      const starting = analysis.lineup.some(
+        (s) => s.name !== "Empty" && normalizeName(s.name) === normalizeName(player.name),
+      );
+      const points = starting ? player.proj : 0;
       const current = exposureMap.get(key);
       if (current) {
         current.leagues += 1;
         current.leagueNames.push(analysis.league.name);
+        current.projPoints += points;
         if (current.status === "Active" && player.status !== "Active") current.status = player.status;
       } else {
         exposureMap.set(key, {
@@ -129,16 +141,25 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
           totalLeagues: leagues.length,
           status: player.status,
           leagueNames: [analysis.league.name],
+          projPoints: points,
+          share: 0,
+          concentrated: false,
         });
       }
     }
   }
 
-  const exposure = [...exposureMap.values()].sort((a, b) => {
-    const riskA = a.status === "Active" ? 0 : 1;
-    const riskB = b.status === "Active" ? 0 : 1;
-    return riskB - riskA || b.leagues - a.leagues || a.name.localeCompare(b.name);
-  });
+  const exposure = [...exposureMap.values()]
+    .map((player) => {
+      const share = weekTotal > 0 ? player.projPoints / weekTotal : 0;
+      return {
+        ...player,
+        projPoints: Math.round(player.projPoints * 10) / 10,
+        share,
+        concentrated: share > 0.15,
+      };
+    })
+    .sort((a, b) => b.share - a.share || b.leagues - a.leagues || a.name.localeCompare(b.name));
 
   const standings = (
     await Promise.all(
