@@ -214,6 +214,13 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         scoring_rules: bundle.league.scoring_settings ?? {},
         roster_slots: slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],
         format: sleeperFormat(bundle.league.settings as Record<string, unknown> | undefined),
+        // Sleeper best-ball leagues are decided on total points, not matchups.
+        contest_format:
+          Number(
+            (bundle.league.settings as Record<string, unknown> | undefined)?.["best_ball"] ?? 0,
+          ) === 1
+            ? "points"
+            : "h2h",
         last_synced_at: new Date().toISOString(),
       })
       .select()
