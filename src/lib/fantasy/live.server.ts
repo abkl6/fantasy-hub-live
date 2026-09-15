@@ -24,6 +24,7 @@ import {
 import { bestBallWeekProbability, headToHeadWinProbability, type ProbabilityPlayer } from "./game-probability";
 import { asFormat, bestBallDistribution } from "./format";
 import { loadProjections } from "./projections.server";
+import { resolveProjectionSource } from "./projection-source";
 import type {
   GameDayPayload,
   LiveEventRow,
@@ -627,6 +628,7 @@ export async function buildGameDay(
     const projections = await loadProjections(supabase, {
       scoring,
       week: league.current_week ?? liveWeek,
+      source: resolveProjectionSource(league),
     });
 
     const toRow = (s: SpotRow): LivePlayerRow => {

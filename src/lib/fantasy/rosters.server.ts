@@ -14,6 +14,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { slotAccepts } from "./engine";
 import { normalizeName } from "./names";
 import { loadProjections } from "./projections.server";
+import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
 
 
@@ -161,7 +162,7 @@ export async function leagueWaiverWire(
 ): Promise<WaiverPlayer[]> {
   const { data: league } = await supabase
     .from("leagues")
-    .select("roster_slots, scoring_type, scoring_rules, current_week")
+    .select("roster_slots, scoring_type, scoring_rules, current_week, platform, projection_source, user_id")
     .eq("id", leagueId)
     .maybeSingle();
   const slots = asSlots(league?.roster_slots);
@@ -178,7 +179,11 @@ export async function leagueWaiverWire(
       .order("proj_points_week", { ascending: false }),
   ]);
 
-  const proj = await loadProjections(supabase, { scoring, week: league?.current_week ?? 1 });
+  const proj = await loadProjections(supabase, {
+    scoring,
+    week: league?.current_week ?? 1,
+    source: resolveProjectionSource(league ?? {}),
+  });
 
   const taken = new Set((spots ?? []).map((s) => key(s.player_name)));
   const usable = (position: string) =>

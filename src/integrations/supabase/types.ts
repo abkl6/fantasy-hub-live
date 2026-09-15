@@ -162,6 +162,7 @@ export type Database = {
           name: string
           platform: string
           playoff_teams: number
+          projection_source: string
           regular_season_weeks: number
           roster_slots: Json
           scoring_rules: Json
@@ -183,6 +184,7 @@ export type Database = {
           name: string
           platform?: string
           playoff_teams?: number
+          projection_source?: string
           regular_season_weeks?: number
           roster_slots?: Json
           scoring_rules?: Json
@@ -204,6 +206,7 @@ export type Database = {
           name?: string
           platform?: string
           playoff_teams?: number
+          projection_source?: string
           regular_season_weeks?: number
           roster_slots?: Json
           scoring_rules?: Json
@@ -651,6 +654,7 @@ export type Database = {
           opponent: string | null
           player_id: string
           season: number
+          source: string
           src_points: number
           stats: Json
           updated_at: string
@@ -662,6 +666,7 @@ export type Database = {
           opponent?: string | null
           player_id: string
           season?: number
+          source?: string
           src_points?: number
           stats?: Json
           updated_at?: string
@@ -673,6 +678,7 @@ export type Database = {
           opponent?: string | null
           player_id?: string
           season?: number
+          source?: string
           src_points?: number
           stats?: Json
           updated_at?: string

@@ -17,6 +17,7 @@ import {
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
 import { loadProjections } from "./projections.server";
+import { resolveProjectionSource } from "./projection-source";
 import { fetchAllRows } from "./paginate";
 import { normalizeName } from "./names";
 import { leagueScoring } from "./scoring";
@@ -243,7 +244,11 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
 
   // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
+  const proj = await loadProjections(supabase, {
+    scoring,
+    week: league.current_week ?? 1,
+    source: resolveProjectionSource(league),
+  });
   const format = asFormat((league as { format?: string }).format);
   const bestBall = !hasLineupDecisions(format);
 
@@ -1092,6 +1097,7 @@ export async function evaluateTrade(
   const tradeProj = await loadProjections(supabase, {
     scoring: tradeScoring,
     week: analysis.league.current_week ?? 1,
+    source: resolveProjectionSource(analysis.league as never),
   });
 
   const roster: EnginePlayer[] = (spots ?? []).map((s) => ({
