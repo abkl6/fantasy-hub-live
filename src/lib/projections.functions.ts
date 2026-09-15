@@ -269,3 +269,198 @@ export const clearAllOverrides = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ------------------------------------------------- projection sources
+
+/**
+ * Pulls the host platform's own weekly projections (Sleeper, ESPN) into the
+ * projection database so leagues set to "platform" score them with their own
+ * rules. Sleeper's numbers are league-independent; ESPN's are read through one
+ * of the caller's ESPN leagues.
+ */
+export const importPlatformProjections = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        platform: z.enum(["sleeper", "espn"]),
+        season: z.number().int().min(2020).max(2100).optional(),
+        fromWeek: z.number().int().min(1).max(18).optional(),
+        toWeek: z.number().int().min(1).max(18).optional(),
+        espnLeagueId: z.string().max(40).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (!(await callerIsAdmin(context))) {
+      throw new Error("Only an admin can refresh platform projections.");
+    }
+    const { importSleeperProjections, importEspnProjections } = await import(
+      "@/lib/fantasy/platform-projections.server"
+    );
+    const season = data.season ?? new Date().getFullYear();
+    const from = data.fromWeek ?? 1;
+    const to = Math.max(from, data.toWeek ?? from);
+
+    const results: { week: number; matched: number; unmatched: number; error?: string }[] = [];
+    for (let week = from; week <= to; week++) {
+      try {
+        const res =
+          data.platform === "sleeper"
+            ? await importSleeperProjections(context.supabase, season, week)
+            : await importEspnProjections(
+                context.supabase,
+                data.espnLeagueId ?? "",
+                season,
+                week,
+                await espnCreds(context),
+              );
+        results.push({ week, matched: res.matched, unmatched: res.unmatched.length });
+      } catch (e) {
+        results.push({ week, matched: 0, unmatched: 0, error: e instanceof Error ? e.message : "Failed" });
+      }
+    }
+    return { platform: data.platform, season, results };
+  });
+
+async function espnCreds(context: { supabase: any; userId: string }) {
+  const { data } = await context.supabase
+    .from("platform_credentials")
+    .select("payload")
+    .eq("platform", "espn")
+    .maybeSingle();
+  const payload = (data?.payload ?? {}) as Record<string, string>;
+  return { swid: payload["swid"] ?? null, espnS2: payload["espn_s2"] ?? null };
+}
+
+/**
+ * "My projections" upload. Accepts the weekly stat template (a `week` column
+ * plus stat columns) or season totals, which are split evenly across the
+ * weeks that player's NFL team actually plays. Stored privately under the
+ * member's own source key, and only used by leagues set to "My projections".
+ */
+export const uploadMyProjections = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        csv: z.string().min(1).max(2_000_000),
+        season: z.number().int().min(2020).max(2100).optional(),
+        apply: z.boolean().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { BASELINE_RULES, scoreStats } = await import("@/lib/fantasy/scoring");
+    const season = data.season ?? new Date().getFullYear();
+
+    const rows = parseCsv(data.csv);
+    if (rows.length < 2) throw new Error("That file has no rows under the header.");
+    const header = rows[0]!.map((h) => h.trim().toLowerCase());
+    const iName = headerIndex(header, HEADERS.name);
+    const iPos = headerIndex(header, HEADERS.position);
+    const iWeek = header.findIndex((h) => h === "week");
+    if (iName < 0) throw new Error('The file needs a "player" column.');
+
+    const statCols = header
+      .map((h, i) => ({ key: h.replace(/\s+/g, "_"), i }))
+      .filter((c) => c.key in BASELINE_RULES);
+    if (!statCols.length) {
+      throw new Error("No stat columns were recognised. Use the weekly stats template.");
+    }
+
+    const { data: players } = await context.supabase
+      .from("players")
+      .select("id, full_name, position, nfl_team");
+    const index = playerIndex(players ?? []);
+
+    const { data: schedule } = await context.supabase
+      .from("nfl_schedule")
+      .select("week, nfl_team, opponent")
+      .eq("season", season);
+    const weeksByTeam = new Map<string, { week: number; opponent: string | null }[]>();
+    for (const row of schedule ?? []) {
+      if (!row.opponent) continue;
+      const key = row.nfl_team.toUpperCase();
+      const list = weeksByTeam.get(key) ?? [];
+      list.push({ week: row.week, opponent: row.opponent });
+      weeksByTeam.set(key, list);
+    }
+
+    const source = `user:${context.userId}`;
+    const out: Record<string, unknown>[] = [];
+    const unmatched: string[] = [];
+    let matchedCount = 0;
+
+    for (const raw of rows.slice(1)) {
+      const name = (raw[iName] ?? "").trim();
+      if (!name || !normalizeName(name)) continue;
+      const hit = index.find(name, iPos >= 0 ? (raw[iPos] ?? "").trim() : null);
+      if (!hit) { unmatched.push(name); continue; }
+
+      const stats: Record<string, number> = {};
+      for (const col of statCols) {
+        const n = Number(raw[col.i]);
+        if (Number.isFinite(n) && n !== 0) stats[col.key] = n;
+      }
+      matchedCount++;
+
+      const push = (week: number, line: Record<string, number>, opponent: string | null) =>
+        out.push({
+          player_id: hit.id,
+          season,
+          week,
+          opponent,
+          stats: line,
+          src_points: Math.round(scoreStats(line, BASELINE_RULES, hit.position) * 100) / 100,
+          source,
+        });
+
+      if (iWeek >= 0) {
+        const week = Number(raw[iWeek]);
+        if (!Number.isFinite(week) || week < 1 || week > 18) continue;
+        const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
+        push(week, stats, games.find((g) => g.week === week)?.opponent ?? null);
+      } else {
+        // Season totals: spread them across the weeks this team actually plays.
+        const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
+        const play = games.length ? games : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
+        for (const g of play) {
+          const per: Record<string, number> = {};
+          for (const [k, v] of Object.entries(stats)) per[k] = Math.round((v / play.length) * 1000) / 1000;
+          push(g.week, per, g.opponent);
+        }
+      }
+    }
+
+    if (data.apply && out.length) {
+      for (let i = 0; i < out.length; i += 500) {
+        const { error } = await context.supabase
+          .from("player_week_stats")
+          .upsert(out.slice(i, i + 500) as never, { onConflict: "player_id,season,week,source" });
+        if (error) throw new Error(error.message);
+      }
+    }
+
+    return {
+      applied: !!data.apply,
+      season,
+      mode: iWeek >= 0 ? ("weekly" as const) : ("season" as const),
+      matchedCount,
+      rowsWritten: out.length,
+      unmatched: unmatched.slice(0, 100),
+      unmatchedCount: unmatched.length,
+    };
+  });
+
+/** Removes every projection this member has uploaded. */
+export const clearMyProjections = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { error } = await context.supabase
+      .from("player_week_stats")
+      .delete()
+      .eq("source", `user:${context.userId}`);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
