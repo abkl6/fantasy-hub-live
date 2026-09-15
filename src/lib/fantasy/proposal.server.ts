@@ -122,7 +122,7 @@ interface LoadedLeague {
 
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
 
-async function loadLeague(supabase: DB, leagueId: string): Promise<LoadedLeague> {
+export async function loadLeague(supabase: DB, leagueId: string): Promise<LoadedLeague> {
   const { data: league, error } = await supabase.from("leagues").select("*").eq("id", leagueId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!league) throw new Error("League not found.");
