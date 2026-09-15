@@ -18,6 +18,7 @@ import { asFormat, bestBallDistribution, hasLineupDecisions, isMultiYear } from 
 import { leagueDynastyValues, type DynastyTeamInput } from "./dynasty-value";
 import { normalizeName } from "./names";
 import { loadProjections } from "./projections.server";
+import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
 import { classifyTeam, isWinNow, type TeamBadge } from "./team-class";
 import {
@@ -138,7 +139,11 @@ async function loadLeague(supabase: DB, leagueId: string): Promise<LoadedLeague>
     : DEFAULT_SLOTS;
   const format = asFormat((league as { format?: string }).format);
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
-  const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
+  const proj = await loadProjections(supabase, {
+    scoring,
+    week: league.current_week ?? 1,
+    source: resolveProjectionSource(league),
+  });
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
 
   const rosters = new Map<string, EnginePlayer[]>();

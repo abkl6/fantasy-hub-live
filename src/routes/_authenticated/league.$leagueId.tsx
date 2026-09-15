@@ -160,6 +160,12 @@ function LeaguePage() {
             <Badge variant="outline" className="text-[10px]">
               {data.scoringLabel}
             </Badge>
+            <ProjectionSourcePicker
+              leagueId={leagueId}
+              platform={data.league.platform}
+              current={data.league.projection_source}
+              label={data.projectionLabel}
+            />
           </div>
         </div>
         <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
@@ -1407,6 +1413,50 @@ function Stat({ label, before, after }: { label: string; before: string; after: 
         <span className="text-primary">{after}</span>
       </p>
     </div>
+  );
+}
+
+/** Which projection set this league's numbers come from. */
+function ProjectionSourcePicker({
+  leagueId,
+  platform,
+  current,
+  label,
+}: {
+  leagueId: string;
+  platform: string;
+  current: string;
+  label: string;
+}) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const platformName = platform.toLowerCase() === "espn" ? "ESPN" : "Sleeper";
+  const canUsePlatform = ["sleeper", "espn"].includes(platform.toLowerCase());
+
+  const mutation = useMutation({
+    mutationFn: (projectionSource: "platform" | "app" | "user") =>
+      save({ data: { leagueId, projectionSource } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success("Projection source updated");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  return (
+    <select
+      aria-label="Projection source"
+      value={current}
+      disabled={mutation.isPending}
+      onChange={(e) => mutation.mutate(e.target.value as "platform" | "app" | "user")}
+      className="rounded-full border border-border bg-transparent px-2 py-[2px] text-[10px] text-muted-foreground"
+      title={label}
+    >
+      {canUsePlatform && <option value="platform">{platformName} projections</option>}
+      <option value="app">App projections</option>
+      <option value="user">My projections</option>
+    </select>
   );
 }
 

@@ -18,6 +18,7 @@ import {
 import { normalizeName } from "./names";
 import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
+import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
 import {
   calibratedScale,
@@ -146,7 +147,11 @@ export async function buildWaiverBoard(
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
   // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase, { scoring, week: league.current_week ?? 1 });
+  const proj = await loadProjections(supabase, {
+    scoring,
+    week: league.current_week ?? 1,
+    source: resolveProjectionSource(league),
+  });
   // Dynasty market prices, matched by the same normalized names as everywhere else.
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
   // Put projection-implied worth on the market's scale before comparing.

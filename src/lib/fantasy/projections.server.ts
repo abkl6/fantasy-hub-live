@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { normalizeName } from "./names";
+import type { ResolvedProjectionSource } from "./projection-source";
 import { fetchAllRows } from "./paginate";
 import type { LeagueScoring, StatLine } from "./scoring";
 
@@ -40,6 +41,8 @@ export interface ProjectionSet {
   /** This week's opponent from the projection database, when known. */
   opponent(playerId: string | null | undefined, name: string | null | undefined): string | null;
   hasOverride(playerId: string | null | undefined, name: string | null | undefined): boolean;
+  /** Where these numbers come from, e.g. "Sleeper projections". */
+  sourceLabel: string;
 }
 
 const EMPTY: ProjectionSet = {
@@ -48,6 +51,7 @@ const EMPTY: ProjectionSet = {
   season: (_id, _name, _pos, base) => base,
   opponent: () => null,
   hasOverride: () => false,
+  sourceLabel: "App projections",
 };
 
 export function emptyProjections(): ProjectionSet {
@@ -70,6 +74,8 @@ export interface ProjectionOptions {
   /** Week whose stat line drives weekly projections. */
   week?: number;
   season?: number;
+  /** Where the league reads projections from. */
+  source?: ResolvedProjectionSource;
 }
 
 export async function loadProjections(
@@ -79,19 +85,23 @@ export async function loadProjections(
   const season = opts.season ?? 2026;
   const week = Math.min(18, Math.max(1, opts.week ?? 1));
   const scoring = opts.scoring;
+  const source = opts.source ?? { setting: "app" as const, sources: ["app"], label: "App projections" };
+  const rank = new Map(source.sources.map((s, i) => [s, i]));
 
   const [overrideRes, weekRows] = await Promise.all([
     supabase
       .from("player_projection_overrides")
       .select("player_id, proj_points_week, proj_points_season, players(full_name)"),
-    fetchAllRows<{ player_id: string; opponent: string | null; stats: unknown }>((from, to) =>
-      supabase
-        .from("player_week_stats")
-        .select("player_id, opponent, stats")
-        .eq("season", season)
-        .eq("week", week)
-        .order("player_id")
-        .range(from, to),
+    fetchAllRows<{ player_id: string; opponent: string | null; stats: unknown; source: string }>(
+      (from, to) =>
+        supabase
+          .from("player_week_stats")
+          .select("player_id, opponent, stats, source")
+          .eq("season", season)
+          .eq("week", week)
+          .in("source", source.sources)
+          .order("player_id")
+          .range(from, to),
     ),
   ]);
 
@@ -107,11 +117,19 @@ export async function loadProjections(
     if (fullName) byName.set(normalizeName(fullName), value);
   }
 
-  const weekStats = new Map<string, { stats: StatLine | null; opponent: string | null }>();
+  // Highest-priority source wins; the app database only fills the gaps.
+  const weekStats = new Map<
+    string,
+    { stats: StatLine | null; opponent: string | null; rank: number }
+  >();
   for (const row of weekRows) {
+    const order = rank.get(row.source) ?? 99;
+    const held = weekStats.get(row.player_id);
+    if (held && held.rank <= order) continue;
     weekStats.set(row.player_id, {
       stats: asStats(row.stats),
       opponent: row.opponent,
+      rank: order,
     });
   }
 
@@ -145,5 +163,6 @@ export async function loadProjections(
     },
     opponent: (playerId) => (playerId ? (weekStats.get(playerId)?.opponent ?? null) : null),
     hasOverride: (playerId, name) => !!find(playerId, name),
+    sourceLabel: source.label,
   };
 }
