@@ -357,9 +357,9 @@ function DataTab() {
       </section>
 
       <section className="rounded-xl bg-card">
-        <p className="px-3 pt-3 text-sm font-semibold">
+        <div className="flex items-center gap-2 px-3 pt-3 text-sm font-semibold">
           Unmatched players <Badge variant="secondary">{(q.data?.queue ?? []).length}</Badge>
-        </p>
+        </div>
         <div className="mt-1 divide-y divide-border">
           {(q.data?.queue ?? []).map((row) => (
             <UnmatchedRow key={row.id} row={row} onDone={refresh} />
