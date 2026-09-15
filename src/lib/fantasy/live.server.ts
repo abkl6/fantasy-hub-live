@@ -15,7 +15,9 @@ import type { Database } from "@/integrations/supabase/types";
 import { leagueScoring, scoreStats, type StatLine } from "./scoring";
 import {
   optimalLineup,
+  simulatePointsRace,
   simulateSeason,
+  simulateWeeklyHigh,
   slotAccepts,
   teamDistribution,
   type EnginePlayer,
@@ -23,6 +25,7 @@ import {
 } from "./engine";
 import { bestBallWeekProbability, headToHeadWinProbability, type ProbabilityPlayer } from "./game-probability";
 import { asFormat, bestBallDistribution } from "./format";
+import { asContestFormat, hasPointsRace } from "./contest";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import type {
@@ -31,6 +34,8 @@ import type {
   LiveGame,
   LiveMatchup,
   LivePlayerRow,
+  LivePointsRace,
+  LiveWeeklyHigh,
 } from "./live-types";
 
 export type { GameDayPayload, LiveEventRow, LiveGame, LiveMatchup, LivePlayerRow };
@@ -830,7 +835,121 @@ export async function buildGameDay(
     }
     const oddsHistory = [...historyMap.values()].sort((a, b) => a.week - b.week);
 
+    // --- total points race and weekly high bonus ---------------------------
+    const contestFormat = asContestFormat((league as { contest_format?: string }).contest_format);
+    const weeklyHighOn = Boolean((league as { weekly_high_bonus?: boolean }).weekly_high_bonus);
+
+    // Every team's live lineup this week, using the same scoring and source.
+    const liveByTeam = leagueTeams.map((team) => {
+      const rows = spots.filter((s) => s.team_id === team.id).map(toRow);
+      const lineup = isBestBall ? bestBallRows(rows, "livePoints") : startersOf(rows);
+      const projectedLineup = isBestBall ? bestBallRows(rows, "projectedFinal") : lineup;
+      const livePoints = sum(lineup, "livePoints");
+      const unfinished = projectedLineup.filter((r) => r.gameState !== "post");
+      const projectedRemaining = round1(
+        unfinished.reduce((acc, r) => acc + Math.max(0, r.projectedFinal - r.livePoints), 0),
+      );
+      const variance = unfinished.reduce((acc, r) => {
+        const sd = Math.max(0, r.projectedFinal - r.livePoints) * 0.35;
+        return acc + sd * sd;
+      }, 0);
+      return {
+        team,
+        livePoints,
+        projectedRemaining,
+        playersLeft: unfinished.length,
+        sd: Math.max(Math.sqrt(variance), unfinished.length ? 4 : 0.01),
+      };
+    });
+
+    let pointsRace: LivePointsRace | null = null;
+    if (hasPointsRace(contestFormat) && leagueTeams.length > 1) {
+      const byWeek = [...liveByTeam].sort((a, b) => b.livePoints - a.livePoints);
+      const rankThisWeek = Math.max(1, byWeek.findIndex((e) => e.team.id === mine.id) + 1);
+
+      const season = leagueTeams
+        .map((team) => ({ team, total: round1(Number(team.points_for)) }))
+        .sort((a, b) => b.total - a.total);
+      const seasonIndex = season.findIndex((e) => e.team.id === mine.id);
+      const above = seasonIndex > 0 ? season[seasonIndex - 1]! : null;
+      const below = seasonIndex >= 0 && seasonIndex < season.length - 1 ? season[seasonIndex + 1]! : null;
+      const myTotal = season[seasonIndex]?.total ?? 0;
+
+      const topN = (league as { points_playoff_teams?: number | null }).points_playoff_teams ?? null;
+      const raceWeeksLeft = Math.max(0, league.regular_season_weeks - (league.current_week - 1));
+      const race = simulatePointsRace(
+        leagueTeams.map((team) => {
+          const roster = rosterOf(team.id);
+          const games = team.wins + team.losses + team.ties;
+          const dist = roster.length
+            ? (isBestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots))
+            : { mean: games > 0 ? Number(team.points_for) / games : 100, sd: 22 };
+          return {
+            id: team.id,
+            name: team.name,
+            isMine: team.is_mine,
+            pointsFor: Number(team.points_for),
+            mean: dist.mean,
+            sd: dist.sd,
+          };
+        }),
+        { weeksLeft: raceWeeksLeft, topN },
+        1500,
+        31,
+      );
+      const myRace = race.find((r) => r.id === mine.id);
+      const myLive = liveByTeam.find((e) => e.team.id === mine.id);
+
+      pointsRace = {
+        rankThisWeek,
+        seasonRank: seasonIndex >= 0 ? seasonIndex + 1 : leagueTeams.length,
+        seasonTotal: myTotal,
+        teamCount: leagueTeams.length,
+        gapAbove: above ? { name: above.team.name, points: round1(above.total - myTotal) } : null,
+        gapBelow: below ? { name: below.team.name, points: round1(myTotal - below.total) } : null,
+        firstOdds: myRace?.firstOdds ?? 0,
+        topThreeOdds: myRace?.topThreeOdds ?? 0,
+        topNOdds: myRace?.topNOdds ?? null,
+        topN,
+        playersLeft: myLive?.playersLeft ?? 0,
+        projectedRemaining: myLive?.projectedRemaining ?? 0,
+      };
+    }
+
+    let weeklyHigh: LiveWeeklyHigh | null = null;
+    if (weeklyHighOn && liveByTeam.length > 1) {
+      const highs = simulateWeeklyHigh(
+        liveByTeam.map((e) => ({
+          id: e.team.id,
+          name: e.team.name,
+          isMine: e.team.is_mine,
+          livePoints: e.livePoints,
+          projectedRemaining: e.projectedRemaining,
+          sd: e.sd,
+        })),
+        2000,
+        53,
+      );
+      const myHigh = highs.find((h) => h.id === mine.id);
+      const leaderEntry = [...liveByTeam].sort((a, b) => b.livePoints - a.livePoints)[0]!;
+      const leading = leaderEntry.team.id === mine.id;
+      const rival = leading
+        ? [...liveByTeam].sort((a, b) => b.livePoints - a.livePoints)[1] ?? leaderEntry
+        : leaderEntry;
+      const myLivePoints = liveByTeam.find((e) => e.team.id === mine.id)?.livePoints ?? 0;
+      weeklyHigh = {
+        probability: myHigh?.probability ?? 0,
+        leaderName: rival.team.name,
+        gap: round1(rival.livePoints - myLivePoints),
+        leading,
+        label: (league as { weekly_high_label?: string | null }).weekly_high_label ?? null,
+      };
+    }
+
     matchups.push({
+      contestFormat,
+      pointsRace,
+      weeklyHigh,
       leagueId: league.id,
       leagueName: league.name,
       color: (league as { color?: string | null }).color ?? null,

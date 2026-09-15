@@ -29,6 +29,36 @@ export interface LiveEventRow {
   oppScore: number;
 }
 
+/** Total-points leagues race on cumulative score instead of an opponent. */
+export interface LivePointsRace {
+  /** Where my live score sits among every team this week. */
+  rankThisWeek: number;
+  /** Where my season total sits. */
+  seasonRank: number;
+  seasonTotal: number;
+  teamCount: number;
+  /** The place directly above me in the season table, when there is one. */
+  gapAbove: { name: string; points: number } | null;
+  gapBelow: { name: string; points: number } | null;
+  firstOdds: number;
+  topThreeOdds: number;
+  topNOdds: number | null;
+  topN: number | null;
+  /** My players who have not finished, and what they are projected to add. */
+  playersLeft: number;
+  projectedRemaining: number;
+}
+
+/** The league's weekly top-scorer bonus, when the league runs one. */
+export interface LiveWeeklyHigh {
+  probability: number;
+  leaderName: string;
+  /** Points between me and the current leader; negative when I lead. */
+  gap: number;
+  leading: boolean;
+  label: string | null;
+}
+
 export interface LiveMatchup {
   leagueId: string;
   leagueName: string;
@@ -36,6 +66,12 @@ export interface LiveMatchup {
   color: string | null;
   scoringLabel: string;
   format: string;
+  /** "h2h", "points" or "hybrid". */
+  contestFormat: string;
+  /** Total-points standing, on points and hybrid leagues only. */
+  pointsRace: LivePointsRace | null;
+  /** Weekly top-scorer bonus read, when the league runs one. */
+  weeklyHigh: LiveWeeklyHigh | null;
   week: number;
   myTeam: string;
   oppTeam: string | null;

@@ -309,12 +309,31 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="league" className="mt-6 space-y-6">
-          <Section title="Standings">
-            <div className="overflow-x-auto">
-              <StandingsTable leagueId={leagueId} standings={data.standings} />
-            </div>
-          </Section>
+          {data.contestFormat !== "points" && (
+            <Section title="Standings">
+              <div className="overflow-x-auto">
+                <StandingsTable
+                  leagueId={leagueId}
+                  standings={data.standings}
+                  showWeeklyHighs={data.weeklyHighBonus}
+                />
+              </div>
+            </Section>
+          )}
 
+          {data.pointsStandings && (
+            <Section title={data.contestFormat === "points" ? "Standings" : "Points standings"}>
+              <div className="overflow-x-auto">
+                <PointsStandingsTable
+                  rows={data.pointsStandings}
+                  topN={data.pointsPlayoff.teams}
+                  showWeeklyHighs={data.weeklyHighBonus}
+                />
+              </div>
+            </Section>
+          )}
+
+          {data.contestFormat !== "points" && (
           <Section title="Scoreboard">
             <div className="space-y-3">
               {!data.scoreboard.length && (
@@ -340,6 +359,17 @@ function LeaguePage() {
                 </div>
               ))}
             </div>
+          </Section>
+          )}
+
+          <Section title="League rules">
+            <ContestSettings
+              leagueId={leagueId}
+              contestFormat={data.contestFormat}
+              pointsPlayoff={data.pointsPlayoff}
+              weeklyHighBonus={data.weeklyHighBonus}
+              weeklyHighLabel={data.weeklyHighLabel}
+            />
           </Section>
 
           <Section title="Position grades">
@@ -912,11 +942,81 @@ function TradePanel({ leagueId }: { leagueId: string }) {
   );
 }
 
+/** Season-long total points table, shown on points and hybrid leagues. */
+function PointsStandingsTable({
+  rows,
+  topN,
+  showWeeklyHighs,
+}: {
+  rows: {
+    teamId: string;
+    name: string;
+    isMine: boolean;
+    totalPoints: number;
+    weeklyAverage: number;
+    highWeek: number | null;
+    gapToLeader: number;
+    weeklyHighs: number;
+    firstOdds: number;
+    topThreeOdds: number;
+    topNOdds: number | null;
+    rank: number;
+    gapHistory: { week: number; gap: number }[];
+  }[];
+  topN: number | null;
+  showWeeklyHighs: boolean;
+}) {
+  return (
+    <table className="w-full text-sm">
+      <thead className="text-left text-xs text-muted-foreground">
+        <tr>
+          <th className="py-2">#</th>
+          <th className="py-2">Team</th>
+          <th className="py-2">Total</th>
+          <th className="py-2">Avg</th>
+          <th className="py-2">High week</th>
+          <th className="py-2">Behind</th>
+          {showWeeklyHighs && <th className="py-2">Weekly highs</th>}
+          <th className="py-2">1st</th>
+          <th className="py-2">Top 3</th>
+          {topN ? <th className="py-2">Top {topN}</th> : null}
+          <th className="py-2">Gap trend</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((t) => (
+          <tr key={t.teamId} className={`border-t border-border ${t.isMine ? "bg-primary/5 font-semibold" : ""}`}>
+            <td className="stat-num py-3">{t.rank}</td>
+            <td className="py-3">{t.name}</td>
+            <td className="stat-num py-3">{t.totalPoints.toFixed(1)}</td>
+            <td className="stat-num py-3">{t.weeklyAverage.toFixed(1)}</td>
+            <td className="stat-num py-3">{t.highWeek === null ? "—" : t.highWeek.toFixed(1)}</td>
+            <td className="stat-num py-3">{t.gapToLeader === 0 ? "—" : t.gapToLeader.toFixed(1)}</td>
+            {showWeeklyHighs && <td className="stat-num py-3">{t.weeklyHighs}</td>}
+            <td className="stat-num py-3 text-primary">{pct(t.firstOdds)}</td>
+            <td className="stat-num py-3">{pct(t.topThreeOdds)}</td>
+            {topN ? <td className="stat-num py-3">{pct(t.topNOdds ?? 0)}</td> : null}
+            <td className="py-3">
+              {t.gapHistory.length > 1 ? (
+                <MiniSparkline points={t.gapHistory.map((g) => -g.gap)} />
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function StandingsTable({
   leagueId,
   standings,
+  showWeeklyHighs,
 }: {
   leagueId: string;
+  showWeeklyHighs?: boolean;
   standings: {
     id: string;
     name: string;
@@ -925,6 +1025,7 @@ function StandingsTable({
     pointsFor: number;
     playoffOdds: number;
     titleOdds: number;
+    weeklyHighs?: number;
     badge?: TeamBadgeValue;
   }[];
 }) {
@@ -944,6 +1045,7 @@ function StandingsTable({
           <th className="py-2">Team</th>
           <th className="py-2">Record</th>
           <th className="py-2">Points</th>
+          {showWeeklyHighs && <th className="py-2">Weekly highs</th>}
           <th className="py-2">Playoffs</th>
           <th className="py-2">Title</th>
           <th className="py-2">Trend</th>
@@ -965,6 +1067,7 @@ function StandingsTable({
               </td>
               <td className="stat-num py-3">{t.record}</td>
               <td className="stat-num py-3">{t.pointsFor.toFixed(1)}</td>
+              {showWeeklyHighs && <td className="stat-num py-3">{t.weeklyHighs ?? 0}</td>}
               <td className="stat-num py-3">{pct(t.playoffOdds)}</td>
               <td className="stat-num py-3 text-primary">{pct(t.titleOdds)}</td>
               <td className="py-3">
@@ -1415,6 +1518,111 @@ function Stat({ label, before, after }: { label: string; before: string; after: 
         <span className="mx-2 text-muted-foreground">→</span>
         <span className="text-primary">{after}</span>
       </p>
+    </div>
+  );
+}
+
+/** How the league is won, and whether it pays a weekly top-scorer bonus. */
+function ContestSettings({
+  leagueId,
+  contestFormat,
+  pointsPlayoff,
+  weeklyHighBonus,
+  weeklyHighLabel,
+}: {
+  leagueId: string;
+  contestFormat: "h2h" | "points" | "hybrid";
+  pointsPlayoff: { teams: number | null; afterWeek: number | null };
+  weeklyHighBonus: boolean;
+  weeklyHighLabel: string | null;
+}) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const [label, setLabel] = useState(weeklyHighLabel ?? "");
+
+  const mutation = useMutation({
+    mutationFn: (patch: Record<string, unknown>) => save({ data: { leagueId, ...patch } as never }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success("League rules updated");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  return (
+    <div className="space-y-4 rounded-xl bg-card p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-sm text-muted-foreground" htmlFor="contest-format">
+          How the league is won
+        </label>
+        <select
+          id="contest-format"
+          value={contestFormat}
+          disabled={mutation.isPending}
+          onChange={(e) => mutation.mutate({ contestFormat: e.target.value })}
+          className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+        >
+          {CONTEST_FORMATS.map((key) => (
+            <option key={key} value={key}>
+              {CONTEST_LABELS[key]}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-muted-foreground">{CONTEST_DESCRIPTIONS[contestFormat]}</span>
+      </div>
+
+      {contestFormat !== "h2h" && (
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-muted-foreground" htmlFor="points-playoff">
+            Points playoffs
+          </label>
+          <input
+            id="points-playoff"
+            type="number"
+            min={0}
+            max={32}
+            defaultValue={pointsPlayoff.teams ?? 0}
+            disabled={mutation.isPending}
+            onBlur={(e) => mutation.mutate({ pointsPlayoffTeams: Number(e.target.value) || 0 })}
+            className="w-20 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+          />
+          <span className="text-xs text-muted-foreground">teams qualify (0 = no playoffs), after week</span>
+          <input
+            aria-label="Qualifying week"
+            type="number"
+            min={1}
+            max={18}
+            defaultValue={pointsPlayoff.afterWeek ?? ""}
+            disabled={mutation.isPending}
+            onBlur={(e) =>
+              mutation.mutate({ pointsPlayoffWeek: e.target.value ? Number(e.target.value) : null })
+            }
+            className="w-20 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+          />
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={weeklyHighBonus}
+            disabled={mutation.isPending}
+            onChange={(e) => mutation.mutate({ weeklyHighBonus: e.target.checked })}
+          />
+          Weekly high bonus
+        </label>
+        <input
+          aria-label="Weekly high payout"
+          placeholder="e.g. $20"
+          value={label}
+          disabled={mutation.isPending || !weeklyHighBonus}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={() => mutation.mutate({ weeklyHighLabel: label })}
+          className="w-28 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+        />
+      </div>
     </div>
   );
 }
