@@ -120,6 +120,7 @@ async function opponentMap(supabase: DB, season: number, week: number) {
 interface SleeperProjection {
   player_id?: string;
   stats?: Record<string, unknown>;
+  opponent?: string | null;
   player?: {
     first_name?: string;
     last_name?: string;
@@ -167,14 +168,15 @@ export async function importSleeperProjections(
       continue;
     }
     if (seen.has(hit.id)) continue;
-    seen.add(hit.id);
     const stats = cleanStats(entry.stats ?? {});
+    if (!Object.keys(stats).length) continue; // no projected usage this week
+    seen.add(hit.id);
     const team = (entry.player?.team ?? entry.team ?? "").toUpperCase();
     rows.push({
       player_id: hit.id,
       season,
       week,
-      opponent: team ? (opponents.get(team) ?? null) : null,
+      opponent: entry.opponent ?? (team ? (opponents.get(team) ?? null) : null),
       stats,
       src_points: Math.round(scoreStats(stats, BASELINE_RULES, hit.position) * 100) / 100,
       source: "sleeper",
