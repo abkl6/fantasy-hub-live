@@ -104,7 +104,7 @@ function ThisWeekPage() {
           </span>
         ) : null}
       </div>
-      <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} isFetching={isFetching} />
+      <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
 
       {isLoading && !data ? (
         <div className="mt-4 space-y-2">
