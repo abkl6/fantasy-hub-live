@@ -109,6 +109,12 @@ function ThisWeekPage() {
             Lineup check
           </Link>
         </Button>
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/waivers">
+            <Ticket className="size-4" aria-hidden="true" />
+            Waivers
+          </Link>
+        </Button>
         {data ? (
           <span className="text-xs text-muted-foreground">
             {data.kickoffLabel} in {countdownLabel(new Date(data.kickoffAt), now)}

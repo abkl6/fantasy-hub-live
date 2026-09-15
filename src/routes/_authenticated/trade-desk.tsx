@@ -4,7 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 
 import { TradeBuilder } from "@/components/TradeBuilder";
+import { TradeFinder } from "@/components/TradeFinder";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listLeagues } from "@/lib/fantasy.functions";
 
 const TITLE = "Trade Simulator — price any trade before you send it";
@@ -61,7 +63,20 @@ function TradeDeskPage() {
               </SelectContent>
             </Select>
           </div>
-          {leagueId && <TradeBuilder key={leagueId} leagueId={leagueId} />}
+          {leagueId && (
+            <Tabs defaultValue="builder">
+              <TabsList>
+                <TabsTrigger value="builder">Builder</TabsTrigger>
+                <TabsTrigger value="finder">Trade finder</TabsTrigger>
+              </TabsList>
+              <TabsContent value="builder" className="mt-4">
+                <TradeBuilder key={leagueId} leagueId={leagueId} />
+              </TabsContent>
+              <TabsContent value="finder" className="mt-4">
+                <TradeFinder key={leagueId} leagueId={leagueId} />
+              </TabsContent>
+            </Tabs>
+          )}
         </>
       )}
     </div>
