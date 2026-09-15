@@ -92,14 +92,27 @@ const LABELS: Record<string, (n: number) => string> = {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/**
+ * ESPN's edge rejects the default server user agent (403) and also blocks
+ * browser-looking ones; a plain client agent is what it lets through. Try the
+ * header set first and fall back to a bare request if it is ever refused.
+ */
+export const FEED_HEADERS = {
+  accept: "application/json, text/plain, */*",
+  "user-agent": "curl/8.6.0",
+};
+
 async function getJson<T>(url: string): Promise<T | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
+  for (const init of [{ headers: FEED_HEADERS }, {}]) {
+    try {
+      const res = await fetch(url, init);
+      if (!res.ok) continue;
+      return (await res.json()) as T;
+    } catch {
+      // try the next header set
+    }
   }
+  return null;
 }
 
 export interface LiveWeek {
