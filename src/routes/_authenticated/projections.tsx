@@ -26,6 +26,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   bulkUpsertBaseline,
+  uploadMyProjections,
+  clearMyProjections,
+  importPlatformProjections,
   clearAllOverrides,
   listProjections,
   updateBaseline,
@@ -132,7 +135,9 @@ function ProjectionsPage() {
             Reset all
           </Button>
         )}
+        <MyProjectionsUpload />
         {admin && <CsvUpload />}
+        {admin && <PlatformImport />}
       </div>
 
       {players.isLoading ? (
@@ -263,6 +268,114 @@ function BaselineEditor({ row, onDone }: { row: BaselineRow; onDone: () => void 
         Save baseline
       </Button>
     </div>
+  );
+}
+
+/** A member's own weekly stat projections, used by leagues set to "My projections". */
+function MyProjectionsUpload() {
+  const upload = useServerFn(uploadMyProjections);
+  const clear = useServerFn(clearMyProjections);
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [csv, setCsv] = useState("");
+
+  const run = useMutation({
+    mutationFn: (apply: boolean) => upload({ data: { csv, apply } }),
+    onSuccess: (result) => {
+      if (result.applied) {
+        toast.success(`Saved projections for ${result.matchedCount} players.`);
+        void queryClient.invalidateQueries();
+        setOpen(false);
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that file."),
+  });
+
+  const wipe = useMutation({
+    mutationFn: () => clear({}),
+    onSuccess: () => toast.success("Your uploaded projections were removed."),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove those."),
+  });
+
+  const result = run.data;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Upload className="size-4" aria-hidden="true" />
+          My projections
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Upload my own projections</DialogTitle>
+          <DialogDescription>
+            A CSV of stats per player. Include a week column for week-by-week numbers, or leave it
+            out for season totals, which are spread across the weeks that player&apos;s team plays.
+            Only leagues set to &quot;My projections&quot; use these.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <Input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setCsv(await file.text());
+              run.reset();
+            }}
+          />
+          {csv && !result && (
+            <Button onClick={() => run.mutate(false)} disabled={run.isPending}>
+              Check the file
+            </Button>
+          )}
+          {result && (
+            <div className="space-y-3 text-sm">
+              <p>
+                {result.matchedCount} players matched ({result.mode === "weekly" ? "week by week" : "season totals"})
+                {result.unmatchedCount > 0 ? `, ${result.unmatchedCount} names not recognised` : ""}.
+              </p>
+              {result.unmatched.length > 0 && (
+                <p className="text-muted-foreground">Not recognised: {result.unmatched.join(", ")}</p>
+              )}
+              <Button onClick={() => run.mutate(true)} disabled={run.isPending || !result.matchedCount}>
+                Save {result.rowsWritten} weekly lines
+              </Button>
+            </div>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => wipe.mutate()} disabled={wipe.isPending}>
+            Remove my uploaded projections
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Pulls Sleeper or ESPN's published weekly projections into the database. */
+function PlatformImport() {
+  const importFn = useServerFn(importPlatformProjections);
+  const queryClient = useQueryClient();
+
+  const run = useMutation({
+    mutationFn: () =>
+      importFn({ data: { platform: "sleeper" as const, fromWeek: 1, toWeek: 18 } }),
+    onSuccess: (res) => {
+      const matched = res.results.reduce((sum, r) => sum + r.matched, 0);
+      toast.success(`Imported ${matched} Sleeper projection lines.`);
+      void queryClient.invalidateQueries();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not reach Sleeper."),
+  });
+
+  return (
+    <Button size="sm" variant="outline" onClick={() => run.mutate()} disabled={run.isPending}>
+      {run.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+      Import Sleeper projections
+    </Button>
   );
 }
 
