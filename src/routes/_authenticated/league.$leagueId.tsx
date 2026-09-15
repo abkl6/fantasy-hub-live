@@ -48,6 +48,7 @@ import {
 } from "@/lib/fantasy.functions";
 import { logTrade } from "@/lib/platforms.functions";
 import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
+import { CONTEST_DESCRIPTIONS, CONTEST_FORMATS, CONTEST_LABELS } from "@/lib/fantasy/contest";
 
 const statusTone: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   Active: "default",
