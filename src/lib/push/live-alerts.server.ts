@@ -27,8 +27,7 @@ export async function redZoneTeams(week: number): Promise<RedZoneTeam[]> {
     const response = await fetch(`${ESPN_SCOREBOARD}?week=${week}`, {
       headers: {
         accept: "application/json, text/plain, */*",
-        "user-agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+        "user-agent": "curl/8.6.0",
       },
     });
     if (!response.ok) return [];
