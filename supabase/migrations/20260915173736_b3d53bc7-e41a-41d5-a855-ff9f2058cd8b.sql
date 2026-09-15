@@ -1,0 +1,1 @@
+DELETE FROM public.leagues WHERE id = 'ad095c0e-62c1-4193-a9fd-aac995558098';
