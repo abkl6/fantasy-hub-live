@@ -11,10 +11,22 @@ export const Route = createFileRoute("/api/public/cron/live-scoring")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const denied = await authenticateCronRequest(request);
-        if (denied) return denied;
-
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+        // The database scheduler keeps stats flowing while nobody has the app
+        // open; it presents the key held in cron_keys instead of the platform
+        // cron secret, so accept either.
+        const denied = await authenticateCronRequest(request);
+        if (denied) {
+          const token = /^Bearer ([^\s,]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
+          const { data: key } = await supabaseAdmin
+            .from("cron_keys")
+            .select("token")
+            .eq("name", "live-scoring")
+            .maybeSingle();
+          if (!token || !key?.token || token !== key.token) return denied;
+        }
+
         const { refreshLiveScoring } = await import("@/lib/fantasy/live.server");
         const { redZoneTeams, sendLiveAlerts } = await import("@/lib/push/live-alerts.server");
 
