@@ -382,19 +382,46 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const { BASELINE_RULES, scoreStats } = await import("@/lib/fantasy/scoring");
     const season = data.season ?? new Date().getFullYear();
 
+    const { detectGroup, mapHeaders, GROUP_LABEL } = await import(
+      "@/lib/fantasy/projection-templates"
+    );
+    const { loadStrengthBook, neutralStrength } = await import("@/lib/fantasy/sos.server");
+    const { spreadSeasonTotals } = await import("@/lib/fantasy/sos");
+
     const rows = parseCsv(data.csv);
     if (rows.length < 2) throw new Error("That file has no rows under the header.");
-    const header = rows[0]!.map((h) => h.trim().toLowerCase());
+    const rawHeader = rows[0]!.map((h) => h.trim());
+    const header = rawHeader.map((h) => h.toLowerCase());
     const iName = headerIndex(header, HEADERS.name);
     const iPos = headerIndex(header, HEADERS.position);
     const iWeek = header.findIndex((h) => h === "week");
-    if (iName < 0) throw new Error('The file needs a "player" column.');
+    if (iName < 0) throw new Error('The file needs a "name" or "player" column.');
 
-    const statCols = header
-      .map((h, i) => ({ key: h.replace(/\s+/g, "_"), i }))
-      .filter((c) => c.key in BASELINE_RULES);
+    const detected = detectGroup(rawHeader);
+    const group = data.group ?? detected;
+    if (!group) {
+      throw new Error(
+        "The columns in this file were not recognised. Download a template and use its headings.",
+      );
+    }
+    if (data.group && detected && detected !== data.group) {
+      throw new Error(
+        `That file looks like the ${GROUP_LABEL[detected]} template, not ${GROUP_LABEL[data.group]}.`,
+      );
+    }
+
+    // Template columns first, then anything else that is already a scoring key.
+    const mapped = mapHeaders(group, rawHeader);
+    const statCols = [
+      ...mapped.map((m) => ({ key: m.key, i: m.index })),
+      ...header
+        .map((h, i) => ({ key: h.replace(/\s+/g, "_"), i }))
+        .filter((c) => c.key in BASELINE_RULES && !mapped.some((m) => m.index === c.i)),
+    ];
     if (!statCols.length) {
-      throw new Error("No stat columns were recognised. Use the weekly stats template.");
+      throw new Error(
+        `No stat columns were recognised for ${GROUP_LABEL[group]}. Download that template and use its headings.`,
+      );
     }
 
     const { data: players } = await context.supabase
