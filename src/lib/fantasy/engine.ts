@@ -191,6 +191,41 @@ export interface ScheduleGame {
   awayTeamId: string;
 }
 
+/**
+ * Orders a finished season into playoff seeds. With divisions, every division
+ * winner is seeded ahead of the rest of the league; inside each group the sort
+ * is the league's own — victory points or wins first, then total points.
+ */
+export function seedOrder(
+  teamIds: string[],
+  standing: { wins: number; points: number; vp: number }[],
+  opts: { victoryPoints?: boolean; divisions?: Record<string, string> } = {},
+): number[] {
+  const useVp = opts.victoryPoints === true;
+  const better = (a: number, b: number) =>
+    useVp
+      ? (standing[b]!.vp ?? 0) - (standing[a]!.vp ?? 0) ||
+        (standing[b]!.points ?? 0) - (standing[a]!.points ?? 0)
+      : (standing[b]!.wins ?? 0) - (standing[a]!.wins ?? 0) ||
+        (standing[b]!.points ?? 0) - (standing[a]!.points ?? 0);
+
+  const all = teamIds.map((_, i) => i).sort(better);
+  const divisions = opts.divisions;
+  if (!divisions) return all;
+
+  const seen = new Set<string>();
+  const winners: number[] = [];
+  for (const i of all) {
+    const division = divisions[teamIds[i]!];
+    if (!division || seen.has(division)) continue;
+    seen.add(division);
+    winners.push(i);
+  }
+  if (winners.length < 2) return all;
+  const taken = new Set(winners);
+  return [...winners.sort(better), ...all.filter((i) => !taken.has(i))];
+}
+
 export function simulateSeason(
   teams: SimTeamInput[],
   config: {
@@ -203,9 +238,11 @@ export function simulateSeason(
     allPlayWeeks?: number[];
     /** Top seeds that skip the first playoff round. */
     byes?: number;
+    /** Team id -> division name. Division winners seed ahead of everyone else. */
+    divisions?: Record<string, string>;
   },
   schedule: ScheduleGame[] = [],
-  iterations = 2000,
+  iterations?: number,
   seed = 12345,
 ): SimTeamResult[] {
   const n = teams.length;
@@ -226,11 +263,15 @@ export function simulateSeason(
 
   const rand = mulberry32(seed);
   const index = new Map(teams.map((t, i) => [t.id, i]));
+  const teamIds = teams.map((t) => t.id);
   const weeksLeft = Math.max(0, config.regularSeasonWeeks - (config.currentWeek - 1));
+  // A short run left means fewer branches: spend the extra runs on precision.
+  const runs = iterations ?? (weeksLeft <= 10 ? 5000 : 2000);
   const playoffTeams = Math.min(
     Math.max(2, config.playoffTeams),
     2 ** Math.floor(Math.log2(Math.max(2, Math.min(n, config.playoffTeams)))) * 2,
   );
+
   const bracketSize = Math.min(n, Math.max(2, playoffTeams));
 
   const useVp = config.victoryPoints === true;
