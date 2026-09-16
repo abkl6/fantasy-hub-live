@@ -340,6 +340,9 @@ export async function refreshFfpcLeague(
       shallow: options.live === true,
     });
     await applyFfpcBundle(supabase, userId, leagueId, bundle, options);
+    // A link that worked for this league is pinned to it, so a later league's
+    // link can never be used against it.
+    await saveFfpcToken(supabase, userId, ltuid, league.external_id);
     return { refreshed: true };
   } catch (error) {
     const reason = await recordFfpcFailure(supabase, userId, leagueId, error);
