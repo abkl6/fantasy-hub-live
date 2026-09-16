@@ -444,6 +444,13 @@ function LeaguePage() {
             <PlayerList title="Best starting lineup" players={data.lineup} />
             <PlayerList title="Bench" players={data.bench} />
           </div>
+          {data.startSitLine ? (
+            <p className="text-sm text-muted-foreground">{data.startSitLine}</p>
+          ) : null}
+          <PlayerTags
+            leagueId={leagueId}
+            names={[...data.lineup.map((p) => p.name), ...data.bench.map((p) => p.name)]}
+          />
         </TabsContent>
 
         <TabsContent value="league" className="mt-6 space-y-6">
