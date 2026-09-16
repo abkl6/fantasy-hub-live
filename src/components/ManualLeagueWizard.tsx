@@ -381,7 +381,43 @@ export function ManualLeagueWizard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="m-format">League type</Label>
+              <Label htmlFor="m-league-type">League type</Label>
+              <Select
+                value={form.leagueType}
+                onValueChange={(v) => setForm({ ...form, leagueType: v as LeagueType })}
+              >
+                <SelectTrigger id="m-league-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAGUE_TYPES.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {LEAGUE_TYPE_LABELS[f]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="m-variant">Variant</Label>
+              <Select
+                value={form.variant}
+                onValueChange={(v) => setForm({ ...form, variant: v as LeagueVariant })}
+              >
+                <SelectTrigger id="m-variant">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAGUE_VARIANTS.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {LEAGUE_VARIANT_LABELS[f]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="m-format">Lineups</Label>
               <Select
                 value={form.format}
                 onValueChange={(v) =>
