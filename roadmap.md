@@ -31,3 +31,4 @@
 - [x] 27. Repair FFPC parsing against captured League Home, Rosters, and Set Lineup fixtures
 
 - [x] 28. FFPC chop (guillotine) leagues: read the alive/chopped standings, record the chop week, and keep knocked-out teams out of odds and advice
+- [x] 29. Better projections, cleaner data: rest-of-season blend, weekly score reconciliation, single injury feed, Vegas implied totals, historical volatility, canonical player IDs, admin Data quality tab, scheduled jobs.
