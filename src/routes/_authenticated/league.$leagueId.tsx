@@ -777,10 +777,11 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("ALL");
   const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("impact");
+  const [showInjured, setShowInjured] = useState(false);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["waivers", leagueId, search, position],
-    queryFn: () => load({ data: { leagueId, search, position } }),
+    queryKey: ["waivers", leagueId, search, position, sort, showInjured],
+    queryFn: () => load({ data: { leagueId, search, position, sort, showInjured } }),
     refetchOnWindowFocus: false,
   });
 
@@ -796,23 +797,13 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not add player."),
   });
 
-  const rows = [...(data?.rows ?? [])].sort((a, b) => {
-    if (sort === "points") return b.projWeek - a.projWeek;
-    if (sort === "bid") return b.bid - a.bid;
-    if (sort === "value") return b.tradeValue - a.tradeValue;
-    if (sort === "ktc") return (b.ktcValue ?? -1) - (a.ktcValue ?? -1);
-    if (sort === "gems")
-      return (
-        Number(b.undervalued) - Number(a.undervalued) ||
-        b.projValue - (b.ktcValue ?? b.projValue) - (a.projValue - (a.ktcValue ?? a.projValue))
-      );
-    // Rebuilding teams care about who is worth keeping, not this week's bump.
-    if (data?.strategy === "sell")
-      return (
-        (b.longTermValue ?? 0) - (a.longTermValue ?? 0) ||
-        (b.ktcValue ?? b.projValue) - (a.ktcValue ?? a.projValue)
-      );
-    return (b.titleDelta ?? -1) - (a.titleDelta ?? -1) || b.tradeValue - a.tradeValue;
+  const rows = rankWaivers(data?.rows ?? [], {
+    sort,
+    survival: !!data?.isSurvivalLeague,
+    showInjured: true,
+    needsKicker: !!data?.needsKicker,
+    needsDefense: !!data?.needsDefense,
+    strategy: data?.strategy ?? null,
   });
 
   const rosterFull = !!data && data.rosterSize >= data.rosterLimit;
