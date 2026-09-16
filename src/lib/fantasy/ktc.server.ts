@@ -276,3 +276,76 @@ export async function refreshTradeValuesIfStale(admin: DB) {
   if (ageMs(newest("ir")) > DAY) return refreshTradeValues(admin, "ir");
   return null;
 }
+
+/** True when we already hold market values from a successful run under a day old. */
+export async function tradeValuesFresh(admin: DB): Promise<boolean> {
+  const { count } = await admin
+    .from("player_trade_values")
+    .select("id", { count: "exact", head: true });
+  if (!count) return false;
+
+  const { data: last } = await admin
+    .from("trade_value_refresh_log")
+    .select("run_at")
+    .eq("status", "ok")
+    .eq("scope", "full")
+    .order("run_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!last?.run_at) return false;
+  return Date.now() - new Date(last.run_at).getTime() < 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Called after a league import or a league-type change. Fetches the market once
+ * when it is missing or stale, and never throws: a failure is logged to the
+ * refresh log (by refreshTradeValues) and to job_errors for the admin Errors tab.
+ */
+export async function ensureTradeValues(
+  admin: DB,
+  ctx: { scope?: string | null; userId?: string | null; platform?: string | null } = {},
+): Promise<void> {
+  try {
+    if (await tradeValuesFresh(admin)) return;
+    await refreshTradeValues(admin, "full");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Trade value refresh failed";
+    try {
+      await admin.from("job_errors").insert({
+        source: "trade-values",
+        platform: ctx.platform ?? null,
+        scope: ctx.scope ?? "import",
+        user_id: ctx.userId ?? null,
+        message: message.slice(0, 400),
+        detail: {},
+      });
+    } catch {
+      // logging must never surface to the caller
+    }
+  }
+}
+
+/**
+ * Fire-and-forget wrapper: starts the check without awaiting it so an import
+ * never waits on the market, and hands the promise to the worker's background
+ * hook where one is available so it is not cut short.
+ */
+export function ensureTradeValuesInBackground(ctx: {
+  scope?: string | null;
+  userId?: string | null;
+  platform?: string | null;
+}): void {
+  const task = (async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await ensureTradeValues(supabaseAdmin as unknown as DB, ctx);
+  })().catch(() => undefined);
+
+  const waitUntil = (globalThis as { waitUntil?: (p: Promise<unknown>) => void }).waitUntil;
+  if (typeof waitUntil === "function") {
+    try {
+      waitUntil(task);
+    } catch {
+      // no background hook available; the promise still runs
+    }
+  }
+}
