@@ -329,7 +329,13 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     ]);
 
   const slots = asSlots(league.roster_slots);
-  const teams = teamRows ?? [];
+  // Chop leagues keep knocked-out teams on the page; they take no further part
+  // in standings, odds or advice — except when the member's own team is out.
+  const allTeams = teamRows ?? [];
+  const teams = allTeams.filter(
+    (t) => (t as { eliminated_week?: number | null }).eliminated_week == null || t.is_mine,
+  );
+
   const spots = spotRows ?? [];
   const matchups = matchupRows ?? [];
   const players = playerRows;
