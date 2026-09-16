@@ -117,7 +117,12 @@ interface LoadedLeague {
   picksByTeam: Map<string, TradeAsset[]>;
   teams: { id: string; name: string; isMine: boolean; wins: number; losses: number; ties: number; pointsFor: number }[];
   schedule: ScheduleGame[];
-  simConfig: { playoffTeams: number; regularSeasonWeeks: number; currentWeek: number };
+  simConfig: {
+    playoffTeams: number;
+    regularSeasonWeeks: number;
+    currentWeek: number;
+    byes?: number;
+  };
 }
 
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
@@ -197,6 +202,7 @@ export async function loadLeague(supabase: DB, leagueId: string): Promise<Loaded
       .map((m) => ({ week: m.week, homeTeamId: m.home_team_id!, awayTeamId: m.away_team_id! })),
     simConfig: {
       playoffTeams: league.playoff_teams,
+      byes: Number((league as { playoff_byes?: number | null }).playoff_byes ?? 0),
       regularSeasonWeeks: league.regular_season_weeks,
       currentWeek: league.current_week,
     },

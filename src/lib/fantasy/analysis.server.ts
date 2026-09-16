@@ -470,6 +470,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     currentWeek: league.current_week,
     victoryPoints: usesVp,
     allPlayWeeks,
+    byes: Number((league as { playoff_byes?: number | null }).playoff_byes ?? 0),
   };
 
   const baseline = simulateSeason(simInputs, simConfig, schedule, 2500, 7);

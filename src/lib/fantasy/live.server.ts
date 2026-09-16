@@ -792,6 +792,7 @@ export async function buildGameDay(
         simInputs,
         {
           playoffTeams: league.playoff_teams,
+      byes: Number((league as { playoff_byes?: number | null }).playoff_byes ?? 0),
           regularSeasonWeeks: league.regular_season_weeks,
           currentWeek: league.current_week,
         },

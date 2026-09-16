@@ -23,6 +23,7 @@ import {
   type FfpcPlayer,
   type HtmlTable,
 } from "./ffpc-parse";
+import { parseLeagueSettings, type FfpcLeagueSettings } from "./ffpc-settings";
 import { normalizeName } from "./names";
 
 const HOST = "https://myffpc.com";
@@ -148,6 +149,11 @@ export interface FfpcScoreboardTeam {
   yetToPlay: number;
 }
 
+export interface FfpcSettingsBundle extends FfpcLeagueSettings {
+  /** Tiebreaker and seeding wording from the league rules page. */
+  rulesText: string | null;
+}
+
 export interface FfpcLeagueBundle {
   externalId: string;
   name: string;
@@ -166,6 +172,10 @@ export interface FfpcLeagueBundle {
   rosterSlots: string[];
   contestFormat: "h2h" | "points" | "hybrid" | "vp";
   allPlayWeeks: number[];
+  /** Playoff / waiver / division settings read off the league home page. */
+  settings: FfpcSettingsBundle;
+  /** Non-fatal read problems, surfaced in the admin Errors tab. */
+  parseWarnings: string[];
   faabBudget: number;
   myTeamExternalId: string | null;
   teams: FfpcTeam[];
@@ -288,6 +298,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
   }
 
   const myRoster = parseRosterTable(findTable(html, "slot", "player", "pos", "bye"));
+  const settings = parseLeagueSettings(html);
 
   return {
     name: name || `FFPC league ${leagueId}`,
@@ -300,8 +311,14 @@ export function parseLeagueHome(html: string, leagueId: string) {
     myTeamExternalId,
     faabRemaining: faabMatch ? toNumber(faabMatch[1]) : null,
     faabBudget: budgetMatch ? toNumber(budgetMatch[1]) : 1000,
-    usesVp: standings?.headers.some((header) => /season\s*vp/i.test(header)) ?? detectVictoryPoints(html),
-    allPlayWeeks: detectAllPlayWeeks(html),
+    usesVp:
+      (standings?.headers.some((header) => /season\s*vp/i.test(header)) ?? false) ||
+      settings.usesVp ||
+      detectVictoryPoints(html),
+    allPlayWeeks: settings.allPlay.length
+      ? settings.allPlay.map((a) => a.week)
+      : detectAllPlayWeeks(html),
+    settings,
     mySchedule,
     myRoster,
   };
@@ -344,6 +361,12 @@ function parseRules(html: string) {
     }
   }
 
+  // Tiebreaker / seeding wording, kept verbatim for the league settings screen.
+  const rulesSentences = (flat.match(/[^.]*\b(?:tiebreak\w*|seed\w*|head[\s-]?to[\s-]?head)\b[^.]*\./gi) ?? [])
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 15)
+    .slice(0, 6);
+
   const tePremium = /tight end premium|te premium|1\.5\s*(?:points?|pts)?\s*per reception/i.test(flat);
   const playoffMatch = flat.match(/(\d{1,2})\s*teams?\s*(?:make|qualify for)\s*the\s*playoffs?/i);
   const weeksMatch = flat.match(/regular season[^.]*?week\s*(\d{1,2})/i);
@@ -354,6 +377,8 @@ function parseRules(html: string) {
     scoringType: tePremium ? "te_premium" : scoringRules["rec"] ? "ppr" : "standard",
     playoffTeams: playoffMatch ? Number(playoffMatch[1]) : 0,
     regularSeasonWeeks: weeksMatch ? Number(weeksMatch[1]) : 0,
+    rulesText: rulesSentences.length ? rulesSentences.join(" ") : null,
+    recognised: rosterSlots.length > 0 || Object.keys(scoringRules).length > 0,
   };
 }
 
@@ -574,17 +599,25 @@ export async function ffpcLeagueBundle(
   }
 
 
+  const parseWarnings: string[] = [];
   let rules = {
     rosterSlots: [] as string[],
     scoringRules: {} as Record<string, number>,
     scoringType: "te_premium",
     playoffTeams: 0,
     regularSeasonWeeks: 0,
+    rulesText: null as string | null,
+    recognised: false,
   };
   try {
     rules = parseRules(await getPage("leagueRulesFFPC.aspx", ltuid, { leagueID: leagueId }));
+    if (!rules.recognised) {
+      parseWarnings.push("leagueRulesFFPC.aspx: layout not recognised; kept League Home settings.");
+    }
   } catch {
-    // Rules are optional: FFPC's standard lineup is the fallback.
+    // Rules are optional: FFPC's standard lineup and the League Home settings
+    // are the fallback, but the failure is worth an admin Errors entry.
+    parseWarnings.push("leagueRulesFFPC.aspx: could not be read; kept League Home settings.");
   }
   const rosterSlots = rules.rosterSlots.length
     ? rules.rosterSlots
@@ -703,13 +736,19 @@ export async function ffpcLeagueBundle(
     season: home.season,
     currentWeek: week,
     teamCount,
-    playoffTeams: rules.playoffTeams || Math.max(2, Math.floor(teamCount / 3)),
-    regularSeasonWeeks: rules.regularSeasonWeeks || 14,
+    playoffTeams:
+      home.settings.playoffTeams || rules.playoffTeams || Math.max(2, Math.floor(teamCount / 3)),
+    regularSeasonWeeks:
+      (home.settings.playoffWeekStart ? home.settings.playoffWeekStart - 1 : 0) ||
+      rules.regularSeasonWeeks ||
+      14,
     scoringType: rules.scoringType,
     scoringRules: rules.scoringRules,
     rosterSlots,
     contestFormat: home.usesVp ? "vp" : home.isBestBall ? "points" : "h2h",
     allPlayWeeks: home.allPlayWeeks,
+    settings: { ...home.settings, rulesText: rules.rulesText },
+    parseWarnings,
     faabBudget: home.faabBudget,
     myTeamExternalId: home.myTeamExternalId,
     teams,

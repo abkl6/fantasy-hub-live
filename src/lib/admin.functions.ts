@@ -132,7 +132,11 @@ export const adminResyncLeague = createServerFn({ method: "POST" })
     if (!league) throw new Error("That league no longer exists.");
 
     try {
-      if (league.platform === "sleeper") {
+      if (league.platform === "ffpc") {
+        const { refreshFfpcLeague } = await import("./fantasy/ffpc-sync.server");
+        const result = await refreshFfpcLeague(supabaseAdmin, league.user_id, league.id);
+        if (!result.refreshed) throw new Error(result.reason ?? "FFPC re-sync failed");
+      } else if (league.platform === "sleeper") {
         const { refreshSleeperLeague } = await import("./fantasy/sleeper-sync.server");
         await refreshSleeperLeague(supabaseAdmin, league.user_id, league.id);
       } else {

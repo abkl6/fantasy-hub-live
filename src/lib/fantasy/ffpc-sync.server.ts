@@ -118,7 +118,7 @@ export async function applyFfpcBundle(
   const { detectLeagueType, effectiveFormat } = await import("./league-type");
   const { data: stored } = await supabase
     .from("leagues")
-    .select("type_source, format")
+    .select("type_source, format, settings_source")
     .eq("id", leagueId)
     .maybeSingle();
   const detected =
@@ -129,6 +129,40 @@ export async function applyFfpcBundle(
           hasEmpirePanel: bundle.hasEmpirePanel,
           hasFuturePicks: bundle.futurePicks.length > 0,
         });
+
+  // Detected playoff / waiver / division settings, minus anything the manager
+  // has set by hand — those are theirs and a sync must leave them alone.
+  const { mergeDetectedSettings } = await import("./league-settings");
+  const detectedSettings = options.live
+    ? { patch: {}, settingsSource: null }
+    : mergeDetectedSettings(stored?.settings_source, {
+        playoff_week_start: bundle.settings.playoffWeekStart,
+        playoff_weeks: bundle.settings.playoffWeeks,
+        playoff_teams: bundle.settings.playoffTeams,
+        playoff_byes: bundle.settings.playoffByes,
+        third_place_game: bundle.settings.thirdPlaceGame,
+        consolation: bundle.settings.consolation,
+        waiver_type: bundle.settings.waiverType,
+        waiver_run_times: bundle.settings.waiverRunTimes,
+        divisions: bundle.settings.divisions,
+        playoff_seed_type: bundle.settings.playoffSeedType,
+        rules_text: bundle.settings.rulesText,
+        all_play_weeks: bundle.allPlayWeeks,
+        regular_season_weeks: bundle.regularSeasonWeeks,
+        contest_format: bundle.contestFormat,
+      });
+
+  // Non-fatal read problems still belong in the admin Errors tab.
+  for (const warning of options.live ? [] : bundle.parseWarnings) {
+    await supabase.from("job_errors").insert({
+      user_id: userId,
+      platform: "ffpc",
+      source: "ffpc-sync",
+      message: warning.slice(0, 400),
+      scope: leagueId,
+      detail: {},
+    });
+  }
 
   await supabase
     .from("leagues")
@@ -143,9 +177,11 @@ export async function applyFfpcBundle(
         : {}),
       name: bundle.name,
       current_week: bundle.currentWeek,
-      contest_format: bundle.contestFormat,
-      all_play_weeks: bundle.allPlayWeeks,
       faab_budget: bundle.faabBudget,
+      ...detectedSettings.patch,
+      ...(detectedSettings.settingsSource
+        ? { settings_source: detectedSettings.settingsSource }
+        : {}),
       ...(options.live
         ? {}
         : {
@@ -153,8 +189,6 @@ export async function applyFfpcBundle(
             scoring_type: bundle.scoringType,
             roster_slots: bundle.rosterSlots,
             team_count: bundle.teamCount,
-            playoff_teams: bundle.playoffTeams,
-            regular_season_weeks: bundle.regularSeasonWeeks,
           }),
       sync_paused: false,
       last_sync_error: null,

@@ -1939,6 +1939,138 @@ function ContestSettings({
           className="w-28 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
         />
       </div>
+
+      <PlayoffSettings leagueId={leagueId} />
+    </div>
+  );
+}
+
+/** Playoff weeks, field size, byes and all-play weeks. */
+function PlayoffSettings({ leagueId }: { leagueId: string }) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const meta = useLeagueMeta(leagueId);
+  const playoff = meta.data?.playoff;
+
+  const mutation = useMutation({
+    mutationFn: (patch: Record<string, unknown>) => save({ data: { leagueId, ...patch } as never }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["league-meta", leagueId] }),
+        queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] }),
+      ]);
+      toast.success("Playoff rules updated");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  if (!playoff) return null;
+  const source = (playoff.source ?? {}) as Record<string, string | undefined>;
+  const label = (key: string) =>
+    source[key] === "user" ? "set by you" : source[key] === "detected" ? "detected" : "default";
+
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <p className="text-sm text-muted-foreground">Playoffs</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-sm text-muted-foreground" htmlFor="playoff-start">
+          Starts week
+        </label>
+        <input
+          id="playoff-start"
+          type="number"
+          min={1}
+          max={18}
+          defaultValue={playoff.weekStart ?? ""}
+          disabled={mutation.isPending}
+          onBlur={(e) =>
+            mutation.mutate({ playoffWeekStart: e.target.value ? Number(e.target.value) : null })
+          }
+          className="w-20 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+        />
+        <span className="text-xs text-muted-foreground">{label("playoff_week_start")}</span>
+
+        <label className="text-sm text-muted-foreground" htmlFor="playoff-teams">
+          Teams
+        </label>
+        <input
+          id="playoff-teams"
+          type="number"
+          min={0}
+          max={32}
+          defaultValue={playoff.teams}
+          disabled={mutation.isPending}
+          onBlur={(e) => mutation.mutate({ playoffTeams: Number(e.target.value) || 0 })}
+          className="w-20 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+        />
+        <span className="text-xs text-muted-foreground">{label("playoff_teams")}</span>
+
+        <label className="text-sm text-muted-foreground" htmlFor="playoff-byes">
+          Byes
+        </label>
+        <input
+          id="playoff-byes"
+          type="number"
+          min={0}
+          max={8}
+          defaultValue={playoff.byes}
+          disabled={mutation.isPending}
+          onBlur={(e) => mutation.mutate({ playoffByes: Number(e.target.value) || 0 })}
+          className="w-20 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+        />
+        <span className="text-xs text-muted-foreground">{label("playoff_byes")}</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={playoff.thirdPlaceGame}
+            disabled={mutation.isPending}
+            onChange={(e) => mutation.mutate({ thirdPlaceGame: e.target.checked })}
+          />
+          Third-place game
+        </label>
+        <label className="text-sm text-muted-foreground" htmlFor="all-play-weeks">
+          All-play weeks
+        </label>
+        <input
+          id="all-play-weeks"
+          placeholder="e.g. 6, 12"
+          defaultValue={playoff.allPlayWeeks.join(", ")}
+          disabled={mutation.isPending}
+          onBlur={(e) =>
+            mutation.mutate({
+              allPlayWeeks: (e.target.value.match(/\d{1,2}/g) ?? [])
+                .map(Number)
+                .filter((w) => w >= 1 && w <= 18),
+            })
+          }
+          className="w-32 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+        />
+        <span className="text-xs text-muted-foreground">{label("all_play_weeks")}</span>
+      </div>
+
+      {(playoff.divisions.length > 0 ||
+        playoff.waiverRunTimes.length > 0 ||
+        playoff.consolation.length > 0) && (
+        <p className="text-xs text-muted-foreground">
+          {[
+            playoff.divisions.length ? `${playoff.divisions.length} divisions` : null,
+            playoff.waiverType === "faab"
+              ? `FAAB${playoff.waiverRunTimes.length ? ` (${playoff.waiverRunTimes.join(", ")})` : ""}`
+              : null,
+            ...playoff.consolation.map((c) =>
+              c.weeks.length ? `${c.label}, weeks ${c.weeks[0]}–${c.weeks[c.weeks.length - 1]}` : c.label,
+            ),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
+      {playoff.rulesText && (
+        <p className="text-xs text-muted-foreground">{playoff.rulesText}</p>
+      )}
     </div>
   );
 }

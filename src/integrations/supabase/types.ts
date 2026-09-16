@@ -219,9 +219,11 @@ export type Database = {
         Row: {
           all_play_weeks: Json
           color: string | null
+          consolation: Json
           contest_format: string
           created_at: string
           current_week: number
+          divisions: Json
           external_id: string | null
           faab_budget: number
           format: string
@@ -232,30 +234,41 @@ export type Database = {
           league_type: string
           name: string
           platform: string
+          playoff_byes: number
+          playoff_seed_type: string | null
           playoff_teams: number
+          playoff_week_start: number | null
+          playoff_weeks: Json
           points_playoff_teams: number | null
           points_playoff_week: number | null
           projection_source: string
           regular_season_weeks: number
           roster_slots: Json
+          rules_text: string | null
           scoring_rules: Json
           scoring_type: string
           season: number
+          settings_source: Json
           sync_paused: boolean
           team_count: number
+          third_place_game: boolean
           type_source: string
           updated_at: string
           user_id: string
           variant: string
+          waiver_run_times: Json
+          waiver_type: string | null
           weekly_high_bonus: boolean
           weekly_high_label: string | null
         }
         Insert: {
           all_play_weeks?: Json
           color?: string | null
+          consolation?: Json
           contest_format?: string
           created_at?: string
           current_week?: number
+          divisions?: Json
           external_id?: string | null
           faab_budget?: number
           format?: string
@@ -266,30 +279,41 @@ export type Database = {
           league_type?: string
           name: string
           platform?: string
+          playoff_byes?: number
+          playoff_seed_type?: string | null
           playoff_teams?: number
+          playoff_week_start?: number | null
+          playoff_weeks?: Json
           points_playoff_teams?: number | null
           points_playoff_week?: number | null
           projection_source?: string
           regular_season_weeks?: number
           roster_slots?: Json
+          rules_text?: string | null
           scoring_rules?: Json
           scoring_type?: string
           season?: number
+          settings_source?: Json
           sync_paused?: boolean
           team_count?: number
+          third_place_game?: boolean
           type_source?: string
           updated_at?: string
           user_id: string
           variant?: string
+          waiver_run_times?: Json
+          waiver_type?: string | null
           weekly_high_bonus?: boolean
           weekly_high_label?: string | null
         }
         Update: {
           all_play_weeks?: Json
           color?: string | null
+          consolation?: Json
           contest_format?: string
           created_at?: string
           current_week?: number
+          divisions?: Json
           external_id?: string | null
           faab_budget?: number
           format?: string
@@ -300,21 +324,30 @@ export type Database = {
           league_type?: string
           name?: string
           platform?: string
+          playoff_byes?: number
+          playoff_seed_type?: string | null
           playoff_teams?: number
+          playoff_week_start?: number | null
+          playoff_weeks?: Json
           points_playoff_teams?: number | null
           points_playoff_week?: number | null
           projection_source?: string
           regular_season_weeks?: number
           roster_slots?: Json
+          rules_text?: string | null
           scoring_rules?: Json
           scoring_type?: string
           season?: number
+          settings_source?: Json
           sync_paused?: boolean
           team_count?: number
+          third_place_game?: boolean
           type_source?: string
           updated_at?: string
           user_id?: string
           variant?: string
+          waiver_run_times?: Json
+          waiver_type?: string | null
           weekly_high_bonus?: boolean
           weekly_high_label?: string | null
         }

@@ -178,6 +178,8 @@ export function simulateSeason(
     victoryPoints?: boolean;
     /** Weeks where the top half of scorers all win, regardless of opponent. */
     allPlayWeeks?: number[];
+    /** Top seeds that skip the first playoff round. */
+    byes?: number;
   },
   schedule: ScheduleGame[] = [],
   iterations = 2000,
@@ -313,6 +315,22 @@ export function simulateSeason(
     for (const i of seeds) madePlayoffs[i] += 1;
 
     let field = [...seeds];
+    // Byes: the top seeds sit out round one and meet the survivors.
+    const byes = Math.max(0, Math.min(config.byes ?? 0, Math.max(0, field.length - 2)));
+    if (byes > 0 && field.length > byes + 1) {
+      const resting = field.slice(0, byes);
+      let playing = field.slice(byes);
+      const next: number[] = [];
+      const half = Math.floor(playing.length / 2);
+      for (let i = 0; i < half; i++) {
+        const a = playing[i]!;
+        const b = playing[playing.length - 1 - i]!;
+        next.push(draw(a) >= draw(b) ? a : b);
+      }
+      if (playing.length % 2 === 1) next.push(playing[half]!);
+      playing = next;
+      field = [...resting, ...playing];
+    }
     while (field.length > 1) {
       const next: number[] = [];
       const half = Math.floor(field.length / 2);

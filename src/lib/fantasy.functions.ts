@@ -12,6 +12,11 @@ import {
   LEAGUE_VARIANTS,
   typeSourceLabel,
 } from "@/lib/fantasy/league-type";
+import {
+  asSettingsSource,
+  markUserSettings,
+  type DetectableSetting,
+} from "@/lib/fantasy/league-settings";
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
@@ -529,7 +534,9 @@ export const getLeagueMeta = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
       .from("leagues")
-      .select("league_type, variant, type_source, format, platform")
+      .select(
+        "league_type, variant, type_source, format, platform, playoff_week_start, playoff_weeks, playoff_teams, playoff_byes, third_place_game, consolation, waiver_type, waiver_run_times, divisions, playoff_seed_type, rules_text, settings_source, all_play_weeks, regular_season_weeks",
+      )
       .eq("id", data.leagueId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -543,6 +550,22 @@ export const getLeagueMeta = createServerFn({ method: "POST" })
       typeSource,
       typeSourceLabel: typeSourceLabel(typeSource, row.platform),
       format: String(row.format),
+      playoff: {
+        weekStart: row.playoff_week_start ?? null,
+        weeks: (row.playoff_weeks ?? []) as number[],
+        teams: row.playoff_teams ?? 0,
+        byes: row.playoff_byes ?? 0,
+        thirdPlaceGame: Boolean(row.third_place_game),
+        consolation: (row.consolation ?? []) as { label: string; weeks: number[]; prize: string | null }[],
+        seedType: row.playoff_seed_type ?? null,
+        divisions: (row.divisions ?? []) as string[],
+        allPlayWeeks: (row.all_play_weeks ?? []) as number[],
+        regularSeasonWeeks: row.regular_season_weeks ?? 0,
+        waiverType: row.waiver_type ?? null,
+        waiverRunTimes: (row.waiver_run_times ?? []) as string[],
+        rulesText: row.rules_text ?? null,
+        source: asSettingsSource(row.settings_source),
+      },
     };
   });
 
@@ -566,11 +589,52 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         pointsPlayoffWeek: z.number().int().min(1).max(18).nullable().optional(),
         weeklyHighBonus: z.boolean().optional(),
         weeklyHighLabel: z.string().max(40).nullable().optional(),
+        playoffWeekStart: z.number().int().min(1).max(18).nullable().optional(),
+        playoffTeams: z.number().int().min(0).max(32).optional(),
+        playoffByes: z.number().int().min(0).max(8).optional(),
+        thirdPlaceGame: z.boolean().optional(),
+        allPlayWeeks: z.array(z.number().int().min(1).max(18)).max(18).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = {};
+    // Playoff rules the manager sets by hand are marked as theirs so a later
+    // platform sync leaves them alone.
+    const userSettings: DetectableSetting[] = [];
+    if (data.playoffWeekStart !== undefined) {
+      patch["playoff_week_start"] = data.playoffWeekStart;
+      userSettings.push("playoff_week_start");
+      if (data.playoffWeekStart) {
+        patch["regular_season_weeks"] = data.playoffWeekStart - 1;
+        userSettings.push("regular_season_weeks");
+      }
+    }
+    if (data.playoffTeams !== undefined) {
+      patch["playoff_teams"] = data.playoffTeams;
+      userSettings.push("playoff_teams");
+    }
+    if (data.playoffByes !== undefined) {
+      patch["playoff_byes"] = data.playoffByes;
+      userSettings.push("playoff_byes");
+    }
+    if (data.thirdPlaceGame !== undefined) {
+      patch["third_place_game"] = data.thirdPlaceGame;
+      userSettings.push("third_place_game");
+    }
+    if (data.allPlayWeeks !== undefined) {
+      patch["all_play_weeks"] = [...new Set(data.allPlayWeeks)].sort((a, b) => a - b);
+      userSettings.push("all_play_weeks");
+    }
+    if (data.contestFormat !== undefined) userSettings.push("contest_format");
+    if (userSettings.length) {
+      const { data: currentSettings } = await context.supabase
+        .from("leagues")
+        .select("settings_source")
+        .eq("id", data.leagueId)
+        .maybeSingle();
+      patch["settings_source"] = markUserSettings(currentSettings?.settings_source, userSettings);
+    }
     if (data.contestFormat !== undefined) patch["contest_format"] = data.contestFormat;
     if (data.pointsPlayoffTeams !== undefined)
       patch["points_playoff_teams"] = data.pointsPlayoffTeams || null;
