@@ -105,6 +105,8 @@ export interface FfpcTeam {
   pointsFor: number;
   pointsAgainst: number;
   vp: number;
+  division: string | null;
+  playoffSeed: number | null;
   faabRemaining: number | null;
   roster: FfpcRosterEntry[];
 }
@@ -115,6 +117,9 @@ export interface FfpcTransaction {
   kind: string;
   detail: string;
   bid: number | null;
+  teamExternalId: string | null;
+  addedPlayer: FfpcPlayer | null;
+  droppedPlayer: FfpcPlayer | null;
 }
 
 export interface FfpcDraftPick {
@@ -174,17 +179,20 @@ export interface FfpcLeagueBundle {
 
 // ---------------------------------------------------------------- pages
 
-/** Standings, my team, schedule, FAAB, VP and all-play detection. */
-function parseLeagueHome(html: string, leagueId: string) {
+/** Standings, my team, schedule, roster, FAAB, VP and all-play detection. */
+export function parseLeagueHome(html: string, leagueId: string) {
   const flat = text(html);
-  const nameMatch =
-    html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) ??
-    html.match(/<title>([\s\S]*?)<\/title>/i);
-  const name = text(nameMatch?.[1] ?? "").replace(/\s*[-|]\s*FFPC.*$/i, "").trim();
-
-  const typeMatch = flat.match(/\b(Main Event|Terminator|Superflex|Best Ball|Dynasty|Classic|Footballguys[^.,]*)\b/i);
-  const seasonMatch = flat.match(/\b(20\d{2})\s*(?:season)?\b/i);
-  const weekMatch = flat.match(/week\s*(\d{1,2})/i);
+  const infoMatch = html.match(
+    /League\s*ID\s*:\s*(\d+)[\s\S]*?League\s*Type\s*Description\s*:\s*([^<]+)[\s\S]*?Team\s*ID\s*:\s*(\d+)/i,
+  );
+  const infoEnd = infoMatch ? (infoMatch.index ?? 0) + infoMatch[0].length : 0;
+  const nameMatch = html.slice(infoEnd).match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/i);
+  const name = text(nameMatch?.[1] ?? "");
+  const selectedSeason = html.match(
+    /<select\b[^>]*>[^]*?<option\b[^>]*selected(?:=["'][^"']*["'])?[^>]*value=["'](20\d{2})["']/i,
+  ) ?? html.match(/Season\s*:\s*\*\s*(20\d{2})/i);
+  const nflPanel = html.match(/<div\b[^>]*id=["'][^"']*NFLScoreboardDiv["'][^>]*>([\s\S]*?)(?=<div\b[^>]*class=["'][^"']*card|$)/i);
+  const weekMatch = (nflPanel?.[1] ?? "").match(/Week(?:&nbsp;|\s)*(\d{1,2})/i);
 
   const standings =
     findTable(html, "team", "pts") ??
@@ -194,73 +202,53 @@ function parseLeagueHome(html: string, leagueId: string) {
 
   const teams: FfpcTeam[] = [];
   if (standings) {
-    const cName = Math.max(0, columnIndex(standings, "team"));
-    const cRecord = columnIndex(standings, "record", "w-l");
-    const cWins = columnIndex(standings, "win");
-    const cLosses = columnIndex(standings, "loss");
-    const cTies = columnIndex(standings, "tie");
-    const cPf = columnIndex(standings, "points for", "pts for", "pf", "total pts", "points");
-    const cPa = columnIndex(standings, "points against", "pa");
-    const cVp = columnIndex(standings, "season vp", "vp");
+    const usesVp = standings.headers.some((header) => /season\s*vp/i.test(header));
+    let division: string | null = null;
 
     for (let i = 0; i < standings.rows.length; i++) {
       const row = standings.rows[i] ?? [];
       const raw = standings.rawRows[i] ?? [];
-      const teamName = (row[cName] ?? "").trim();
-      if (!teamName || /^total/i.test(teamName)) continue;
-      const externalId =
-        idFromLinks(raw[cName] ?? "", "viewingTeam", "teamID", "teamid") ?? String(i + 1);
-
-      let wins = 0;
-      let losses = 0;
-      let ties = 0;
-      if (cRecord >= 0) {
-        const parts = (row[cRecord] ?? "").split(/[-–]/).map((p) => toNumber(p));
-        wins = parts[0] ?? 0;
-        losses = parts[1] ?? 0;
-        ties = parts[2] ?? 0;
-      } else {
-        wins = cWins >= 0 ? toNumber(row[cWins]) : 0;
-        losses = cLosses >= 0 ? toNumber(row[cLosses]) : 0;
-        ties = cTies >= 0 ? toNumber(row[cTies]) : 0;
+      const first = (row[0] ?? "").trim();
+      if (row.length === 1 && /^Division\s+\d+/i.test(first)) {
+        division = first;
+        continue;
       }
+      if (!first || /^#|^total/i.test(first) || row.length < 7) continue;
+      const seedMatch = first.match(/\s+#(\d+)\s*$/);
+      const teamName = first.replace(/\s+#\d+\s*$/, "").trim();
+      const externalId =
+        (raw[0] ?? "").match(/teamRoster_[0-9]+_([0-9]+)/i)?.[1] ??
+        idFromLinks(raw[0] ?? "", "viewingTeam", "teamID", "teamid");
+      if (!externalId) continue;
 
       teams.push({
         externalId,
         name: teamName,
         ownerName: null,
-        isMine: /\b(my team|your team)\b/i.test(raw[cName] ?? ""),
-        wins,
-        losses,
-        ties,
-        pointsFor: cPf >= 0 ? toNumber(row[cPf]) : 0,
-        pointsAgainst: cPa >= 0 ? toNumber(row[cPa]) : 0,
-        vp: cVp >= 0 ? toNumber(row[cVp]) : 0,
+        isMine: externalId === (infoMatch?.[3] ?? null),
+        wins: toNumber(row[1]),
+        losses: toNumber(row[2]),
+        ties: toNumber(row[3]),
+        pointsFor: toNumber(row[usesVp ? 5 : 4]),
+        pointsAgainst: toNumber(row[usesVp ? 6 : 5]),
+        vp: usesVp ? toNumber(row[4]) : 0,
+        division,
+        playoffSeed: seedMatch ? Number(seedMatch[1]) : null,
         faabRemaining: null,
         roster: [],
       });
     }
   }
 
-  // My team: FFPC marks the signed-in manager's row, and otherwise names it in
-  // a "Welcome, <team>" style header.
-  let myTeamExternalId = teams.find((t) => t.isMine)?.externalId ?? null;
-  if (!myTeamExternalId) {
-    const welcome = flat.match(/(?:welcome|my team)[,:\s]+([A-Za-z0-9'’&.\- ]{3,40})/i);
-    const guess = welcome?.[1]?.trim().toLowerCase();
-    if (guess) {
-      const hit = teams.find((t) => guess.startsWith(t.name.toLowerCase()) || t.name.toLowerCase() === guess);
-      if (hit) myTeamExternalId = hit.externalId;
-    }
-  }
+  const myTeamExternalId = infoMatch?.[3] ?? null;
 
-  const faabMatch = flat.match(/(?:faab|free agent budget|budget remaining)[^0-9$]*\$?([0-9,]+)/i);
+  const faabMatch = flat.match(/Remaining FAAB Dollars:\s*\$([0-9,]+(?:\.\d+)?)/i);
   const budgetMatch = flat.match(/(?:faab budget|starting budget)[^0-9$]*\$?([0-9,]+)/i);
 
   // My schedule: the home page lists every week's opponent with a viewingTeam link.
   const scheduleTable =
     findTable(html, "week", "opponent") ?? findTable(html, "week", "result");
-  const mySchedule: { week: number; opponentExternalId: string | null; myScore: number; oppScore: number; isFinal: boolean }[] =
+  const mySchedule: { week: number; opponentExternalId: string | null; homeTeamExternalId: string | null; myScore: number; oppScore: number; isFinal: boolean }[] =
     [];
   if (scheduleTable) {
     const cWeek = Math.max(0, columnIndex(scheduleTable, "week"));
@@ -271,29 +259,35 @@ function parseLeagueHome(html: string, leagueId: string) {
       const raw = scheduleTable.rawRows[i] ?? [];
       const week = toNumber(row[cWeek]);
       if (!week) continue;
-      const scores = (row[cScore] ?? "").match(/\d+(?:\.\d+)?/g) ?? [];
+      const result = row[cScore] ?? "";
+      const resultMatch = result.match(/^\s*([WLT])\s+(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)/i);
+      const viewCell = raw.find((cell) => /homeTeamID=/i.test(cell)) ?? "";
       mySchedule.push({
         week,
         opponentExternalId: cOpp >= 0 ? idFromLinks(raw[cOpp] ?? "", "viewingTeam", "teamID") : null,
-        myScore: toNumber(scores[0]),
-        oppScore: toNumber(scores[1]),
-        isFinal: scores.length >= 2 && !/in progress|live/i.test(row[cScore] ?? ""),
+        homeTeamExternalId: idFromLinks(viewCell, "homeTeamID"),
+        myScore: toNumber(resultMatch?.[2]),
+        oppScore: toNumber(resultMatch?.[3]),
+        isFinal: Boolean(resultMatch && !(resultMatch[1] === "T" && toNumber(resultMatch[2]) === 0 && toNumber(resultMatch[3]) === 0)),
       });
     }
   }
 
+  const myRoster = parseRosterTable(findTable(html, "slot", "player", "pos", "bye"));
+
   return {
     name: name || `FFPC league ${leagueId}`,
-    leagueType: typeMatch?.[1] ?? "FFPC",
-    season: seasonMatch ? Number(seasonMatch[1]) : new Date().getFullYear(),
+    leagueType: text(infoMatch?.[2] ?? "") || "FFPC",
+    season: selectedSeason ? Number(selectedSeason[1]) : new Date().getFullYear(),
     currentWeek: weekMatch ? Number(weekMatch[1]) : 1,
     teams,
     myTeamExternalId,
     faabRemaining: faabMatch ? toNumber(faabMatch[1]) : null,
     faabBudget: budgetMatch ? toNumber(budgetMatch[1]) : 1000,
-    usesVp: detectVictoryPoints(html),
+    usesVp: standings?.headers.some((header) => /season\s*vp/i.test(header)) ?? detectVictoryPoints(html),
     allPlayWeeks: detectAllPlayWeeks(html),
     mySchedule,
+    myRoster,
   };
 }
 
@@ -347,21 +341,27 @@ function parseRules(html: string) {
   };
 }
 
-function parseRosterTable(table: HtmlTable | null): FfpcRosterEntry[] {
+export function parseRosterTable(table: HtmlTable | null): FfpcRosterEntry[] {
   if (!table) return [];
   const cSlot = columnIndex(table, "slot", "pos", "position", "lineup");
   const cPlayer = columnIndex(table, "player", "name");
   const out: FfpcRosterEntry[] = [];
   for (const row of table.rows) {
-    const playerCell = row[cPlayer >= 0 ? cPlayer : 1] ?? row[0] ?? "";
+    const playerColumn = cPlayer >= 0 ? cPlayer : 1;
+    const playerHtml = table.rawRows[table.rows.indexOf(row)]?.[playerColumn] ?? "";
+    const focused = playerHtml.match(/<(?:b|a)\b[^>]*>([\s\S]*?)<\/(?:b|a)>/i)?.[1];
+    const playerCell = text(focused ?? row[playerColumn] ?? row[0] ?? "");
     const player = parsePlayerCell(playerCell);
     if (!player) continue;
+    const listedPosition = cSlot >= 0 && table.headers.some((header) => /^pos$/i.test(header))
+      ? (row[columnIndex(table, "pos")] ?? player.position)
+      : player.position;
     const slotRaw = (cSlot >= 0 ? (row[cSlot] ?? "") : "").toUpperCase().trim();
     const slot = slotRaw.replace(/[^A-Z0-9/]/g, "") || player.position;
     const isStarter = !/^(BN|BE|BENCH|IR|TAXI|RES)/.test(slot);
     out.push({
       name: player.name,
-      position: player.position,
+      position: listedPosition.toUpperCase() === "PK" ? "K" : listedPosition.toUpperCase() === "DST" ? "DEF" : listedPosition,
       nflTeam: player.nflTeam,
       slot: slot === "BE" ? "BN" : slot,
       isStarter,
@@ -370,23 +370,41 @@ function parseRosterTable(table: HtmlTable | null): FfpcRosterEntry[] {
   return out;
 }
 
-/** Rosters.aspx lists every team, one block each. */
-function parseAllRosters(html: string): Map<string, FfpcRosterEntry[]> {
+/** Rosters.aspx lists one team per row and one position per column. */
+export function parseAllRosters(html: string): Map<string, FfpcRosterEntry[]> {
   const byTeam = new Map<string, FfpcRosterEntry[]>();
-  const blocks = html.split(/(?=viewingTeam=)/i);
-  for (const block of blocks) {
-    const id = idFromLinks(block, "viewingTeam", "teamID");
+  const table = findTable(html, "team", "qb", "rb", "wr", "te");
+  if (!table) return byTeam;
+  for (let rowIndex = 0; rowIndex < table.rows.length; rowIndex++) {
+    const raw = table.rawRows[rowIndex] ?? [];
+    const id = idFromLinks(raw[0] ?? "", "viewingTeam");
     if (!id) continue;
-    const table = findTable(block, "player") ?? findTable(block, "name");
-    const roster = parseRosterTable(table);
-    if (!roster.length) continue;
-    const existing = byTeam.get(id) ?? [];
-    byTeam.set(id, existing.length >= roster.length ? existing : roster);
+    const roster: FfpcRosterEntry[] = [];
+    for (let col = 1; col < table.headers.length; col++) {
+      const rawCell = raw[col] ?? "";
+      const position = (table.headers[col] ?? "").toUpperCase();
+      const divRe = /<div\b[^>]*>([\s\S]*?)<\/div>/gi;
+      let match: RegExpExecArray | null;
+      while ((match = divRe.exec(rawCell))) {
+        const playerText = text(match[1] ?? "");
+        const team = playerText.match(/\(([A-Z]{2,3})\)/)?.[1] ?? null;
+        const name = text((match[1] ?? "").match(/<a\b[^>]*>([\s\S]*?)<\/a>/i)?.[1] ?? "");
+        if (!name) continue;
+        roster.push({
+          name,
+          position: position === "PK" ? "K" : position === "DF" || position === "DST" ? "DEF" : position,
+          nflTeam: team,
+          slot: "BN",
+          isStarter: false,
+        });
+      }
+    }
+    if (roster.length) byTeam.set(id, roster);
   }
   return byTeam;
 }
 
-function parseTransactions(html: string): FfpcTransaction[] {
+export function parseTransactions(html: string): FfpcTransaction[] {
   const table =
     findTable(html, "date", "transaction") ??
     findTable(html, "date", "team") ??
@@ -394,16 +412,25 @@ function parseTransactions(html: string): FfpcTransaction[] {
   if (!table) return [];
   const cDate = columnIndex(table, "date");
   const cTeam = columnIndex(table, "team", "franchise");
-  const cType = columnIndex(table, "type", "transaction");
-  const cDetail = columnIndex(table, "detail", "player", "description");
+  const cPlayer = columnIndex(table, "player");
+  const cAction = columnIndex(table, "action", "transaction");
   const cBid = columnIndex(table, "bid", "amount", "salary", "$");
-  return table.rows.slice(0, 400).map((row) => ({
-    date: cDate >= 0 ? (row[cDate] ?? null) : null,
-    teamName: cTeam >= 0 ? (row[cTeam] ?? null) : null,
-    kind: (cType >= 0 ? row[cType] : "") || "move",
-    detail: (cDetail >= 0 ? row[cDetail] : row.join(" ")) ?? "",
-    bid: cBid >= 0 ? toNumber(row[cBid]) : null,
-  }));
+  return table.rows.slice(0, 400).map((row, index) => {
+    const action = cAction >= 0 ? (row[cAction] ?? "") : "";
+    const addedText = action.match(/Added\s+(.+?)(?=\s+Drop Player\s+|$)/i)?.[1] ?? (cPlayer >= 0 ? row[cPlayer] : "");
+    const droppedText = action.match(/Drop Player\s+(.+)$/i)?.[1] ?? "";
+    const raw = table.rawRows[index] ?? [];
+    return {
+      date: cDate >= 0 ? (row[cDate] ?? null) : null,
+      teamName: cTeam >= 0 ? (row[cTeam] ?? null) : null,
+      kind: droppedText ? "add_drop" : "add",
+      detail: action,
+      bid: cBid >= 0 ? toNumber(row[cBid]) : null,
+      teamExternalId: cTeam >= 0 ? idFromLinks(raw[cTeam] ?? "", "viewingTeam") : null,
+      addedPlayer: parsePlayerCell(addedText),
+      droppedPlayer: droppedText ? parsePlayerCell(droppedText) : null,
+    };
+  });
 }
 
 function parseDraftBoard(html: string): FfpcDraftPick[] {
@@ -602,11 +629,14 @@ export async function ffpcLeagueBundle(
     /* optional */
   }
 
+  if (!home.myTeamExternalId) {
+    throw new FfpcParseError("LeagueHome.aspx", "FFPC answered, but your Team ID could not be read.");
+  }
   const teams: FfpcTeam[] = home.teams.map((t) => ({
     ...t,
     isMine: t.externalId === home.myTeamExternalId,
     faabRemaining: t.externalId === home.myTeamExternalId ? home.faabRemaining : null,
-    roster: rosters.get(t.externalId) ?? [],
+    roster: rosters.get(t.externalId) ?? (t.externalId === home.myTeamExternalId ? home.myRoster : []),
   }));
 
   // FFPC only shows my own schedule; every week I play someone, which gives the
@@ -615,10 +645,10 @@ export async function ffpcLeagueBundle(
     .filter((s) => s.opponentExternalId)
     .map((s) => ({
       week: s.week,
-      homeExternalId: home.myTeamExternalId,
-      awayExternalId: s.opponentExternalId,
-      homeScore: s.myScore,
-      awayScore: s.oppScore,
+      homeExternalId: s.homeTeamExternalId,
+      awayExternalId: s.homeTeamExternalId === home.myTeamExternalId ? s.opponentExternalId : home.myTeamExternalId,
+      homeScore: s.homeTeamExternalId === home.myTeamExternalId ? s.myScore : s.oppScore,
+      awayScore: s.homeTeamExternalId === home.myTeamExternalId ? s.oppScore : s.myScore,
       isFinal: s.isFinal && s.week < week,
     }));
 
