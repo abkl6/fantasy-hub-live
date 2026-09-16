@@ -119,6 +119,8 @@ export interface DynastyRow {
   name: string;
   position: string;
   age: number | null;
+  /** Where the age came from: the market, years of experience, or nowhere. */
+  ageSource: "age" | "experience" | "unknown";
   longTermValue: number;
   blendedValue: number;
 }
