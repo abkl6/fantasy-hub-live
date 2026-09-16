@@ -1757,6 +1757,12 @@ function ContestSettings({
 
   return (
     <div className="space-y-4 rounded-xl bg-card p-5">
+      <LeagueTypeSelects
+        leagueId={leagueId}
+        leagueType={leagueType}
+        variant={variant}
+        sourceLabel={typeSourceLabel}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm text-muted-foreground" htmlFor="contest-format">
           How the league is won
