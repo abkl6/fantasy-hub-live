@@ -165,6 +165,8 @@ export interface FfpcLeagueBundle {
   hasEmpirePanel: boolean;
   /** Best ball: no opponents, no lineups to set, ranked on total points. */
   isBestBall: boolean;
+  /** Chop / guillotine league: teams are knocked out weekly, no playoffs. */
+  isChop: boolean;
   season: number;
   currentWeek: number;
   teamCount: number;
@@ -358,6 +360,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
     name: name || `FFPC league ${leagueId}`,
     leagueType: text(infoMatch?.[2] ?? "") || "FFPC",
     isBestBall,
+    isChop,
     hasEmpirePanel: /empire\s*details/i.test(html),
     season: selectedSeason ? Number(selectedSeason[1]) : new Date().getFullYear(),
     currentWeek: weekMatch ? Number(weekMatch[1]) : 1,
@@ -693,7 +696,7 @@ export async function ffpcLeagueBundle(
       /* fall through to per-team lineups */
     }
     // Best ball has no lineups to set — FFPC scores the best roster itself.
-    for (const team of home.isBestBall ? [] : home.teams) {
+    for (const team of home.isBestBall ? [] : home.teams.filter((t) => t.eliminatedWeek == null)) {
       try {
         const html = await getPage("SetLineup.aspx", ltuid, {
           leagueID: leagueId,
@@ -786,6 +789,7 @@ export async function ffpcLeagueBundle(
     name: home.name,
     leagueType: home.leagueType,
     isBestBall: home.isBestBall,
+    isChop: home.isChop,
     hasEmpirePanel: home.hasEmpirePanel,
     season: home.season,
     currentWeek: week,
@@ -799,7 +803,7 @@ export async function ffpcLeagueBundle(
     scoringType: rules.scoringType,
     scoringRules: rules.scoringRules,
     rosterSlots,
-    contestFormat: home.usesVp ? "vp" : home.isBestBall ? "points" : "h2h",
+    contestFormat: home.usesVp ? "vp" : home.isBestBall || home.isChop ? "points" : "h2h",
     allPlayWeeks: home.allPlayWeeks,
     settings: { ...home.settings, rulesText: rules.rulesText },
     parseWarnings,
