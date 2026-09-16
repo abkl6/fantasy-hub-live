@@ -96,7 +96,7 @@ export const importFfpcLeague = createServerFn({ method: "POST" })
       "./fantasy/ffpc-sync.server"
     );
 
-    const ltuid = await ffpcToken(context.supabase);
+    const ltuid = await ffpcToken(context.supabase, context.userId, data.leagueId);
     if (!ltuid) throw new Error("Connect FFPC first by pasting a league link.");
 
     try {
