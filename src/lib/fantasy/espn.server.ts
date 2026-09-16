@@ -255,7 +255,15 @@ export async function espnLeagueBundle(
 
   const slots = slotsFromCounts(league.settings?.rosterSettings?.lineupSlotCounts);
 
+  // ESPN says how many players carry over and whether the league has run before.
+  const detected = detectLeagueType({
+    keeperCount: league.settings?.draftSettings?.keeperCount ?? null,
+    previousSeasons: league.previousSeasons ?? null,
+    typeDescription: league.settings?.name ?? null,
+  });
+
   return {
+    ...detected,
     externalId: String(league.id),
     name: league.settings?.name ?? `ESPN League ${league.id}`,
     season: league.seasonId ?? season,

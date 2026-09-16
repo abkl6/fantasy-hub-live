@@ -1,5 +1,8 @@
 /** Yahoo Fantasy Sports adapter (OAuth 2.0). Server-only. */
 
+import { detectLeagueType, type LeagueType, type LeagueVariant } from "./league-type";
+
+
 const AUTH_URL = "https://api.login.yahoo.com/oauth2/request_auth";
 const TOKEN_URL = "https://api.login.yahoo.com/oauth2/get_token";
 const API = "https://fantasysports.yahooapis.com/fantasy/v2";
