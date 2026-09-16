@@ -108,6 +108,10 @@ export async function persistBundle(
       scoring_rules: bundle.scoringRules ?? {},
       roster_slots: bundle.rosterSlots,
       contest_format: bundle.contestFormat ?? "h2h",
+      league_type: leagueType,
+      variant,
+      type_source: typeSource,
+      format: effectiveFormat(leagueType, variant),
       last_synced_at: new Date().toISOString(),
     })
     .select()
