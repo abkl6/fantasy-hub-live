@@ -285,6 +285,7 @@ export type Database = {
           scoring_type: string
           season: number
           settings_source: Json
+          sos_adjust: boolean
           sync_paused: boolean
           team_count: number
           third_place_game: boolean
@@ -330,6 +331,7 @@ export type Database = {
           scoring_type?: string
           season?: number
           settings_source?: Json
+          sos_adjust?: boolean
           sync_paused?: boolean
           team_count?: number
           third_place_game?: boolean
@@ -375,6 +377,7 @@ export type Database = {
           scoring_type?: string
           season?: number
           settings_source?: Json
+          sos_adjust?: boolean
           sync_paused?: boolean
           team_count?: number
           third_place_game?: boolean
@@ -1391,6 +1394,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_position_strength: {
+        Row: {
+          created_at: string
+          id: string
+          multiplier: number
+          nfl_team: string
+          position_group: string
+          season: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          multiplier?: number
+          nfl_team: string
+          position_group: string
+          season: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          multiplier?: number
+          nfl_team?: string
+          position_group?: string
+          season?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       teams: {
         Row: {
