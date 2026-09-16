@@ -194,6 +194,30 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
     const playoffTeams = Number(bundle.league.settings?.["playoff_teams"] ?? 6);
     const regularWeeks = Number(bundle.league.settings?.["playoff_week_start"] ?? 15) - 1;
 
+    // League type: Sleeper's own setting, plus future picks as a dynasty tell.
+    const { detectLeagueType, effectiveFormat } = await import("@/lib/fantasy/league-type");
+    const sleeperSettings = bundle.league.settings as Record<string, unknown> | undefined;
+    const detectedType = detectLeagueType({
+      sleeperType: sleeperSettings?.["type"] == null ? null : Number(sleeperSettings["type"]),
+      hasFuturePicks: await sleeperHasFuturePicks(data.sleeperLeagueId, Number(season)),
+      typeDescription: bundle.league.name,
+    });
+    const { data: priorLeague } = await supabase
+      .from("leagues")
+      .select("league_type, variant, type_source")
+      .eq("platform", "sleeper")
+      .eq("external_id", data.sleeperLeagueId)
+      .maybeSingle();
+    const keepUserType = priorLeague?.type_source === "user";
+    const leagueType = keepUserType
+      ? (priorLeague!.league_type as "redraft" | "keeper" | "dynasty")
+      : detectedType.leagueType;
+    const variant = keepUserType
+      ? (priorLeague!.variant as "none" | "empire" | "guillotine")
+      : detectedType.variant;
+    const typeSource = keepUserType ? "user" : detectedType.typeSource;
+    const storedFormat = sleeperFormat(sleeperSettings);
+
     // Replace any prior import of this league.
     await supabase
       .from("leagues")
