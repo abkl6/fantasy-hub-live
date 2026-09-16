@@ -406,7 +406,7 @@ function LeaguePage() {
           )}
 
           <Section title="Waiver wire">
-            <WaiverPanel leagueId={leagueId} onAdded={() => refetch()} />
+            <WaiverPanel leagueId={leagueId} eligible={data?.eligiblePositions ?? null} onAdded={() => refetch()} />
           </Section>
 
           <Section title="Trades">
@@ -795,7 +795,19 @@ const SORTS = [
   { id: "bid", label: "Bid" },
 ] as const;
 
-function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => void }) {
+function WaiverPanel({
+  leagueId,
+  eligible,
+  onAdded,
+}: {
+  leagueId: string;
+  eligible?: string[] | null;
+  onAdded?: () => void;
+}) {
+  // Only offer chips for positions this league can actually start.
+  const positions = eligible?.length
+    ? ["ALL", ...POSITIONS.filter((p) => p !== "ALL" && eligible.includes(p))]
+    : POSITIONS;
   const load = useServerFn(getWaiverBoard);
   const add = useServerFn(applyMoveFn);
   const queryClient = useQueryClient();
@@ -855,7 +867,7 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {POSITIONS.map((p) => (
+        {positions.map((p) => (
           <Button
             key={p}
             size="sm"
