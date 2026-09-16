@@ -1485,6 +1485,7 @@ export type Database = {
         Row: {
           created_at: string
           division: string | null
+          eliminated_week: number | null
           external_id: string | null
           faab_remaining: number | null
           faab_spent: number
@@ -1506,6 +1507,7 @@ export type Database = {
         Insert: {
           created_at?: string
           division?: string | null
+          eliminated_week?: number | null
           external_id?: string | null
           faab_remaining?: number | null
           faab_spent?: number
@@ -1527,6 +1529,7 @@ export type Database = {
         Update: {
           created_at?: string
           division?: string | null
+          eliminated_week?: number | null
           external_id?: string | null
           faab_remaining?: number | null
           faab_spent?: number
