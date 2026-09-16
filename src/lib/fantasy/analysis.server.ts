@@ -316,6 +316,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     source: resolveProjectionSource(league),
   });
   const format = asFormat((league as { format?: string }).format);
+  const leagueType = asLeagueType((league as { league_type?: string }).league_type);
+  const variant = asVariant((league as { variant?: string }).variant);
+  const typeSource = asTypeSource((league as { type_source?: string }).type_source);
   const bestBall = !hasLineupDecisions(format);
 
   // Dynasty trade currency: market values plus each team's future pick stock.
