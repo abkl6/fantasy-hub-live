@@ -28,4 +28,4 @@
 
 26. Trade Desk: proposed-trade builder (any two teams, both sides re-simulated), Dynasty Future Value, and team-quality badges with hover reasons — done
 
-- [ ] 27. Repair FFPC parsing against captured League Home, Rosters, and Set Lineup fixtures
+- [x] 27. Repair FFPC parsing against captured League Home, Rosters, and Set Lineup fixtures
