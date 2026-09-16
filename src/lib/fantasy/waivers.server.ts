@@ -137,7 +137,16 @@ export async function buildWaiverBoard(
   const spots = spotRows ?? [];
   const players = playerRows;
 
-  const rostered = new Set(spots.map((s) => key(s.player_name)));
+  // A cut roster in a guillotine league is back on the wire, tagged as such.
+  const cutTeamIds = new Set(
+    teams.filter((t) => (t as { eliminated_week?: number | null }).eliminated_week != null).map((t) => t.id),
+  );
+  const rostered = new Set(
+    spots.filter((s) => !cutTeamIds.has(s.team_id)).map((s) => key(s.player_name)),
+  );
+  const cutNames = new Set(
+    spots.filter((s) => cutTeamIds.has(s.team_id)).map((s) => key(s.player_name)),
+  );
   const usablePosition = (position: string) =>
     slots.some((slot) => slotAccepts(slot, position)) || BENCH_POSITIONS.includes(position);
 
@@ -148,12 +157,49 @@ export async function buildWaiverBoard(
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
   // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase, {
+  const projOpts = {
     scoring,
     week: league.current_week ?? 1,
-    source: resolveProjectionSource(league),
     sos: (league as { sos_adjust?: boolean }).sos_adjust,
+  };
+  let proj = await loadProjections(supabase, {
+    ...projOpts,
+    source: resolveProjectionSource(league),
   });
+
+  const seasonWith = (
+    set: typeof proj,
+    p: {
+      id?: string;
+      full_name?: string;
+      position: string;
+      proj_points_season: number | string;
+      stat_projections?: unknown;
+    },
+  ) =>
+    set.season(
+      p.id ?? null,
+      p.full_name ?? null,
+      p.position.toUpperCase(),
+      Number(p.proj_points_season),
+      p.stat_projections,
+    );
+
+  // A board full of zeros is useless: if the league's own source has no season
+  // numbers, quietly read the app's instead and say so.
+  const covered = (set: typeof proj) => players.filter((p) => seasonWith(set, p) > 0).length;
+  let projectionFallback = false;
+  if (covered(proj) < 20) {
+    const appSet = await loadProjections(supabase, {
+      ...projOpts,
+      source: { setting: "app", sources: ["app"], label: "App projections" },
+    });
+    if (covered(appSet) > covered(proj)) {
+      proj = appSet;
+      projectionFallback = true;
+    }
+  }
+
   // Dynasty market prices, matched by the same normalized names as everywhere else.
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
   // Put projection-implied worth on the market's scale before comparing.
@@ -169,14 +215,7 @@ export async function buildWaiverBoard(
     position: string;
     proj_points_season: number | string;
     stat_projections?: unknown;
-  }) =>
-    proj.season(
-      p.id ?? null,
-      p.full_name ?? null,
-      p.position.toUpperCase(),
-      Number(p.proj_points_season),
-      p.stat_projections,
-    );
+  }) => seasonWith(proj, p);
 
 
   // --- replacement level: the Nth best season projection at each position ---
