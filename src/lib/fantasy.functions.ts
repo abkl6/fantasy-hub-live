@@ -1323,8 +1323,17 @@ export const getTradeFinderFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { buildTradeFinder } = await import("./fantasy/trade-finder.server");
+    const { readCached, componentHashes } = await import("./fantasy/cache.server");
+    const parts = await componentHashes(context.supabase, data.leagueId);
+    const hit = await readCached<Awaited<ReturnType<typeof buildTradeFinder>>>(
+      context.supabase,
+      { userId: context.userId, leagueId: data.leagueId, kind: "impact", suffix: "trades" },
+      parts.sim,
+    );
+    if (hit) return { ...hit.payload, computedAt: hit.computedAt };
     return buildTradeFinder(context.supabase, data.leagueId);
   });
+
 
 // ------------------------------------------------- recommendation tracking
 
