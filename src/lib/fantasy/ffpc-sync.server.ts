@@ -214,6 +214,8 @@ export async function applyFfpcBundle(
       vp: t.vp,
       division: t.division,
       playoff_seed: t.playoffSeed,
+      eliminated_week: t.eliminatedWeek,
+
       ...(t.faabRemaining == null
         ? {}
         : {

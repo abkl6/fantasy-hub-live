@@ -9,6 +9,8 @@ import {
   parsePlayerCell,
 } from "./ffpc-parse";
 import { parseLeagueSettings } from "./ffpc-settings";
+import { detectLeagueType } from "./league-type";
+
 import { parseAllRosters, parseLeagueHome } from "./ffpc.server";
 import { normalizeName } from "./names";
 
@@ -150,7 +152,41 @@ describe("FFPC captured league pages", () => {
     expect(home.mySchedule).toHaveLength(0);
     expect(home.myRoster).toHaveLength(22);
   });
+
+  it("parses a chop league: surviving teams, chopped teams and no schedule", () => {
+    const home = parseLeagueHome(fixture("league-home-chop.html"), "113758");
+    const alive = home.teams.filter((team) => team.eliminatedWeek == null);
+    const chopped = home.teams.filter((team) => team.eliminatedWeek != null);
+    const detected = detectLeagueType({
+      typeDescription: `${home.leagueType} ${home.name}`,
+      hasEmpirePanel: home.hasEmpirePanel,
+      hasFuturePicks: false,
+    });
+
+    expect(home.name).toBe("$35 Chop Classic - 6hr Slow #113758");
+    expect(home.leagueType).toBe("Chop Classic League");
+    expect(home.isChop).toBe(true);
+    expect(home.isBestBall).toBe(false);
+    expect(home.currentWeek).toBe(2);
+    expect(home.myTeamExternalId).toBe("11");
+    expect(home.teams).toHaveLength(18);
+    expect(alive).toHaveLength(17);
+    expect(chopped).toHaveLength(1);
+    expect(chopped[0]).toMatchObject({ name: "FatKidFromCanada", eliminatedWeek: 1 });
+    expect(alive[0]).toMatchObject({
+      externalId: "10",
+      name: "The Firing Squad",
+      faabRemaining: 1000,
+      wins: 1,
+    });
+    expect(home.teams.find((team) => team.isMine)?.name).toBe("CHOP Mingos - 1");
+    expect(home.mySchedule).toHaveLength(0);
+    expect(home.myRoster).toHaveLength(14);
+    expect(home.allPlayWeeks).toEqual([6]);
+    expect(detected.variant).toBe("guillotine");
+  });
 });
+
 
 describe("ffpc league settings", () => {
   const html = readFileSync(
