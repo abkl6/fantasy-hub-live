@@ -405,6 +405,10 @@ export const createManualLeague = createServerFn({ method: "POST" })
         scoring_rules: data.scoringRules ?? {},
         roster_slots: data.rosterSlots,
         format: data.format ?? "redraft",
+        league_type:
+          data.format === "dynasty" || data.format === "keeper" ? data.format : "redraft",
+        variant: data.format === "guillotine" ? "guillotine" : "none",
+        type_source: "user",
         last_synced_at: new Date().toISOString(),
       })
       .select()
