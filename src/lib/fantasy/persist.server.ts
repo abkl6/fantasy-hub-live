@@ -47,6 +47,8 @@ export interface NormalizedBundle {
   rosterSlots: string[];
   /** How the platform says the league is won, when it exposes it. */
   contestFormat?: "h2h" | "points" | "hybrid" | "vp";
+  /** Engine format the platform reports directly, e.g. "best_ball". */
+  format?: string | null;
   /** Redraft / keeper / dynasty, and how confident we are about it. */
   leagueType?: LeagueType;
   variant?: LeagueVariant;
@@ -111,7 +113,7 @@ export async function persistBundle(
       league_type: leagueType,
       variant,
       type_source: typeSource,
-      format: effectiveFormat(leagueType, variant),
+      format: effectiveFormat(leagueType, variant, bundle.format ?? null),
       last_synced_at: new Date().toISOString(),
     })
     .select()

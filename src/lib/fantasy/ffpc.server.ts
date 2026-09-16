@@ -154,6 +154,8 @@ export interface FfpcLeagueBundle {
   leagueType: string;
   /** FFPC shows an Empire Details panel on empire leagues. */
   hasEmpirePanel: boolean;
+  /** Best ball: no opponents, no lineups to set, ranked on total points. */
+  isBestBall: boolean;
   season: number;
   currentWeek: number;
   teamCount: number;
@@ -199,6 +201,10 @@ export function parseLeagueHome(html: string, leagueId: string) {
     /NFLScoreboardDiv[\s\S]*?upNFLSchedule[\s\S]*?Week(?:&nbsp;|\s)*(\d{1,2})/i,
   );
 
+  // Best ball leagues have no head-to-head record: their standings are a
+  // Team | Pts table and there is no weekly opponent anywhere on the page.
+  const isBestBall = /best\s*ball/i.test(text(infoMatch?.[2] ?? ""));
+
   const standings =
     findTable(html, "team", "pts") ??
     findTable(html, "team", "points") ??
@@ -208,6 +214,8 @@ export function parseLeagueHome(html: string, leagueId: string) {
   const teams: FfpcTeam[] = [];
   if (standings) {
     const usesVp = standings.headers.some((header) => /season\s*vp/i.test(header));
+    // A record table has its own W column; a points-only table does not.
+    const usesRecord = standings.headers.some((header) => /^w$/i.test(header.trim()));
     let division: string | null = null;
 
     for (let i = 0; i < standings.rows.length; i++) {
@@ -218,7 +226,8 @@ export function parseLeagueHome(html: string, leagueId: string) {
         division = first;
         continue;
       }
-      if (!first || /^#|^total/i.test(first) || row.length < 7) continue;
+      if (!first || /^#|^total/i.test(first)) continue;
+      if (row.length < (usesRecord ? 7 : 2)) continue;
       const seedMatch = first.match(/\s+#(\d+)\s*$/);
       const teamName = first.replace(/\s+#\d+\s*$/, "").trim();
       const externalId =
@@ -231,12 +240,12 @@ export function parseLeagueHome(html: string, leagueId: string) {
         name: teamName,
         ownerName: null,
         isMine: externalId === (infoMatch?.[3] ?? null),
-        wins: toNumber(row[1]),
-        losses: toNumber(row[2]),
-        ties: toNumber(row[3]),
-        pointsFor: toNumber(row[usesVp ? 5 : 4]),
-        pointsAgainst: toNumber(row[usesVp ? 6 : 5]),
-        vp: usesVp ? toNumber(row[4]) : 0,
+        wins: usesRecord ? toNumber(row[1]) : 0,
+        losses: usesRecord ? toNumber(row[2]) : 0,
+        ties: usesRecord ? toNumber(row[3]) : 0,
+        pointsFor: usesRecord ? toNumber(row[usesVp ? 5 : 4]) : toNumber(row[1]),
+        pointsAgainst: usesRecord ? toNumber(row[usesVp ? 6 : 5]) : 0,
+        vp: usesRecord && usesVp ? toNumber(row[4]) : 0,
         division,
         playoffSeed: seedMatch ? Number(seedMatch[1]) : null,
         faabRemaining: null,
@@ -283,6 +292,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
   return {
     name: name || `FFPC league ${leagueId}`,
     leagueType: text(infoMatch?.[2] ?? "") || "FFPC",
+    isBestBall,
     hasEmpirePanel: /empire\s*details/i.test(html),
     season: selectedSeason ? Number(selectedSeason[1]) : new Date().getFullYear(),
     currentWeek: weekMatch ? Number(weekMatch[1]) : 1,
@@ -538,11 +548,20 @@ export async function ffpcLeagueBundle(
     leagueIdInput ? { leagueID: leagueIdInput } : {},
   );
   const { discoverLeagueId } = await import("./ffpc-parse");
-  const leagueId = leagueIdInput ?? discoverLeagueId(firstHtml);
+  const discovered = discoverLeagueId(firstHtml);
+  const leagueId = leagueIdInput ?? discovered;
   if (!leagueId) {
     throw new FfpcParseError(
       "LeagueHome.aspx",
       "FFPC answered, but its league number could not be identified from the page.",
+    );
+  }
+  // FFPC issues one link per league. A saved link that opens a different league
+  // must never overwrite this one's data.
+  if (leagueIdInput && discovered && discovered !== leagueIdInput) {
+    throw new FfpcParseError(
+      "LeagueHome.aspx",
+      "The saved FFPC link opens a different league. Paste this league's own address again.",
     );
   }
   const homeHtml = firstHtml;
@@ -586,7 +605,8 @@ export async function ffpcLeagueBundle(
     } catch {
       /* fall through to per-team lineups */
     }
-    for (const team of home.teams) {
+    // Best ball has no lineups to set — FFPC scores the best roster itself.
+    for (const team of home.isBestBall ? [] : home.teams) {
       try {
         const html = await getPage("SetLineup.aspx", ltuid, {
           leagueID: leagueId,
@@ -678,6 +698,7 @@ export async function ffpcLeagueBundle(
     externalId: leagueId,
     name: home.name,
     leagueType: home.leagueType,
+    isBestBall: home.isBestBall,
     hasEmpirePanel: home.hasEmpirePanel,
     season: home.season,
     currentWeek: week,
@@ -687,7 +708,7 @@ export async function ffpcLeagueBundle(
     scoringType: rules.scoringType,
     scoringRules: rules.scoringRules,
     rosterSlots,
-    contestFormat: home.usesVp ? "vp" : "h2h",
+    contestFormat: home.usesVp ? "vp" : home.isBestBall ? "points" : "h2h",
     allPlayWeeks: home.allPlayWeeks,
     faabBudget: home.faabBudget,
     myTeamExternalId: home.myTeamExternalId,

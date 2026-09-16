@@ -43,14 +43,15 @@ export const previewFfpcLeague = createServerFn({ method: "POST" })
       throw new Error("That doesn't look like an FFPC league link. Copy the address from your league page.");
     }
 
-    const ltuid = parsed.ltuid ?? (await ffpcToken(context.supabase));
+    const ltuid = parsed.ltuid ?? (await ffpcToken(context.supabase, context.userId, parsed.leagueId));
     if (!ltuid) {
       throw new Error("That link is missing its access token. Copy the full address from your league page.");
     }
 
     try {
       const bundle = await ffpcLeagueBundle(parsed.leagueId, ltuid, { shallow: true });
-      await saveFfpcToken(context.supabase, context.userId, ltuid);
+      // FFPC issues one token per league, so it is kept against that league.
+      await saveFfpcToken(context.supabase, context.userId, ltuid, bundle.externalId);
       return {
         leagueId: bundle.externalId,
         name: bundle.name,
@@ -95,7 +96,7 @@ export const importFfpcLeague = createServerFn({ method: "POST" })
       "./fantasy/ffpc-sync.server"
     );
 
-    const ltuid = await ffpcToken(context.supabase);
+    const ltuid = await ffpcToken(context.supabase, context.userId, data.leagueId);
     if (!ltuid) throw new Error("Connect FFPC first by pasting a league link.");
 
     try {
@@ -118,6 +119,7 @@ export const importFfpcLeague = createServerFn({ method: "POST" })
           scoringRules: bundle.scoringRules,
           rosterSlots: bundle.rosterSlots,
           contestFormat: bundle.contestFormat,
+          format: bundle.isBestBall ? "best_ball" : null,
           ...detectLeagueType({
             typeDescription: `${bundle.leagueType} ${bundle.name}`,
             hasEmpirePanel: bundle.hasEmpirePanel,

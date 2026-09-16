@@ -126,4 +126,27 @@ describe("FFPC captured league pages", () => {
       expect.objectContaining({ name: "Jalen Hurts", nflTeam: "PHI", position: "QB" }),
     );
   });
+
+  it("parses a best ball LeagueHome that has points-only standings and no schedule", () => {
+    const home = parseLeagueHome(fixture("league-home-bestball.html"), "74726");
+    const leader = home.teams[0];
+
+    expect(home.name).toBe("$100 Empire BB Dynasty #24");
+    expect(home.leagueType).toBe("Dynasty Best Ball");
+    expect(home.isBestBall).toBe(true);
+    expect(home.season).toBe(2026);
+    expect(home.currentWeek).toBe(2);
+    expect(home.myTeamExternalId).toBe("12");
+    expect(home.teams).toHaveLength(12);
+    expect(leader).toMatchObject({
+      name: "BoldNorth Empire24",
+      pointsFor: 214.2,
+      wins: 0,
+      losses: 0,
+      vp: 0,
+    });
+    expect(home.usesVp).toBe(false);
+    expect(home.mySchedule).toHaveLength(0);
+    expect(home.myRoster).toHaveLength(22);
+  });
 });
