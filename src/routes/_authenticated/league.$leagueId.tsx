@@ -445,6 +445,16 @@ function LeaguePage() {
                 <p className="text-xs text-muted-foreground">
                   Age curve and future value for everyone on your roster.
                 </p>
+                {data.dynasty.filter((r) => r.ageSource === "unknown").length > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {data.dynasty.filter((r) => r.ageSource === "unknown").length} players with
+                    unknown age —{" "}
+                    <Link to="/admin" className="underline">
+                      review unmatched names
+                    </Link>
+                    .
+                  </p>
+                )}
                 <ul className="mt-3 space-y-1">
                   {data.dynasty.map((row) => (
                     <li
