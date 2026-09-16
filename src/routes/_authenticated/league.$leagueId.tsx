@@ -193,6 +193,15 @@ function LeaguePage() {
         </Button>
       </div>
 
+      {data.typeSource === "inferred" && (
+        <LeagueTypePrompt
+          leagueId={leagueId}
+          leagueType={data.leagueType}
+          variant={data.variant}
+          sourceLabel={data.typeSourceLabel}
+        />
+      )}
+
       {data.league.platform === "manual" && <ManualUpkeep leagueId={leagueId} />}
 
       {me && !data.mySurvival && (
