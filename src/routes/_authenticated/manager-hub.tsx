@@ -169,6 +169,7 @@ type HubStandings = {
   leagueName: string;
   platform: string;
   isDynasty: boolean;
+  valuesPending: boolean;
   myTeamId: string | null;
   swing: number | null;
   swingFromWeek: number | null;
@@ -185,7 +186,7 @@ type HubStandings = {
   }[];
 };
 
-function StandingsRow({ team, index, isDynasty, bubble }: { team: HubStandings["teams"][number]; index: number; isDynasty: boolean; bubble: boolean }) {
+function StandingsRow({ team, index, isDynasty, valuesPending, bubble }: { team: HubStandings["teams"][number]; index: number; isDynasty: boolean; valuesPending: boolean; bubble: boolean }) {
   return (
     <tr className={`border-b border-border/60 last:border-0 ${team.isMine ? "bg-primary/10" : ""}`}>
       <td className="w-8 px-3 py-2 tabular-nums text-muted-foreground">{index + 1}</td>
