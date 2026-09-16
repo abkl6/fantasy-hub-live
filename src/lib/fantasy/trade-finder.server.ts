@@ -27,6 +27,8 @@ import { loadLeague } from "./proposal.server";
 import { leagueScoring } from "./scoring";
 import { fairnessLabel } from "./trade-value";
 import type { TradeFinderAsset, TradeFinderIdea, TradeFinderPayload } from "./trade-finder-types";
+import { isStreamPosition } from "./rules";
+import { loadStrategyRules } from "./rules.server";
 
 export type * from "./trade-finder-types";
 
@@ -185,6 +187,7 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
         ? "rebuilder"
         : "middle";
 
+  const book = await loadStrategyRules(supabase);
   const ideas: TradeFinderIdea[] = [];
 
   for (const team of loaded.teams) {
