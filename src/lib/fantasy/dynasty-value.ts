@@ -22,6 +22,8 @@ export interface TeamDynastyValue {
   rank: number;
   /** Total minus the league average. */
   vsAverage: number;
+  /** Players we hold no age for — nearly always a failed name match. */
+  unknownAgeCount: number;
   top: DynastyAsset[];
 }
 
@@ -29,7 +31,14 @@ export interface DynastyTeamInput {
   id: string;
   name: string;
   isMine: boolean;
-  players: { id: string | null; name: string; position: string; projSeason: number }[];
+  players: {
+    id: string | null;
+    name: string;
+    position: string;
+    projSeason: number;
+    /** False when neither the market nor our own record knows the age. */
+    ageKnown?: boolean;
+  }[];
   picks: TradeAsset[];
 }
 
@@ -45,8 +54,9 @@ export function teamDynastyTotals(team: DynastyTeamInput, book: TradeValueBook) 
 
   const playerValue = Math.round(players.reduce((s, a) => s + a.value, 0));
   const pickValue = Math.round(picks.reduce((s, a) => s + a.value, 0));
+  const unknownAgeCount = team.players.filter((p) => p.ageKnown === false).length;
   const top = [...players, ...picks].sort((a, b) => b.value - a.value).slice(0, 5);
-  return { playerValue, pickValue, total: playerValue + pickValue, top };
+  return { playerValue, pickValue, total: playerValue + pickValue, unknownAgeCount, top };
 }
 
 export function leagueDynastyValues(
