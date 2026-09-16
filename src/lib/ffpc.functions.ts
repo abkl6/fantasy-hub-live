@@ -39,7 +39,7 @@ export const previewFfpcLeague = createServerFn({ method: "POST" })
     const { CONTEST_LABELS } = await import("./fantasy/contest");
 
     const parsed = parseFfpcUrl(data.url);
-    if (!parsed.leagueId) {
+    if (!parsed?.leagueId) {
       throw new Error("That doesn't look like an FFPC league link. Copy the address from your league page.");
     }
     const ltuid = parsed.ltuid ?? (await ffpcToken(context.supabase));
