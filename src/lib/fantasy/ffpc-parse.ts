@@ -125,6 +125,10 @@ const POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "PK", "DEF", "DST", "D/S
 export function parsePlayerCell(value: string): FfpcPlayer | null {
   const raw = text(value);
   if (!raw) return null;
+  // Header and spacer cells look like names; a real cell always has two words.
+  if (/^(player|name|position|pos|slot|team|starters?|bench|empty|total|--?)$/i.test(raw)) {
+    return null;
+  }
 
   let position = "";
   let rest = raw;
