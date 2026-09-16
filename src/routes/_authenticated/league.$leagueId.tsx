@@ -208,10 +208,17 @@ function LeaguePage() {
             />
           </div>
         </div>
-        <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
-          {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => recompute.mutate()} disabled={recompute.isPending || isFetching}>
+            {recompute.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            Recompute
+          </Button>
+          <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Refresh
+          </Button>
+        </div>
+
       </div>
 
       <ScoringGapBanner leagueId={leagueId} />
