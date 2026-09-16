@@ -896,6 +896,8 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
         leagueId: z.string().uuid(),
         search: z.string().max(60).optional(),
         position: z.string().max(6).optional(),
+        sort: z.enum(["impact", "points", "value", "ktc", "gems", "bid"]).optional(),
+        showInjured: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -904,6 +906,8 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
     return buildWaiverBoard(context.supabase, data.leagueId, {
       ...(data.search ? { search: data.search } : {}),
       ...(data.position ? { position: data.position } : {}),
+      ...(data.sort ? { sort: data.sort } : {}),
+      showInjured: data.showInjured ?? false,
       limit: 60,
     });
   });
