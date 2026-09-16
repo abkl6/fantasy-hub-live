@@ -1266,8 +1266,13 @@ export const getThisWeekFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildThisWeek } = await import("./fantasy/this-week.server");
-    return buildThisWeek(context.supabase);
+    const { cached, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const hash = await allLeaguesInputsHash(context.supabase);
+    return cached(context.supabase, { userId: context.userId, kind: "this-week" }, hash, () =>
+      buildThisWeek(context.supabase),
+    );
   });
+
 
 export const getLineupCheckFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
