@@ -17,7 +17,14 @@ import {
   type SimTeamResult,
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
-import { asContestFormat, CONTEST_LABELS, hasPointsRace, type ContestFormat } from "./contest";
+import {
+  asAllPlayWeeks,
+  asContestFormat,
+  CONTEST_LABELS,
+  hasPointsRace,
+  usesVictoryPoints,
+  type ContestFormat,
+} from "./contest";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { fetchAllRows } from "./paginate";
@@ -400,6 +407,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       pointsFor: t.pointsFor,
       mean: dist.mean,
       sd: dist.sd,
+      vp: Number((t as { vp?: number }).vp ?? 0),
     };
   });
 
