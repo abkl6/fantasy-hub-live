@@ -111,7 +111,10 @@ export interface FfpcTeam {
   division: string | null;
   playoffSeed: number | null;
   faabRemaining: number | null;
+  /** Chop leagues only: the NFL week this team was knocked out. */
+  eliminatedWeek: number | null;
   roster: FfpcRosterEntry[];
+
 }
 
 export interface FfpcTransaction {
