@@ -117,7 +117,12 @@ interface LoadedLeague {
   picksByTeam: Map<string, TradeAsset[]>;
   teams: { id: string; name: string; isMine: boolean; wins: number; losses: number; ties: number; pointsFor: number }[];
   schedule: ScheduleGame[];
-  simConfig: { playoffTeams: number; regularSeasonWeeks: number; currentWeek: number };
+  simConfig: {
+    playoffTeams: number;
+    regularSeasonWeeks: number;
+    currentWeek: number;
+    byes?: number;
+  };
 }
 
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
