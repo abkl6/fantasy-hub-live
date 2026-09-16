@@ -440,16 +440,9 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       weeksByTeam.set(key, list);
     }
 
-    const useSos = data.spread === "sos";
-    const strength = useSos ? await loadStrengthBook(context.supabase, season) : neutralStrength();
-    if (useSos && !strength.covered) {
-      throw new Error(
-        "Schedule strength has not been worked out for this season yet. Upload with an even split, or ask an admin to refresh schedule strength.",
-      );
-    }
-
     const source = `user:${context.userId}`;
-    const out: Record<string, unknown>[] = [];
+    const weekOut: Record<string, unknown>[] = [];
+    const seasonOut: Record<string, unknown>[] = [];
     const unmatched: string[] = [];
     let matchedCount = 0;
 
@@ -465,44 +458,43 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         if (Number.isFinite(n) && n !== 0) stats[col.key] = n;
       }
       matchedCount++;
-
-      const push = (week: number, line: Record<string, number>, opponent: string | null) =>
-        out.push({
-          player_id: hit.id,
-          season,
-          week,
-          opponent,
-          stats: line,
-          src_points: Math.round(scoreStats(line, BASELINE_RULES, hit.position) * 100) / 100,
-          source,
-        });
+      const points = Math.round(scoreStats(stats, BASELINE_RULES, hit.position) * 100) / 100;
 
       if (iWeek >= 0) {
         const week = Number(raw[iWeek]);
         if (!Number.isFinite(week) || week < 1 || week > 18) continue;
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
-        push(week, stats, games.find((g) => g.week === week)?.opponent ?? null);
-      } else {
-        // Season totals: spread them across the weeks this team actually plays,
-        // evenly or shaped by how tough each week's opponent is.
-        const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
-        const play = games.length
-          ? games
-          : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
-        const split = spreadSeasonTotals(
+        weekOut.push({
+          player_id: hit.id,
+          season,
+          week,
+          opponent: games.find((g) => g.week === week)?.opponent ?? null,
           stats,
-          play,
-          useSos ? (opponent) => strength.multiplier(hit.position, opponent) : undefined,
-        );
-        for (const week of split) push(week.week, week.stats, week.opponent);
+          src_points: points,
+          source,
+        });
+      } else {
+        // Season totals are kept whole. Each league splits them at read time,
+        // evenly or shaped by its own schedule setting.
+        seasonOut.push({ player_id: hit.id, season, stats, src_points: points, source });
       }
     }
 
-    if (data.apply && out.length) {
-      for (let i = 0; i < out.length; i += 500) {
+    if (data.apply) {
+      for (let i = 0; i < weekOut.length; i += 500) {
         const { error } = await context.supabase
           .from("player_week_stats")
-          .upsert(out.slice(i, i + 500) as never, { onConflict: "player_id,season,week,source" });
+          .upsert(weekOut.slice(i, i + 500) as never, {
+            onConflict: "player_id,season,week,source",
+          });
+        if (error) throw new Error(error.message);
+      }
+      for (let i = 0; i < seasonOut.length; i += 500) {
+        const { error } = await context.supabase
+          .from("player_season_projections")
+          .upsert(seasonOut.slice(i, i + 500) as never, {
+            onConflict: "player_id,season,source",
+          });
         if (error) throw new Error(error.message);
       }
     }
@@ -512,14 +504,14 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       season,
       group,
       groupLabel: GROUP_LABEL[group],
-      spread: useSos ? ("sos" as const) : ("even" as const),
       mode: iWeek >= 0 ? ("weekly" as const) : ("season" as const),
       matchedCount,
-      rowsWritten: out.length,
+      rowsWritten: weekOut.length + seasonOut.length,
       unmatched: unmatched.slice(0, 100),
       unmatchedCount: unmatched.length,
     };
   });
+
 
 // ------------------------------------------------- templates & schedule strength
 
