@@ -515,6 +515,14 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const allPlayWeeks = asAllPlayWeeks((league as { all_play_weeks?: unknown }).all_play_weeks);
   const usesVp = usesVictoryPoints(contestFormat);
 
+  // Leagues with divisions seed every division winner ahead of the rest.
+  const divisionMap: Record<string, string> = {};
+  for (const t of teams) {
+    const division = (t as { division?: string | null }).division;
+    if (division) divisionMap[t.id] = division;
+  }
+  const hasDivisions = new Set(Object.values(divisionMap)).size >= 2;
+
   const simConfig = {
     playoffTeams: league.playoff_teams,
     regularSeasonWeeks: league.regular_season_weeks,
@@ -522,7 +530,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     victoryPoints: usesVp,
     allPlayWeeks,
     byes: Number((league as { playoff_byes?: number | null }).playoff_byes ?? 0),
+    ...(hasDivisions ? { divisions: divisionMap } : {}),
   };
+
 
   const baseline = simulateSeason(simInputs, simConfig, schedule, 2500, 7);
   const baselineById = new Map(baseline.map((r) => [r.id, r]));
