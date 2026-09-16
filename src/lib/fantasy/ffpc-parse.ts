@@ -88,15 +88,21 @@ export function tables(html: string): HtmlTable[] {
   return found;
 }
 
-/** First table whose header row mentions all of the given words. */
+/**
+ * First table whose header row mentions all of the given words. Empty tables
+ * are skipped: FFPC's league info panel repeats standings-like wording and
+ * would otherwise be mistaken for the standings.
+ */
 export function findTable(html: string, ...needles: string[]): HtmlTable | null {
   const wanted = needles.map((n) => n.toLowerCase());
   for (const table of tables(html)) {
+    if (!table.rows.length) continue;
     const head = table.headers.join(" | ").toLowerCase();
     if (wanted.every((n) => head.includes(n))) return table;
   }
   return null;
 }
+
 
 export function columnIndex(table: HtmlTable, ...names: string[]): number {
   const wanted = names.map((n) => n.toLowerCase());
