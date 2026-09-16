@@ -651,10 +651,6 @@ export const getDataQuality = createServerFn({ method: "POST" })
           .eq("season", season),
       ]);
 
-    const rows = players ?? [];
-    const count = (field: "sleeper_id" | "espn_id" | "yahoo_id" | "ktc_slug") =>
-      rows.filter((r) => !!r[field]).length;
-
     const gaps = (recon ?? [])
       .filter((r) => Math.abs(Number(r.diff)) > 0.5)
       .map((r) => ({
