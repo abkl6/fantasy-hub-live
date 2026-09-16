@@ -146,7 +146,9 @@ interface RawLeague {
     scoringSettings?: { scoringItems?: { statId: number; points?: number; pointsOverrides?: Record<string, number> }[] };
     scheduleSettings?: { matchupPeriodCount?: number; playoffTeamCount?: number };
     rosterSettings?: { lineupSlotCounts?: Record<string, number> };
+    draftSettings?: { keeperCount?: number };
   };
+  previousSeasons?: number[];
   teams?: RawTeam[];
   members?: { id: string; displayName?: string; firstName?: string; lastName?: string }[];
   schedule?: {
