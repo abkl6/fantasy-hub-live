@@ -420,16 +420,16 @@ export function simulateSeason(
     id: t.id,
     name: t.name,
     isMine: t.isMine,
-    playoffOdds: madePlayoffs[i] / iterations,
-    titleOdds: wonTitle[i] / iterations,
-    projWins: Math.round(((totalWins[i] ?? 0) / iterations) * 10) / 10,
+    playoffOdds: madePlayoffs[i] / runs,
+    titleOdds: wonTitle[i] / runs,
+    projWins: Math.round(((totalWins[i] ?? 0) / runs) * 10) / 10,
     projLosses:
       Math.round(
-        (t.wins + t.losses + t.ties + weeksLeft - (totalWins[i] ?? 0) / iterations) * 10,
+        (t.wins + t.losses + t.ties + weeksLeft - (totalWins[i] ?? 0) / runs) * 10,
       ) / 10,
     projPointsPerWeek: Math.round(t.mean * 10) / 10,
     powerRank: 0,
-    ...(useVp ? { projVp: Math.round(((totalVp[i] ?? 0) / iterations) * 10) / 10 } : {}),
+    ...(useVp ? { projVp: Math.round(((totalVp[i] ?? 0) / runs) * 10) / 10 } : {}),
   }));
 
   [...results]
