@@ -43,6 +43,13 @@ export interface ProjectionSet {
   hasOverride(playerId: string | null | undefined, name: string | null | undefined): boolean;
   /** Where these numbers come from, e.g. "Sleeper projections". */
   sourceLabel: string;
+  /** True when this league adjusts numbers for opponent strength. */
+  sosOn: boolean;
+  /** "easy" | "neutral" | "tough" for this week's matchup, or null. */
+  matchupRating(
+    playerId: string | null | undefined,
+    position: string,
+  ): "easy" | "neutral" | "tough" | null;
 }
 
 const EMPTY: ProjectionSet = {
