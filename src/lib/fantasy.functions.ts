@@ -108,9 +108,9 @@ export const getAnalysis = createServerFn({ method: "POST" })
     // Refresh injury/status data in the background.
     await syncPlayerNews(context.supabase).catch(() => {});
 
-    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const { cachedWithMeta, leagueInputsHash } = await import("./fantasy/cache.server");
     const hash = await leagueInputsHash(context.supabase, data.leagueId);
-    return cached(
+    const result = await cachedWithMeta(
       context.supabase,
       {
         userId: context.userId,
@@ -121,6 +121,8 @@ export const getAnalysis = createServerFn({ method: "POST" })
       hash,
       () => buildAnalysis(context.supabase, data.leagueId),
     );
+    // The screen shows "updated N min ago" from this.
+    return { ...result.payload, computedAt: result.computedAt };
   });
 
 /** Clears a league's stored results so the next load recomputes from scratch. */
@@ -130,8 +132,15 @@ export const clearLeagueCache = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { clearCache } = await import("./fantasy/cache.server");
     await clearCache(context.supabase, context.userId, data.leagueId);
+    // Rebuild in the background so the next visit is a read again.
+    const { enqueueLeagueJobs } = await import("./fantasy/jobs.server");
+    await enqueueLeagueJobs(context.supabase, context.userId, data.leagueId, {
+      priority: 0,
+    }).catch(() => {});
+
     return { ok: true };
   });
+
 
 
 export const deleteLeague = createServerFn({ method: "POST" })
@@ -933,6 +942,21 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { buildWaiverBoard } = await import("./fantasy/waivers.server");
+    const plainView =
+      !data.search && !data.position && (!data.sort || data.sort === "impact") && !data.showInjured;
+
+    if (plainView) {
+      // The worker scores the wire after every sync, so the default board is a read.
+      const { readCached, componentHashes } = await import("./fantasy/cache.server");
+      const parts = await componentHashes(context.supabase, data.leagueId);
+      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(
+        context.supabase,
+        { userId: context.userId, leagueId: data.leagueId, kind: "impact", suffix: "waivers" },
+        parts.sim,
+      );
+      if (hit) return { ...hit.payload, computedAt: hit.computedAt };
+    }
+
     return buildWaiverBoard(context.supabase, data.leagueId, {
       ...(data.search ? { search: data.search } : {}),
       ...(data.position ? { position: data.position } : {}),
@@ -941,6 +965,7 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
       limit: 60,
     });
   });
+
 
 // ---------------------------------------------------------------- playoff + trends
 

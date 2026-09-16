@@ -172,6 +172,60 @@ export type Database = {
           },
         ]
       }
+      compute_jobs: {
+        Row: {
+          attempts: number
+          compute_ms: number | null
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          kind: string
+          league_id: string | null
+          payload: Json
+          priority: number
+          run_after: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          compute_ms?: number | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          kind: string
+          league_id?: string | null
+          payload?: Json
+          priority?: number
+          run_after?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          compute_ms?: number | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          league_id?: string | null
+          payload?: Json
+          priority?: number
+          run_after?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cron_keys: {
         Row: {
           created_at: string

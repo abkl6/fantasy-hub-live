@@ -500,11 +500,15 @@ async function warmActiveLeagues(admin: DB): Promise<void> {
     .select("id, user_id, last_synced_at")
     .gte("last_synced_at", since)
     .limit(50);
-  const { warmLeagueCache } = await import("./cache.server");
+  const { enqueueLeagueJobs } = await import("./jobs.server");
+  const { runComputeJobs } = await import("./jobs.server");
   for (const row of data ?? []) {
-    await warmLeagueCache(admin, row.user_id, row.id);
+    await enqueueLeagueJobs(admin, row.user_id, row.id).catch(() => {});
   }
+  // Live windows poll every couple of minutes, so drain a slice right away.
+  await runComputeJobs(admin, { limit: 4 }).catch(() => {});
 }
+
 
 
 // ---------------------------------------------------------------- game day

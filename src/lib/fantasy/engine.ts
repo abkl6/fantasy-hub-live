@@ -268,6 +268,9 @@ export function simulateSeason(
     byes?: number;
     /** Team id -> division name. Division winners seed ahead of everyone else. */
     divisions?: Record<string, string>;
+    /** Only this team's odds matter: other teams' bracket runs are skipped. */
+    focusTeam?: string;
+
   },
   schedule: ScheduleGame[] = [],
   iterations?: number,
@@ -304,11 +307,31 @@ export function simulateSeason(
 
   const useVp = config.victoryPoints === true;
   const allPlay = new Set(config.allPlayWeeks ?? []);
-  const totalVp = new Array(n).fill(0);
 
-  const madePlayoffs = new Array(n).fill(0);
-  const wonTitle = new Array(n).fill(0);
-  const totalWins = new Array(n).fill(0);
+  // Counters and scratch space are allocated once and reused by every
+  // iteration; the arithmetic and the order of random draws are unchanged.
+  const totalVp = new Float64Array(n);
+  const madePlayoffs = new Float64Array(n);
+  const wonTitle = new Float64Array(n);
+  const totalWins = new Float64Array(n);
+
+  const drift = new Float64Array(n);
+  const wins = new Float64Array(n);
+  const points = new Float64Array(n);
+  const vp = new Float64Array(n);
+  const scores = new Float64Array(n);
+  const scoreRank = new Int32Array(n);
+  const weekOrder: number[] = new Array(n);
+  const pairOrder: number[] = new Array(n);
+  const standing = teams.map(() => ({ wins: 0, points: 0, vp: 0 }));
+
+  const means = new Float64Array(teams.map((t) => t.mean));
+  const sds = new Float64Array(teams.map((t) => t.sd));
+
+  // Only this team's odds are wanted: the bracket can be skipped in every
+  // season where it misses the field.
+  const focusIndex =
+    config.focusTeam !== undefined ? teams.findIndex((t) => t.id === config.focusTeam) : -1;
 
   const byWeek = new Map<number, ScheduleGame[]>();
   for (const g of schedule) {
@@ -320,39 +343,38 @@ export function simulateSeason(
 
   // Season drift: each simulated season assumes a slightly different team than
   // the projections say, held steady for that whole run.
-  let drift = new Array(n).fill(0) as number[];
-  const draw = (i: number) =>
-    Math.max(0, teams[i]!.mean + (drift[i] ?? 0) + gaussian(rand) * teams[i]!.sd);
+  const draw = (i: number) => Math.max(0, means[i]! + drift[i]! + gaussian(rand) * sds[i]!);
 
   for (let it = 0; it < runs; it++) {
-    drift = teams.map((t) => gaussian(rand) * Math.abs(t.mean) * 0.05);
-    const wins = teams.map((t) => t.wins + t.ties * 0.5);
-    const points = teams.map((t) => t.pointsFor);
-    const vp = teams.map((t) => t.vp ?? 0);
+    for (let i = 0; i < n; i++) drift[i] = gaussian(rand) * Math.abs(teams[i]!.mean) * 0.05;
+    for (let i = 0; i < n; i++) {
+      const t = teams[i]!;
+      wins[i] = t.wins + t.ties * 0.5;
+      points[i] = t.pointsFor;
+      vp[i] = t.vp ?? 0;
+    }
+
+
 
 
     for (let w = 0; w < weeksLeft; w++) {
       const week = config.currentWeek + w;
-      const scores = teams.map((_, i) => draw(i));
-      for (let i = 0; i < n; i++) points[i] = (points[i] ?? 0) + (scores[i] ?? 0);
+      for (let i = 0; i < n; i++) scores[i] = draw(i);
+      for (let i = 0; i < n; i++) points[i] = points[i]! + scores[i]!;
 
       // Weekly scoring rank drives both all-play weeks and score VP.
-      const weekOrder = teams
-        .map((_, i) => i)
-        .sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0));
-      const scoreRank = new Array(n).fill(n);
-      weekOrder.forEach((teamIndex, place) => {
-        scoreRank[teamIndex] = place + 1;
-      });
+      for (let i = 0; i < n; i++) weekOrder[i] = i;
+      weekOrder.sort((a, b) => scores[b]! - scores[a]!);
+      for (let place = 0; place < n; place++) scoreRank[weekOrder[place]!] = place + 1;
 
       if (allPlay.has(week)) {
         // Top half beats the bottom half; there is no opponent this week.
         const half = Math.floor(n / 2);
-        for (let place = 0; place < half; place++) wins[weekOrder[place]!] = (wins[weekOrder[place]!] ?? 0) + 1;
+        for (let place = 0; place < half; place++) wins[weekOrder[place]!] = wins[weekOrder[place]!]! + 1;
         if (useVp) {
           for (let i = 0; i < n; i++) {
             vp[i] =
-              (vp[i] ?? 0) +
+              vp[i]! +
               (scoreRank[i]! <= half ? 2 : 0) +
               (scoreRank[i]! <= 4 ? 2 : scoreRank[i]! <= 8 ? 1 : 0);
           }
@@ -362,7 +384,7 @@ export function simulateSeason(
 
       if (useVp) {
         for (let i = 0; i < n; i++) {
-          vp[i] = (vp[i] ?? 0) + (scoreRank[i]! <= 4 ? 2 : scoreRank[i]! <= 8 ? 1 : 0);
+          vp[i] = vp[i]! + (scoreRank[i]! <= 4 ? 2 : scoreRank[i]! <= 8 ? 1 : 0);
         }
       }
 
@@ -372,46 +394,54 @@ export function simulateSeason(
           const a = index.get(g.homeTeamId);
           const b = index.get(g.awayTeamId);
           if (a === undefined || b === undefined) continue;
-          const aWins = (scores[a] ?? 0) >= (scores[b] ?? 0);
-          if (aWins) wins[a] = (wins[a] ?? 0) + 1;
-          else wins[b] = (wins[b] ?? 0) + 1;
+          const aWins = scores[a]! >= scores[b]!;
+          if (aWins) wins[a] = wins[a]! + 1;
+          else wins[b] = wins[b]! + 1;
           if (useVp) {
-            vp[aWins ? a : b] = (vp[aWins ? a : b] ?? 0) + 2;
+            vp[aWins ? a : b] = vp[aWins ? a : b]! + 2;
           }
         }
       } else {
         // No stored schedule: random pairings keep the win distribution honest.
-        const order = teams.map((_, i) => i);
-        for (let i = order.length - 1; i > 0; i--) {
+        for (let i = 0; i < n; i++) pairOrder[i] = i;
+        for (let i = n - 1; i > 0; i--) {
           const j = Math.floor(rand() * (i + 1));
-          [order[i], order[j]] = [order[j]!, order[i]!];
+          [pairOrder[i], pairOrder[j]] = [pairOrder[j]!, pairOrder[i]!];
         }
-        for (let i = 0; i + 1 < order.length; i += 2) {
-          const a = order[i]!;
-          const b = order[i + 1]!;
-          const aWins = (scores[a] ?? 0) >= (scores[b] ?? 0);
-          if (aWins) wins[a] = (wins[a] ?? 0) + 1;
-          else wins[b] = (wins[b] ?? 0) + 1;
-          if (useVp) vp[aWins ? a : b] = (vp[aWins ? a : b] ?? 0) + 2;
+        for (let i = 0; i + 1 < n; i += 2) {
+          const a = pairOrder[i]!;
+          const b = pairOrder[i + 1]!;
+          const aWins = scores[a]! >= scores[b]!;
+          if (aWins) wins[a] = wins[a]! + 1;
+          else wins[b] = wins[b]! + 1;
+          if (useVp) vp[aWins ? a : b] = vp[aWins ? a : b]! + 2;
         }
       }
     }
 
     for (let i = 0; i < n; i++) {
-      totalWins[i] += wins[i];
-      totalVp[i] += vp[i];
+      totalWins[i] = totalWins[i]! + wins[i]!;
+      totalVp[i] = totalVp[i]! + vp[i]!;
     }
 
-    const seeds = seedOrder(
-      teamIds,
-      teams.map((_, i) => ({ wins: wins[i] ?? 0, points: points[i] ?? 0, vp: vp[i] ?? 0 })),
-      {
-        ...(useVp ? { victoryPoints: true } : {}),
-        ...(config.divisions ? { divisions: config.divisions } : {}),
-      },
-    ).slice(0, bracketSize);
+    for (let i = 0; i < n; i++) {
+      const row = standing[i]!;
+      row.wins = wins[i]!;
+      row.points = points[i]!;
+      row.vp = vp[i]!;
+    }
 
-    for (const i of seeds) madePlayoffs[i] += 1;
+    const seeds = seedOrder(teamIds, standing, {
+      ...(useVp ? { victoryPoints: true } : {}),
+      ...(config.divisions ? { divisions: config.divisions } : {}),
+    }).slice(0, bracketSize);
+
+    for (const i of seeds) madePlayoffs[i] = madePlayoffs[i]! + 1;
+
+    // When only one team's odds are wanted, a season it sits out cannot change
+    // them, so the bracket is skipped entirely.
+    if (focusIndex >= 0 && !seeds.includes(focusIndex)) continue;
+
 
     let field = [...seeds];
     // Byes: the top seeds sit out round one and meet the survivors.
@@ -441,15 +471,16 @@ export function simulateSeason(
       if (field.length % 2 === 1) next.push(field[half]!);
       field = next;
     }
-    if (field.length === 1) wonTitle[field[0]!] += 1;
+    if (field.length === 1) wonTitle[field[0]!] = wonTitle[field[0]!]! + 1;
   }
 
   const results = teams.map((t, i) => ({
     id: t.id,
     name: t.name,
     isMine: t.isMine,
-    playoffOdds: madePlayoffs[i] / runs,
-    titleOdds: wonTitle[i] / runs,
+    playoffOdds: madePlayoffs[i]! / runs,
+    titleOdds: wonTitle[i]! / runs,
+
     projWins: Math.round(((totalWins[i] ?? 0) / runs) * 10) / 10,
     projLosses:
       Math.round(

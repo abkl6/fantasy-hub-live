@@ -77,10 +77,13 @@ type DB = SupabaseClient<Database>;
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
 /** How many candidates get a full season re-simulation. */
 const SCORED_CANDIDATES = 12;
+/** The background worker scores a deeper list so the page is a plain read. */
+const DEEP_CANDIDATES = 30;
 /** Cheap pass to order candidates, full pass only for the ones displayed. */
 const COARSE_ITERATIONS = 300;
 const FULL_ITERATIONS = 1500;
 const DISPLAYED_CANDIDATES = 5;
+
 
 
 function asSlots(value: unknown): string[] {
@@ -152,7 +155,10 @@ export async function buildWaiverBoard(
     showInjured?: boolean;
     /** Skip the per-candidate season simulations; only the fill strip is wanted. */
     fillsOnly?: boolean;
+    /** Background pass: score a deeper candidate list at full accuracy. */
+    deep?: boolean;
   } = {},
+
 ): Promise<WaiverBoard> {
   const { data: league, error } = await supabase
     .from("leagues")
@@ -593,13 +599,14 @@ export async function buildWaiverBoard(
       };
     };
 
-    const shortlist = opts.fillsOnly ? [] : eligible.slice(0, SCORED_CANDIDATES);
+    const depth = opts.deep ? DEEP_CANDIDATES : SCORED_CANDIDATES;
+    const shortlist = opts.fillsOnly ? [] : eligible.slice(0, depth);
     for (const fa of shortlist) {
       const rough = priceCandidate(fa, COARSE_ITERATIONS);
       if (rough) impacts.set(fa.id, rough);
     }
 
-    // Re-price the five the member will actually read at full accuracy.
+    // Re-price the ones the member will actually read at full accuracy.
     const headline = [...shortlist]
       .filter((fa) => impacts.has(fa.id))
       .sort((a, b) => {
@@ -609,7 +616,8 @@ export async function buildWaiverBoard(
           ? (y.survivalDelta ?? 0) - (x.survivalDelta ?? 0) || y.titleDelta - x.titleDelta
           : y.titleDelta - x.titleDelta || y.lineupGain - x.lineupGain;
       })
-      .slice(0, DISPLAYED_CANDIDATES);
+      .slice(0, opts.deep ? DEEP_CANDIDATES : DISPLAYED_CANDIDATES);
+
     for (const fa of headline) {
       const exact = priceCandidate(fa, FULL_ITERATIONS);
       if (exact) impacts.set(fa.id, exact);
