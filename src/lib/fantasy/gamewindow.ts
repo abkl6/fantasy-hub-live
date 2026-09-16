@@ -99,6 +99,32 @@ export function homeRoute(now: Date = new Date()): "/this-week" | "/gameday" {
   return inPrepWindow(now) ? "/this-week" : "/gameday";
 }
 
+/** Minutes until the next scheduled kickoff. */
+export function minutesToKickoff(now: Date = new Date()): number {
+  return Math.round((nextKickoff(now).at.getTime() - now.getTime()) / 60_000);
+}
+
+export type FfpcCadence =
+  /** Game window: scoreboard and lineups, every 5 minutes. */
+  | { run: true; scope: "live" }
+  /** The hour before a kickoff: lineups only, every 15 minutes. */
+  | { run: true; scope: "lineups" }
+  | { run: false; scope: "idle" };
+
+/**
+ * Decides what a five-minute FFPC tick should do, so one schedule covers both
+ * the in-game pass and the quarter-hourly pre-kickoff lineup check.
+ */
+export function ffpcCadence(now: Date = new Date()): FfpcCadence {
+  if (gameWindow(now).live) return { run: true, scope: "live" };
+  const mins = minutesToKickoff(now);
+  if (mins > 0 && mins <= 60) {
+    const minute = easternMinuteOfWeek(now) % 15;
+    if (minute < 5) return { run: true, scope: "lineups" };
+  }
+  return { run: false, scope: "idle" };
+}
+
 /** When waivers typically clear: Wednesday 3am ET. */
 export function nextWaiverRun(now: Date = new Date()): Date {
   const current = easternMinuteOfWeek(now);
