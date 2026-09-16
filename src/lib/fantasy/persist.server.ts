@@ -196,5 +196,9 @@ export async function persistBundle(
   const { syncLeagueRosters } = await import("./rosters.server");
   await syncLeagueRosters(supabase, userId, league.id);
 
+  // Dynasty/trade values should be there right after an import. Never awaited.
+  const { ensureTradeValuesInBackground } = await import("./ktc.server");
+  ensureTradeValuesInBackground({ scope: league.id, userId, platform: bundle.platform });
+
   return { leagueId: league.id, name: league.name, teams: insertedTeams ?? [] };
 }

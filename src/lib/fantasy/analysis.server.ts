@@ -248,6 +248,8 @@ export interface AnalysisPayload {
   mySurvival: SurvivalResult | null;
   /** Dynasty / keeper only: long-term value of my roster. */
   dynasty: DynastyRow[] | null;
+  /** True while the dynasty market is still being fetched after an import. */
+  valuesPending: boolean;
   /** My team's badge and the trading posture that follows from it. */
   myBadge: TeamBadge | null;
   myStrategy: TeamStrategy | null;
@@ -626,6 +628,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   }
 
   const formatMeta = {
+    // No market book yet: the post-import fetch is still running.
+    valuesPending: !values.covered,
     format,
     formatLabel: FORMAT_LABELS[format],
     leagueType,

@@ -48,6 +48,8 @@ export interface ManagerHubPayload {
     leagueName: string;
     platform: string;
     isDynasty: boolean;
+    /** Market values still being fetched after an import. */
+    valuesPending: boolean;
     myTeamId: string | null;
     /** My title-odds swing since the first stored snapshot, if any. */
     swing: number | null;
@@ -187,6 +189,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
           leagueName: analysis.league.name,
           platform: analysis.league.platform,
           isDynasty: isMultiYear(analysis.format),
+          valuesPending: analysis.valuesPending,
           myTeamId: analysis.myTeam?.id ?? null,
           swing,
           swingFromWeek,

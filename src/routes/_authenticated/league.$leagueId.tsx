@@ -426,7 +426,18 @@ function LeaguePage() {
             />
           </Section>
 
-          {data.showPickValues && !!data.dynasty?.length && (
+          {data.showPickValues && data.valuesPending && (
+            <Section title="Long-term value">
+              <div className="rounded-xl bg-card p-5">
+                <p className="text-sm text-muted-foreground">Loading market values…</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Fetching the dynasty market for this league. Values appear here shortly.
+                </p>
+              </div>
+            </Section>
+          )}
+
+          {data.showPickValues && !data.valuesPending && !!data.dynasty?.length && (
             <Section title="Long-term value">
               <div className="rounded-xl bg-card p-5">
                 <p className="text-xs text-muted-foreground">
