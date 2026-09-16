@@ -352,6 +352,12 @@ export async function loadProjections(
       if (!line?.opponent || line.weekly) return null;
       return strength.rating(position, line.opponent);
     },
+    blendNote: (playerId) => {
+      const blend = playerId ? blendByPlayer.get(playerId) : undefined;
+      if (!blend || blend.weight <= 0) return null;
+      return { games: blend.games, weight: blend.weight };
+    },
+    impliedMultiplier: (playerId) => impliedOf(playerId),
   };
 
 }
