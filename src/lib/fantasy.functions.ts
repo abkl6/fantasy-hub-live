@@ -1266,7 +1266,9 @@ export const getGameDayFn = createServerFn({ method: "POST" })
       buildGameDay(context.supabase, {
         ...(data.leagueId ? { leagueId: data.leagueId } : {}),
         ...(data.games ? { includeGames: true } : {}),
+        ...(data.summaries ? { summariesOnly: true } : {}),
       });
+
 
     // Only the per-league board is cached; the cross-league board and the
     // games view are cheap and want the freshest scoreboard.
