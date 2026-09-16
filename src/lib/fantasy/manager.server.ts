@@ -48,6 +48,8 @@ export interface ManagerHubPayload {
     leagueName: string;
     platform: string;
     isDynasty: boolean;
+    /** Market values still being fetched after an import. */
+    valuesPending: boolean;
     myTeamId: string | null;
     /** My title-odds swing since the first stored snapshot, if any. */
     swing: number | null;
