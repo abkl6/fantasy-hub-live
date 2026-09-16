@@ -210,7 +210,10 @@ export async function loadProjections(
         stats: hit ? asStats(hit.stats) : null,
         opponent: hit?.opponent ?? null,
         rank: entry.rank,
+        shaped: true,
+        weekly: false,
       });
+
     }
   }
 
