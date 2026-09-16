@@ -273,11 +273,14 @@ export async function buildWaiverBoard(
         projValue,
         undervalued: marketValue !== null && projValue >= marketValue * 1.25 && projValue - marketValue >= 400,
         longTermValue: longTerm,
+        fromCutTeam: cutNames.has(key(p.full_name)),
         rank: showLongTerm
           ? blendedValue(format, projSeason, bestSeason, longTerm ?? 0)
           : projSeason - (replacement.get(pos) ?? 0),
       };
     })
+    // A row with no season projection tells nobody anything.
+    .filter((p) => p.projSeason > 0)
     .sort((a, b) => b.rank - a.rank);
 
   const mine = teams.find((t) => t.is_mine) ?? null;
@@ -294,12 +297,25 @@ export async function buildWaiverBoard(
         }))
     : [];
 
+  // A kicker or defense only deserves a top spot when that slot is empty.
+  const hasPosition = (pos: string) =>
+    myRoster.some((p) => p.position === pos || (pos === "DEF" && p.position === "DST"));
+  const slotFor = (pos: string) => slots.some((s) => slotAccepts(s, pos));
+  const needsKicker = slotFor("K") && !hasPosition("K");
+  const needsDefense = slotFor("DEF") && !hasPosition("DEF");
+
   // --- championship impact for the strongest candidates --------------------
   const impacts = new Map<
     string,
-    { titleDelta: number; playoffDelta: number; winDelta: number; lineupGain: number; drop: string | null }
+    {
+      titleDelta: number;
+      playoffDelta: number;
+      winDelta: number;
+      survivalDelta: number | null;
+      lineupGain: number;
+      drop: string | null;
+    }
   >();
-  const bidLadders = new Map<string, BidLadder>();
   const survivalLeague = isSurvival(format);
   const faabBudget = Number((league as { faab_budget?: number }).faab_budget ?? 100) || 100;
   const myFaabRemaining =
