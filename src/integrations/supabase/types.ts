@@ -50,6 +50,78 @@ export type Database = {
         }
         Relationships: []
       }
+      calibration_log: {
+        Row: {
+          actual: number | null
+          brier: number | null
+          created_at: string
+          error: number | null
+          graded_at: string | null
+          id: string
+          kind: string
+          league_id: string | null
+          position: string | null
+          predicted: number
+          season: number
+          subject: string
+          team_id: string | null
+          updated_at: string
+          user_id: string
+          week: number
+        }
+        Insert: {
+          actual?: number | null
+          brier?: number | null
+          created_at?: string
+          error?: number | null
+          graded_at?: string | null
+          id?: string
+          kind: string
+          league_id?: string | null
+          position?: string | null
+          predicted: number
+          season: number
+          subject: string
+          team_id?: string | null
+          updated_at?: string
+          user_id: string
+          week: number
+        }
+        Update: {
+          actual?: number | null
+          brier?: number | null
+          created_at?: string
+          error?: number | null
+          graded_at?: string | null
+          id?: string
+          kind?: string
+          league_id?: string | null
+          position?: string | null
+          predicted?: number
+          season?: number
+          subject?: string
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_log_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_log_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cron_keys: {
         Row: {
           created_at: string
@@ -254,6 +326,7 @@ export type Database = {
       leagues: {
         Row: {
           all_play_weeks: Json
+          class_override: string | null
           color: string | null
           consolation: Json
           contest_format: string
@@ -300,6 +373,7 @@ export type Database = {
         }
         Insert: {
           all_play_weeks?: Json
+          class_override?: string | null
           color?: string | null
           consolation?: Json
           contest_format?: string
@@ -346,6 +420,7 @@ export type Database = {
         }
         Update: {
           all_play_weeks?: Json
+          class_override?: string | null
           color?: string | null
           consolation?: Json
           contest_format?: string
@@ -832,6 +907,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "player_blend_rates_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_constraints: {
+        Row: {
+          created_at: string
+          id: string
+          league_id: string
+          norm_name: string
+          player_id: string | null
+          player_name: string
+          tag: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league_id: string
+          norm_name: string
+          player_id?: string | null
+          player_name: string
+          tag: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league_id?: string
+          norm_name?: string
+          player_id?: string | null
+          player_name?: string
+          tag?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_constraints_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_constraints_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
@@ -2034,6 +2160,42 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      volatility_adjustments: {
+        Row: {
+          created_at: string
+          id: string
+          next: number
+          position: string
+          previous: number
+          reason: string
+          sample_weeks: number
+          season: number
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          next: number
+          position: string
+          previous: number
+          reason: string
+          sample_weeks?: number
+          season: number
+          week: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          next?: number
+          position?: string
+          previous?: number
+          reason?: string
+          sample_weeks?: number
+          season?: number
+          week?: number
         }
         Relationships: []
       }

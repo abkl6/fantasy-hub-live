@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { applyCalibration, gradeCalibration } from "./calibration.server";
 
 import { blendRates, type Rates } from "./blend";
 import { fetchAllRows } from "./paginate";
@@ -350,17 +351,23 @@ export async function runWeeklyResultsJob(
   blended: number;
   volatility: number;
   reconciliation: ReconciliationSummary;
+  calibration: { graded: number; adjusted: boolean; reason: string };
 }> {
   const actuals = await storeWeekActuals(admin, season, week);
-  const [blended, volatility, reconciliation] = await Promise.all([
+  const [blended, volatility, reconciliation, graded] = await Promise.all([
     recomputeBlendRates(admin, season),
     recomputeVolatility(admin, season),
     runReconciliation(admin, season, week),
+    // Mark the week's predictions against what actually happened.
+    gradeCalibration(admin, season, week),
   ]);
+  // Then let those results move the assumed swing for every position.
+  const adjustment = await applyCalibration(admin, season, week);
   return {
     actuals: actuals.rows,
     blended: blended.players,
     volatility: volatility.players,
     reconciliation,
+    calibration: { graded: graded.graded, adjusted: adjustment.changed, reason: adjustment.reason },
   };
 }

@@ -1,34 +1,11 @@
-# Fantasy Football League Analyzer — Roadmap
+# Roadmap
 
-- [x] 1. Accounts/sign-in + dashboard shell + design system
-- [x] 2. Database: leagues, teams, rosters, players, scoring rules, matchups
-- [x] 3. Sleeper integration (import leagues, rosters, matchups)
-- [x] 4. Manual league entry + roster editor
-- [x] 5. Screenshot import for rosters and custom scoring settings (AI vision)
-- [x] 6. ESPN auto-import (public league IDs + private SWID/espn_s2 session values)
-- [x] 7. Player projections cover every position: top-200 skill players, all kickers, all defenses
-- [x] 8. Analyzer: strength grades, start/sit, waiver targets, trade evaluator
-- [x] 9. Monte Carlo season sim: playoff + title odds; win-impact on every suggestion
-- [x] 10. Trade history page with title-odds change per trade
-- [x] 11. Real-season schedule and opponent rosters imported for every platform
-- [ ] 12. Yahoo sign-in (code complete; waiting on the Yahoo app client ID and secret)
-- [x] 13. FFPC/NFL.com: screenshot/manual only, with in-app explanation
-- [x] 14. Playoff tracking tab (clinch/elimination records, seeds, SOS, rooting interests)
-- [x] 15. Live injury/news/bye alerts with status badges and one-tap "set best lineup"
-- [x] 16. One-tap actions: apply start/sit, add waiver player, copy trade text
-- [x] 17. Power-rank history + Trends tab + standings sparklines
-- [x] 18. Draft recap grades (Sleeper import + screenshot fallback)
-- [x] 19. Waiver wire board: points, suggested FAAB bid, trade value, title impact, one-tap add
-- [x] 20. League format (redraft/keeper/dynasty/guillotine/best ball) and true scoring-rule aware analysis
-- [x] 21. Player name matching (suffix-safe) + duplicate player merge so rostered players never show as free agents
-- [x] 22. Game day: live points from Sleeper stats + ESPN game states, per-league scoring log, live projected finals, auto-refresh during game windows, cron endpoint /api/public/cron/live-scoring
-- [x] 23. Make Game Day the signed-in home with live notifications, compact win probabilities, and best-ball leader tracking
-- [x] 24. Manager Hub: cross-league moves, roster alerts, player exposure, and league shortcuts
-- [x] 25. Keep Trade Cut dynasty values: market table (1QB + superflex) with pick values, weekly auto-refresh plus daily top-up for injured players, pick ownership per league, and balanced two-sided trade suggestions with a fairness read
+## Current task: calibration, correlation and constraints
 
-26. Trade Desk: proposed-trade builder (any two teams, both sides re-simulated), Dynasty Future Value, and team-quality badges with hover reasons — done
-
-- [x] 27. Repair FFPC parsing against captured League Home, Rosters, and Set Lineup fixtures
-
-- [x] 28. FFPC chop (guillotine) leagues: read the alive/chopped standings, record the chop week, and keep knocked-out teams out of odds and advice
-- [x] 29. Better projections, cleaner data: rest-of-season blend, weekly score reconciliation, single injury feed, Vegas implied totals, historical volatility, canonical player IDs, admin Data quality tab, scheduled jobs.
+- [ ] 1. Calibration loop — calibration_log, weekly Brier + MAE by position, admin trends, auto volatility adjustment
+- [ ] 2. Favorite-aware start/sit — floor/ceiling/mean mode by matchup win probability, with an explaining line
+- [ ] 3. Lineup correlation — same-game correlation in teamDistribution and weekly draws, stack test
+- [ ] 4. FAAB pacing — per-league budget plan with reserve windows, bids lowered to respect it
+- [ ] 5. Acceptance likelihood — rival manager profiles from transaction history, rank by impact x acceptance
+- [ ] 6. User constraints — Untouchable / Shopping tags and team-class override per league
+- [ ] 7. Grade the advice — trailing hit rate per recommendation type, weighting and display

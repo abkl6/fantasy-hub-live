@@ -20,6 +20,8 @@ import {
   getAdminErrors,
   getAdminNotifications,
   getAdminOverview,
+  applyCalibrationNow,
+  getCalibration,
   getDataQuality,
   getSyncHealth,
   recomputeProjections,
@@ -622,6 +624,7 @@ function AdminPage() {
           <TabsTrigger value="sync">Sync health</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="quality">Data quality</TabsTrigger>
+          <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="rules">Rules</TabsTrigger>
           <TabsTrigger value="errors">Errors</TabsTrigger>
@@ -630,6 +633,7 @@ function AdminPage() {
         <TabsContent value="sync" className="mt-4"><SyncTab /></TabsContent>
         <TabsContent value="data" className="mt-4"><DataTab /></TabsContent>
         <TabsContent value="quality" className="mt-4"><QualityTab /></TabsContent>
+        <TabsContent value="accuracy" className="mt-4"><AccuracyTab /></TabsContent>
         <TabsContent value="notifications" className="mt-4"><NotificationsTab /></TabsContent>
         <TabsContent value="rules" className="mt-4"><RulesTab /></TabsContent>
         <TabsContent value="errors" className="mt-4"><ErrorsTab /></TabsContent>
@@ -695,6 +699,97 @@ function RulesTab() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** How well the app's calls have matched what actually happened. */
+function AccuracyTab() {
+  const load = useServerFn(getCalibration);
+  const apply = useServerFn(applyCalibrationNow);
+  const qc = useQueryClient();
+  const season = new Date().getUTCFullYear();
+  const [week, setWeek] = useState("1");
+  const q = useQuery({
+    queryKey: ["admin", "accuracy", season],
+    queryFn: () => load({ data: { season } }),
+  });
+
+  const run = useMutation({
+    mutationFn: () => apply({ data: { season, week: Number(week) || 1 } }),
+    onSuccess: (r) => {
+      toast.success(r.changed ? r.reason : "Nothing needed changing.");
+      qc.invalidateQueries({ queryKey: ["admin", "accuracy", season] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (q.isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  const data = q.data;
+  if (!data) return <p className="text-sm text-muted-foreground">No accuracy data yet.</p>;
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl bg-card p-4">
+        <h3 className="text-sm font-semibold">Matchup calls by week</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Lower is better. {data.verdict.reason}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          {data.brier.length === 0 && (
+            <span className="text-xs text-muted-foreground">No graded weeks yet.</span>
+          )}
+          {data.brier.map((b) => (
+            <div key={b.week} className="rounded-lg border border-border px-3 py-2">
+              <p className="text-xs text-muted-foreground">Week {b.week}</p>
+              <p className="stat-num text-lg">{b.brier.toFixed(3)}</p>
+              <p className="text-[11px] text-muted-foreground">{b.samples} calls</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-xl bg-card p-4">
+        <h3 className="text-sm font-semibold">Projection error by position</h3>
+        <div className="mt-3 flex flex-wrap gap-3">
+          {data.mae.length === 0 && (
+            <span className="text-xs text-muted-foreground">No graded projections yet.</span>
+          )}
+          {data.mae.map((m) => (
+            <div key={m.position} className="rounded-lg border border-border px-3 py-2">
+              <p className="text-xs text-muted-foreground">{m.position}</p>
+              <p className="stat-num text-lg">{m.mae.toFixed(2)}</p>
+              <p className="text-[11px] text-muted-foreground">{m.samples} players</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-xl bg-card p-4">
+        <h3 className="text-sm font-semibold">Self-correction</h3>
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div>
+            <Label htmlFor="cal-week" className="text-xs">Week</Label>
+            <Input
+              id="cal-week"
+              value={week}
+              onChange={(e) => setWeek(e.target.value)}
+              className="w-20"
+            />
+          </div>
+          <Button onClick={() => run.mutate()} disabled={run.isPending}>
+            Grade and adjust
+          </Button>
+        </div>
+        <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+          {data.adjustments.map((a, i) => (
+            <li key={`${a.week}-${a.position}-${i}`}>
+              Week {a.week} · {a.position}: {a.previous.toFixed(2)} → {a.next.toFixed(2)} — {a.reason}
+            </li>
+          ))}
+          {data.adjustments.length === 0 && <li>No adjustments made yet.</li>}
+        </ul>
+      </section>
     </div>
   );
 }

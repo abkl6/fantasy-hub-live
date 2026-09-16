@@ -10,6 +10,7 @@ import { buildAnalysis } from "./analysis.server";
 import { impactAddKey, impactScore, impactSwapKey, primaryImpactText } from "./impact";
 import { nextKickoff, nextWaiverRun } from "./gamewindow";
 import { manualFreshness } from "./manual-types";
+import { hitRates, weightFor, type HitRate } from "./hit-rate";
 
 /** Day of week in US Eastern time, 0 = Sunday. */
 function easternWeekday(now: Date): number {
@@ -44,6 +45,22 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
     .select("id, name, platform, color, current_week, last_confirmed_at")
     .order("created_at");
   if (error) throw new Error(error.message);
+
+  // How often each kind of advice has been right lately. Kinds that have been
+  // landing get pushed up the list; kinds that have not drop down.
+  const { data: gradedRows } = await supabase
+    .from("recommendation_log")
+    .select("kind, week, grade")
+    .not("grade", "is", null)
+    .order("week", { ascending: false })
+    .limit(500);
+  const latestWeek = Math.max(1, ...(leagueRows ?? []).map((l) => l.current_week ?? 1));
+  const rates: HitRate[] = hitRates(
+    (gradedRows ?? []).map((r) => ({ kind: r.kind, week: r.week, grade: r.grade })),
+    latestWeek,
+  );
+  const kindWeight = (kind: ThisWeekKind) =>
+    weightFor(rates, kind === "claim" || kind === "rising" ? "waiver" : kind === "lineup" ? "start-sit" : kind);
 
   const leagues: ThisWeekLeague[] = [];
 
@@ -94,6 +111,8 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         ruleNote,
         ...impactOf(replacement, swap),
       });
+      const last = items[items.length - 1]!;
+      last.impactRank *= kindWeight(kind);
     };
 
     // 0. Manual leagues only stay accurate if the manager feeds them.
@@ -241,6 +260,9 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
 
   return {
     generatedAt: now.toISOString(),
+    hitRates: rates
+      .filter((r) => r.label)
+      .map((r) => ({ kind: r.kind, label: r.label!, rate: r.rate ?? 0 })),
     kickoffAt: kickoff.at.toISOString(),
     kickoffLabel: kickoff.label,
     waiverRunAt: waiverRun.toISOString(),

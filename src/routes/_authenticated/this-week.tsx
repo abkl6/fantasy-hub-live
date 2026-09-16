@@ -134,6 +134,12 @@ function ThisWeekPage() {
       </div>
       <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
 
+      {data?.hitRates?.length ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {data.hitRates.map((r) => r.label).join(" · ")}
+        </p>
+      ) : null}
+
       {isLoading && !data ? (
         <div className="mt-4 space-y-2">
           {[0, 1, 2, 3].map((i) => (

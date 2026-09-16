@@ -10,6 +10,7 @@
  */
 
 import { EMPTY_IMPACT, type RecommendationImpact } from "./impact";
+import { correlatedVariance } from "./correlation";
 
 export type Slot = string;
 
@@ -20,6 +21,8 @@ export interface EnginePlayer {
   nflTeam?: string | null;
   proj: number;
   volatility?: number;
+  /** Opponent's NFL team this week — used to correlate players in one game. */
+  opponent?: string | null;
 }
 
 export interface EngineTeam {
@@ -117,6 +120,17 @@ export const DEFAULT_VOLATILITY: Record<string, number> = {
   DST: 0.45,
 };
 
+/**
+ * The calibration loop rewrites these defaults when the app's stated win
+ * chances drift away from reality. Set once per request from the stored
+ * adjustments, before any simulation runs.
+ */
+export function setVolatilityDefaults(values: Record<string, number>) {
+  for (const [position, value] of Object.entries(values)) {
+    if (Number.isFinite(value) && value > 0) DEFAULT_VOLATILITY[position.toUpperCase()] = value;
+  }
+}
+
 export function volatilityOf(player: EnginePlayer): number {
   if (typeof player.volatility === "number" && Number.isFinite(player.volatility)) {
     return player.volatility;
@@ -124,14 +138,26 @@ export function volatilityOf(player: EnginePlayer): number {
   return DEFAULT_VOLATILITY[player.position.toUpperCase()] ?? 0.4;
 }
 
-/** Weekly scoring distribution for a team, derived from its optimal lineup. */
+/**
+ * Weekly scoring distribution for a team, derived from its optimal lineup.
+ * Starters sharing an NFL game move together — a quarterback stacked with his
+ * own receiver makes a team's week swingier, not steadier — so the spread is
+ * the correlated variance, not the plain sum.
+ */
 export function teamDistribution(roster: EnginePlayer[], slots: Slot[]) {
   const { starters, total } = optimalLineup(roster, slots);
-  const variance = starters.reduce((sum, s) => {
-    if (!s.player) return sum + 25;
-    const sd = s.player.proj * volatilityOf(s.player);
-    return sum + sd * sd;
-  }, 0);
+  const empties = starters.filter((s) => !s.player).length;
+  const filled = starters
+    .filter((s) => s.player)
+    .map((s) => ({
+      sd: s.player!.proj * volatilityOf(s.player!),
+      player: {
+        position: s.player!.position,
+        nflTeam: s.player!.nflTeam ?? null,
+        opponent: s.player!.opponent ?? null,
+      },
+    }));
+  const variance = correlatedVariance(filled) + empties * 25;
   return { mean: total, sd: Math.max(Math.sqrt(variance), 8) };
 }
 

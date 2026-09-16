@@ -52,6 +52,12 @@ import {
   updateLeagueSettings,
 
 } from "@/lib/fantasy.functions";
+import {
+  listPlayerConstraintsFn,
+  setPlayerConstraintFn,
+  setTeamClassOverrideFn,
+} from "@/lib/constraints.functions";
+import { normalizeName } from "@/lib/fantasy/names";
 import { logTrade } from "@/lib/platforms.functions";
 import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
 import { rankWaivers } from "@/lib/fantasy/waiver-rank";
@@ -220,6 +226,11 @@ function LeaguePage() {
             ))}
           </div>
           <p className="mt-2 text-sm text-muted-foreground">{data.classLine.reason}</p>
+          <ClassOverride
+            leagueId={leagueId}
+            current={data.classLine.override}
+            onSaved={() => hardRefresh()}
+          />
           <Link to="/how-advice-works" className="mt-2 inline-block text-xs text-muted-foreground underline">
             How advice works
           </Link>
@@ -434,6 +445,13 @@ function LeaguePage() {
             <PlayerList title="Best starting lineup" players={data.lineup} />
             <PlayerList title="Bench" players={data.bench} />
           </div>
+          {data.startSitLine ? (
+            <p className="text-sm text-muted-foreground">{data.startSitLine}</p>
+          ) : null}
+          <PlayerTags
+            leagueId={leagueId}
+            names={[...data.lineup.map((p) => p.name), ...data.bench.map((p) => p.name)]}
+          />
         </TabsContent>
 
         <TabsContent value="league" className="mt-6 space-y-6">
@@ -879,6 +897,13 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
             ? " Some rival rosters are estimated, so this list is approximate."
             : ""}
           {` Projections: ${data.projectionLabel.toLowerCase()}.`}
+        </p>
+      )}
+
+      {data?.faabPlan?.line && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {data.faabPlan.line}. Spend up to{" "}
+          <span className="stat-num text-foreground">${data.faabPlan.spendableNow}</span> now.
         </p>
       )}
 
@@ -2464,6 +2489,114 @@ function ScoringGapBanner({ leagueId }: { leagueId: string }) {
       {data.banner.detail && (
         <p className="mt-1 text-sm text-muted-foreground">{data.banner.detail}</p>
       )}
+    </section>
+  );
+}
+
+/** Lets a manager tell the app to treat the team as a contender or a rebuild. */
+function ClassOverride({
+  leagueId,
+  current,
+  onSaved,
+}: {
+  leagueId: string;
+  current: "contender" | "middle" | "rebuilder" | null;
+  onSaved: () => void;
+}) {
+  const save = useServerFn(setTeamClassOverrideFn);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const pick = async (value: "contender" | "middle" | "rebuilder" | "auto") => {
+    setSaving(value);
+    try {
+      await save({ data: { leagueId, teamClass: value } });
+      toast.success(value === "auto" ? "Back to the standings" : "Saved");
+      onSaved();
+    } catch {
+      toast.error("Could not save that");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const options = [
+    { id: "auto" as const, label: "Auto" },
+    { id: "contender" as const, label: "Win now" },
+    { id: "middle" as const, label: "Middle" },
+    { id: "rebuilder" as const, label: "Rebuild" },
+  ];
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <span className="text-xs text-muted-foreground">Treat my team as</span>
+      {options.map((o) => (
+        <Button
+          key={o.id}
+          size="sm"
+          variant={(current ?? "auto") === o.id ? "secondary" : "ghost"}
+          disabled={saving !== null}
+          onClick={() => pick(o.id)}
+        >
+          {o.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+/** Marks players the app must never trade away, or should shop first. */
+function PlayerTags({ leagueId, names }: { leagueId: string; names: string[] }) {
+  const list = useServerFn(listPlayerConstraintsFn);
+  const setTag = useServerFn(setPlayerConstraintFn);
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["player-constraints", leagueId],
+    queryFn: () => list({ data: { leagueId } }),
+  });
+
+  const tagOf = (name: string) =>
+    data?.players.find((p) => normalizeName(p.name) === normalizeName(name))?.tag ?? null;
+
+  const choose = async (name: string, tag: "untouchable" | "shopping") => {
+    const next = tagOf(name) === tag ? "none" : tag;
+    await setTag({ data: { leagueId, playerName: name, tag: next } });
+    await queryClient.invalidateQueries({ queryKey: ["player-constraints", leagueId] });
+  };
+
+  if (!names.length) return null;
+
+  return (
+    <section className="mt-6 rounded-xl bg-card p-5">
+      <h2 className="text-sm font-semibold">Trade tags</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Off limits players never appear in trade ideas. On the block players go first.
+      </p>
+      <ul className="mt-3 space-y-1">
+        {names.map((name) => {
+          const tag = tagOf(name);
+          return (
+            <li key={name} className="flex items-center justify-between gap-3 border-t border-border py-2">
+              <span className="truncate text-sm">{name}</span>
+              <span className="flex shrink-0 gap-1">
+                <Button
+                  size="sm"
+                  variant={tag === "untouchable" ? "secondary" : "ghost"}
+                  onClick={() => choose(name, "untouchable")}
+                >
+                  Off limits
+                </Button>
+                <Button
+                  size="sm"
+                  variant={tag === "shopping" ? "secondary" : "ghost"}
+                  onClick={() => choose(name, "shopping")}
+                >
+                  On the block
+                </Button>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

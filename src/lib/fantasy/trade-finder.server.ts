@@ -26,6 +26,8 @@ import { loadAgeCurves, type AgeCurveBook } from "./age-curve.server";
 import { loadLeague } from "./proposal.server";
 import { leagueScoring } from "./scoring";
 import { fairnessLabel } from "./trade-value";
+import { estimateAcceptance } from "./manager-profile";
+import { loadManagerProfiles, loadPlayerConstraints } from "./manager-profile.server";
 import type { TradeFinderAsset, TradeFinderIdea, TradeFinderPayload } from "./trade-finder-types";
 import { isStreamPosition } from "./rules";
 import { loadStrategyRules } from "./rules.server";
@@ -156,7 +158,13 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
 
   const myBase = optimalLineup(myRoster, slots).total;
   const myWeak = weakestSlot(myRoster, slots);
-  const mySurplus = surplus(myRoster, slots);
+  const constraints = await loadPlayerConstraints(supabase, leagueId);
+  const mySurplus = surplus(myRoster, slots)
+    .filter((p) => !constraints.untouchable.has(normalizeName(p.name)))
+    .sort((a, b) =>
+      Number(constraints.shopping.has(normalizeName(b.name))) -
+      Number(constraints.shopping.has(normalizeName(a.name))),
+    );
   const myDeepPosition = mySurplus[0]?.position ?? "—";
 
   // Every idea is re-simulated with the trade applied, so the card can say what
@@ -188,6 +196,30 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
         : "middle";
 
   const book = await loadStrategyRules(supabase);
+
+  // Players the manager has marked hands-off never leave; players they are
+  // shopping go to the front of every outgoing package.
+  // Ages and market prices for reading what each rival manager likes.
+  const { data: playerRows } = await supabase.from("players").select("id, full_name, position, age");
+  const factByName = new Map(
+    (playerRows ?? []).map((p) => [
+      normalizeName(p.full_name),
+      {
+        age: p.age === null ? null : Number(p.age),
+        position: String(p.position ?? "").toUpperCase(),
+        value: loaded.values.player(p.id, p.full_name, String(p.position ?? "").toUpperCase(), 0),
+      },
+    ]),
+  );
+  const factsFor = (name: string) =>
+    factByName.get(name) ?? { age: null, position: "", value: 0 };
+  const profiles = await loadManagerProfiles(supabase, leagueId, factsFor);
+  const ageOf = (name: string) => factsFor(normalizeName(name)).age;
+  const meanAge = (names: string[]) => {
+    const ages = names.map(ageOf).filter((a): a is number => a !== null);
+    return ages.length ? ages.reduce((a, b) => a + b, 0) / ages.length : null;
+  };
+
   const ideas: TradeFinderIdea[] = [];
 
   for (const team of loaded.teams) {
@@ -275,6 +307,10 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
               impact: EMPTY_IMPACT,
               impactLabel: "",
               impactRank: 0,
+              acceptance: 0.5,
+              acceptanceBand: "medium",
+              acceptanceLabel: "Likely to accept: medium",
+              acceptanceReason: "based on the offer alone",
             };
           }
         }
@@ -296,12 +332,27 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
           ? { valueByTeam, valueDelta: bestValueDelta }
           : undefined,
       });
+      // How likely this manager is to say yes, read off what they have done
+      // in this league before. A great offer they would never take is worth
+      // less than a fair one they would.
+      const acceptance = estimateAcceptance(profiles.get(team.id) ?? null, {
+        fairness: best.fairness / 100,
+        theyGet: best.iGive.map((a) => a.position),
+        theyGetAge: meanAge(best.iGive.map((a) => a.name)),
+        theyGiveAge: meanAge(best.iGet.map((a) => a.name)),
+        picksToThem: 0,
+      });
+      const rawImpact = impactScore(impact, myClass, loaded.isDynasty);
       ideas.push({
         ...best,
         fitScore: round1(fitScore),
         impact,
         impactLabel: primaryImpactText(impact, myClass, loaded.isDynasty),
-        impactRank: impactScore(impact, myClass, loaded.isDynasty),
+        impactRank: rawImpact * (0.4 + 1.2 * acceptance.probability),
+        acceptance: acceptance.probability,
+        acceptanceBand: acceptance.band,
+        acceptanceLabel: acceptance.label,
+        acceptanceReason: acceptance.reason,
       });
     }
   }
