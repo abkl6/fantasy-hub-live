@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Suspense, lazy } from "react";
 
-import { TvBoard } from "@/components/TvBoard";
+// Full-screen scoreboard: loaded only when this route is opened.
+const TvBoard = lazy(() => import("@/components/TvBoard").then((m) => ({ default: m.TvBoard })));
 
 export const Route = createFileRoute("/_authenticated/tv")({
   head: () => ({
@@ -23,5 +25,9 @@ export const Route = createFileRoute("/_authenticated/tv")({
 });
 
 function TvPage() {
-  return <TvBoard />;
+  return (
+    <Suspense fallback={<p className="eyebrow p-6 text-muted-foreground">Loading the scoreboard…</p>}>
+      <TvBoard />
+    </Suspense>
+  );
 }
