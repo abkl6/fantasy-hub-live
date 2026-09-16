@@ -358,19 +358,23 @@ async function espnCreds(context: { supabase: any; userId: string }) {
 }
 
 /**
- * "My projections" upload. Accepts the weekly stat template (a `week` column
- * plus stat columns) or season totals, which are split evenly across the
- * weeks that player's NFL team actually plays. Stored privately under the
- * member's own source key, and only used by leagues set to "My projections".
+ * "My projections" upload. Accepts any of the four templates (offence, team
+ * defence, individual defenders, kickers), either week by week (a `week`
+ * column) or as season totals, which are split across the weeks that player's
+ * NFL team actually plays — evenly, or shaped by how tough each opponent is.
+ * Stored privately under the member's own source key, and only used by leagues
+ * set to "My projections".
  */
 export const uploadMyProjections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
-        csv: z.string().min(1).max(2_000_000),
+        csv: z.string().min(1).max(8_000_000),
         season: z.number().int().min(2020).max(2100).optional(),
         apply: z.boolean().optional(),
+        group: z.enum(["offense", "dst", "idp", "k"]).optional(),
+        spread: z.enum(["even", "sos"]).optional(),
       })
       .parse(d),
   )
