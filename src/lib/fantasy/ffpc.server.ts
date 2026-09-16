@@ -20,8 +20,10 @@ import {
   parsePlayerCell,
   text,
   toNumber,
+  type FfpcPlayer,
   type HtmlTable,
 } from "./ffpc-parse";
+import { normalizeName } from "./names";
 
 const HOST = "https://myffpc.com";
 
@@ -191,8 +193,9 @@ export function parseLeagueHome(html: string, leagueId: string) {
   const selectedSeason = html.match(
     /<select\b[^>]*>[^]*?<option\b[^>]*selected(?:=["'][^"']*["'])?[^>]*value=["'](20\d{2})["']/i,
   ) ?? html.match(/Season\s*:\s*\*\s*(20\d{2})/i);
-  const nflPanel = html.match(/<div\b[^>]*id=["'][^"']*NFLScoreboardDiv["'][^>]*>([\s\S]*?)(?=<div\b[^>]*class=["'][^"']*card|$)/i);
-  const weekMatch = (nflPanel?.[1] ?? "").match(/Week(?:&nbsp;|\s)*(\d{1,2})/i);
+  const weekMatch = html.match(
+    /NFLScoreboardDiv[\s\S]*?upNFLSchedule[\s\S]*?Week(?:&nbsp;|\s)*(\d{1,2})/i,
+  );
 
   const standings =
     findTable(html, "team", "pts") ??
@@ -417,7 +420,7 @@ export function parseTransactions(html: string): FfpcTransaction[] {
   const cBid = columnIndex(table, "bid", "amount", "salary", "$");
   return table.rows.slice(0, 400).map((row, index) => {
     const action = cAction >= 0 ? (row[cAction] ?? "") : "";
-    const addedText = action.match(/Added\s+(.+?)(?=\s+Drop Player\s+|$)/i)?.[1] ?? (cPlayer >= 0 ? row[cPlayer] : "");
+    const addedText = action.match(/Added\s+(.+?)(?=\s+Drop Player\s+|$)/i)?.[1] ?? (cPlayer >= 0 ? (row[cPlayer] ?? "") : "");
     const droppedText = action.match(/Drop Player\s+(.+)$/i)?.[1] ?? "";
     const raw = table.rawRows[index] ?? [];
     return {
@@ -587,8 +590,23 @@ export async function ffpcLeagueBundle(
           viewingTeam: team.externalId,
           weekNum: week,
         });
-        const lineup = parseRosterTable(findTable(html, "player") ?? findTable(html, "name"));
-        if (lineup.length) rosters.set(team.externalId, lineup);
+        const lineup = parseRosterTable(findTable(html, "slot", "player") ?? findTable(html, "player"));
+        if (lineup.length) {
+          const fullRoster = rosters.get(team.externalId) ?? [];
+          const slots = new Map(
+            lineup.map((player) => [`${normalizeName(player.name)}|${player.nflTeam ?? ""}`, player]),
+          );
+          const merged = fullRoster.map((player) => {
+            const lineupPlayer = slots.get(`${normalizeName(player.name)}|${player.nflTeam ?? ""}`);
+            return lineupPlayer ?? player;
+          });
+          for (const player of lineup) {
+            if (!merged.some((candidate) => normalizeName(candidate.name) === normalizeName(player.name) && candidate.nflTeam === player.nflTeam)) {
+              merged.push(player);
+            }
+          }
+          rosters.set(team.externalId, merged);
+        }
       } catch {
         /* keep whatever Rosters.aspx gave us */
       }
