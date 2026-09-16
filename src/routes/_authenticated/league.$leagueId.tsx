@@ -205,6 +205,19 @@ function LeaguePage() {
         </div>
       )}
 
+      {data.league.sync_paused && (
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-l-4 border-border border-l-destructive bg-card p-4">
+          <AlertTriangle className="mt-0.5 size-4 text-destructive" />
+          <div>
+            <p className="text-sm font-medium">Sync paused — update manually</p>
+            <p className="text-xs text-muted-foreground">
+              We couldn't read this league from the platform, so what you see is the last good copy.
+              {data.league.last_sync_error ? ` (${data.league.last_sync_error})` : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
       {!!data.alerts?.length && (
         <section className="mt-6 space-y-2">
           <div className="flex items-center gap-2">
