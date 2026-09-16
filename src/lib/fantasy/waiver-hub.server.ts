@@ -24,9 +24,15 @@ import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
-import type { WaiverHubLeagueEntry, WaiverHubPayload, WaiverHubPlayer } from "./waiver-hub-types";
+import type {
+  WaiverHubFills,
+  WaiverHubLeagueEntry,
+  WaiverHubPayload,
+  WaiverHubPlayer,
+} from "./waiver-hub-types";
 import { applyBidRules } from "./rules";
 import { loadStrategyRules } from "./rules.server";
+import { buildFills, buildStream, isStreamedPosition, type FillCandidate } from "./slot-fill";
 
 export type * from "./waiver-hub-types";
 
@@ -88,16 +94,63 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
   const book = await loadStrategyRules(supabase);
   const byKey = new Map<string, WaiverHubPlayer>();
   const leagueSummaries: WaiverHubPayload["leagues"] = [];
+  const fillGroups: WaiverHubFills[] = [];
   let week = 1;
 
   for (const league of leagueRows ?? []) {
     week = league.current_week ?? week;
 
-    const [{ data: spotRows }, { data: teamRows }, { data: bidRows }] = await Promise.all([
-      supabase.from("roster_spots").select("player_name").eq("league_id", league.id),
+    const season = Number(league.season ?? new Date().getUTCFullYear());
+    const [
+      { data: spotRows },
+      { data: teamRows },
+      { data: bidRows },
+      { data: scheduleRows },
+      { data: impliedRows },
+      { data: defenseRows },
+    ] = await Promise.all([
+      supabase
+        .from("roster_spots")
+        .select("player_name, position, nfl_team, team_id")
+        .eq("league_id", league.id),
       supabase.from("teams").select("id, is_mine, faab_remaining").eq("league_id", league.id),
       supabase.from("faab_bids").select("amount, won").eq("league_id", league.id).eq("won", true),
+      supabase
+        .from("nfl_schedule")
+        .select("nfl_team, opponent")
+        .eq("season", season)
+        .eq("week", league.current_week ?? 1),
+      supabase
+        .from("team_implied_totals")
+        .select("nfl_team, implied")
+        .eq("season", season)
+        .eq("week", league.current_week ?? 1),
+      supabase
+        .from("defense_ranks")
+        .select("nfl_team, points_allowed")
+        .eq("season", season)
+        .eq("week", league.current_week ?? 1),
     ]);
+    const opponentOf = new Map(
+      (scheduleRows ?? []).map((r) => [r.nfl_team.toUpperCase(), r.opponent?.toUpperCase() ?? null]),
+    );
+    const impliedOf = new Map(
+      (impliedRows ?? []).map((r) => [r.nfl_team.toUpperCase(), Number(r.implied)]),
+    );
+    const allowedOf = new Map(
+      (defenseRows ?? []).map((r) => [r.nfl_team.toUpperCase(), Number(r.points_allowed)]),
+    );
+    const factsFor = (nflTeam: string | null) => {
+      const team = nflTeam?.toUpperCase() ?? null;
+      const opponent = team ? (opponentOf.get(team) ?? null) : null;
+      return {
+        nflTeam: team,
+        opponent,
+        impliedOwn: team ? (impliedOf.get(team) ?? null) : null,
+        impliedOpponent: opponent ? (impliedOf.get(opponent) ?? null) : null,
+        opponentPointsAllowed: opponent ? (allowedOf.get(opponent) ?? null) : null,
+      };
+    };
 
     const rostered = new Set((spotRows ?? []).map((s) => normalizeName(s.player_name)));
     const mine = (teamRows ?? []).find((t) => t.is_mine) ?? null;
@@ -212,6 +265,88 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
           rank: impactScore(impact, myClass, loaded.isDynasty),
         });
       }
+
+      // Empty starting spots, read from the league's slot list rather than the
+      // roster. Kickers and defences only ever appear here.
+      const before = optimalLineup(myRoster, slots).total;
+      const fillCandidates: FillCandidate[] = players
+        .filter((p) => !rostered.has(normalizeName(p.full_name)))
+        .map((p) => {
+          const position = p.position.toUpperCase();
+          const projWeek = proj.week(p.id, p.full_name, position, Number(p.proj_points_week));
+          return {
+            id: p.id,
+            name: p.full_name,
+            position,
+            status: p.status,
+            projWeek,
+            projSeason: Number(p.proj_points_season),
+            vor: projWeek,
+            bid: applyBidRules(book, {
+              position,
+              bid: Math.max(1, Math.round(faabBudget * 0.05)),
+              budget: faabBudget,
+              remaining: faabRemaining,
+              weeksLeft: Math.max(
+                1,
+                (league.regular_season_weeks ?? 17) - (league.current_week ?? 1) + 1,
+              ),
+            }).bid,
+            ...factsFor(p.nfl_team),
+          };
+        })
+        .filter((c) => c.projWeek > 0);
+
+      const scoreFill = (c: FillCandidate) => ({
+        pointsGain:
+          optimalLineup(
+            [
+              ...myRoster,
+              {
+                id: c.id,
+                name: c.name,
+                position: c.position,
+                nflTeam: c.nflTeam,
+                proj: c.projWeek,
+                volatility: 0.35,
+              },
+            ],
+            slots,
+          ).total - before,
+        survivalDelta: null,
+      });
+
+      const rosterPositions = (spotRows ?? [])
+        .filter((s) => s.team_id === mine.id)
+        .map((s) => s.position.toUpperCase());
+      const leagueFills = buildFills({
+        slots,
+        rosterPositions,
+        candidates: fillCandidates,
+        score: scoreFill,
+      });
+      const leagueStream = buildStream({
+        slots,
+        current: (spotRows ?? [])
+          .filter((s) => s.team_id === mine.id && isStreamedPosition(s.position))
+          .map((s) => ({
+            name: s.player_name,
+            position: s.position.toUpperCase(),
+            projWeek: 0,
+            facts: factsFor(s.nfl_team),
+          })),
+        candidates: fillCandidates,
+        score: scoreFill,
+      });
+      if (leagueFills.length || leagueStream) {
+        fillGroups.push({
+          leagueId: league.id,
+          leagueName: league.name,
+          leagueColor: league.color,
+          fills: leagueFills,
+          stream: leagueStream,
+        });
+      }
     }
 
     // Bid history sets the price ceiling; the best free agent sets the top of
@@ -303,5 +438,6 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
     week,
     leagues: leagueSummaries,
     players: list,
+    fills: fillGroups,
   };
 }

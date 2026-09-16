@@ -61,6 +61,8 @@ import { normalizeName } from "@/lib/fantasy/names";
 import { logTrade } from "@/lib/platforms.functions";
 import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
 import { rankWaivers } from "@/lib/fantasy/waiver-rank";
+import { isStreamedPosition } from "@/lib/fantasy/slot-fill";
+import type { SlotFill, StreamSuggestion } from "@/lib/fantasy/slot-fill";
 import {
   CONTEST_DESCRIPTIONS,
   CONTEST_FORMATS,
@@ -795,6 +797,89 @@ const SORTS = [
   { id: "bid", label: "Bid" },
 ] as const;
 
+/**
+ * Empty starting spots, and the one kicker / defence swap worth making. Built
+ * from the league's own slot list, so a position the league never starts can
+ * never show up here.
+ */
+function FillStrip({
+  fills,
+  stream,
+  survival,
+  onAdd,
+  busy,
+}: {
+  fills: SlotFill[];
+  stream: StreamSuggestion | null;
+  survival: boolean;
+  onAdd: (name: string, drop: string | null) => void;
+  busy: boolean;
+}) {
+  if (!fills.length && !stream) return null;
+  return (
+    <div className="mt-4 rounded-xl border border-border p-4">
+      <h3 className="text-sm font-bold">Fill empty slots</h3>
+      <ul className="mt-2 space-y-2">
+        {fills.map((fill) => (
+          <li key={fill.slot + fill.playerId} className="flex flex-wrap items-center gap-3">
+            <span className="eyebrow text-muted-foreground">{fill.slot}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                {fill.name}
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {fill.nflTeam ?? "FA"} · {fill.reason}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <span className="stat-num text-foreground">{fill.projWeek.toFixed(1)}</span> pts/wk
+                {fill.pointsGain > 0 && (
+                  <>
+                    {" · lineup +"}
+                    <span className="stat-num text-foreground">{fill.pointsGain.toFixed(1)}</span>
+                  </>
+                )}
+                {survival && fill.survivalDelta !== null && (
+                  <span className={fill.survivalDelta > 0 ? " text-primary" : ""}>
+                    {" · survival "}
+                    {fill.survivalDelta > 0 ? "+" : ""}
+                    {(fill.survivalDelta * 100).toFixed(1)}%
+                  </span>
+                )}
+                {fill.ruleNote ? ` · ${fill.ruleNote}` : ""}
+              </p>
+            </div>
+            <span className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground">
+              Bid <span className="stat-num">${fill.bid}</span>
+              {fill.minimumBid ? " min" : ""}
+            </span>
+            <Button size="sm" disabled={busy} onClick={() => onAdd(fill.name, null)}>
+              Add
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      {stream && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+          <span className="eyebrow text-muted-foreground">Stream {stream.position}</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">
+              {stream.inName} for {stream.outName}
+            </p>
+            <p className="text-xs text-muted-foreground">{stream.reason}</p>
+          </div>
+          <span className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground">
+            Bid <span className="stat-num">${stream.bid}</span> min
+          </span>
+          <Button size="sm" disabled={busy} onClick={() => onAdd(stream.inName, stream.outName)}>
+            Swap
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WaiverPanel({
   leagueId,
   eligible,
@@ -804,10 +889,11 @@ function WaiverPanel({
   eligible?: string[] | null;
   onAdded?: () => void;
 }) {
-  // Only offer chips for positions this league can actually start.
-  const positions = eligible?.length
-    ? ["ALL", ...POSITIONS.filter((p) => p !== "ALL" && eligible.includes(p))]
-    : POSITIONS;
+  // Only offer chips for positions this league can actually start. Kickers and
+  // defences live in the fill strip, never the list.
+  const positions = (
+    eligible?.length ? ["ALL", ...POSITIONS.filter((p) => p !== "ALL" && eligible.includes(p))] : POSITIONS
+  ).filter((p) => !isStreamedPosition(p));
   const load = useServerFn(getWaiverBoard);
   const add = useServerFn(applyMoveFn);
   const queryClient = useQueryClient();
@@ -838,8 +924,6 @@ function WaiverPanel({
     sort,
     survival: !!data?.isSurvivalLeague,
     showInjured: true,
-    needsKicker: !!data?.needsKicker,
-    needsDefense: !!data?.needsDefense,
     strategy: data?.strategy ?? null,
   });
 
@@ -927,6 +1011,16 @@ function WaiverPanel({
           teamId={data.myTeamId}
         />
       )}
+
+      <FillStrip
+        fills={data?.fills ?? []}
+        stream={data?.stream ?? null}
+        survival={!!data?.isSurvivalLeague}
+        onAdd={(name, drop) => addMutation.mutate({ name, drop })}
+        busy={addMutation.isPending}
+      />
+
+
 
       <ul className="mt-4 space-y-1">
         {isFetching && !data && <li className="text-sm text-muted-foreground">Loading…</li>}

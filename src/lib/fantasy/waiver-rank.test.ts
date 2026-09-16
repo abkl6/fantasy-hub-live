@@ -38,8 +38,6 @@ const opts = {
   sort: "impact" as const,
   survival: true,
   showInjured: false,
-  needsKicker: false,
-  needsDefense: false,
 };
 
 describe("waiver ranking", () => {
@@ -48,18 +46,12 @@ describe("waiver ranking", () => {
     expect(ranked.slice(0, 3).map((r) => r.id)).toEqual(["rb1", "wr1", "te1"]);
   });
 
-  it("never ranks a kicker above a starting-caliber running back", () => {
-    const ranked = rankWaivers(guillotineBoard, opts);
-    const k = ranked.findIndex((r) => r.id === "k1");
-    const rb = ranked.findIndex((r) => r.id === "rb1");
-    expect(k).toBeGreaterThan(rb);
-    expect(ranked.findIndex((r) => r.id === "def1")).toBeGreaterThan(rb);
+  it("never shows a kicker or a defence in the main list", () => {
+    const ranked = rankWaivers(guillotineBoard, opts).map((r) => r.id);
+    expect(ranked).not.toContain("k1");
+    expect(ranked).not.toContain("def1");
   });
 
-  it("lets a kicker back in when the kicker slot is empty", () => {
-    const ranked = rankWaivers(guillotineBoard, { ...opts, needsKicker: true });
-    expect(ranked[0]!.id).toBe("k1");
-  });
 
   it("hides injured, out and suspended players until asked", () => {
     const hidden = rankWaivers(guillotineBoard, opts).map((r) => r.id);

@@ -59,21 +59,13 @@ export interface RankOptions {
   /** Guillotine league: survival is the currency, not the title. */
   survival: boolean;
   showInjured: boolean;
-  /** My roster has an unfilled kicker slot. */
-  needsKicker: boolean;
-  /** My roster has an unfilled defense slot. */
-  needsDefense: boolean;
   /** Rebuilding boards lead with keepers. */
   strategy?: string | null;
 }
 
-/** Kickers and defenses sit below everyone unless a starting slot is empty. */
-function tier(row: RankableRow, opts: RankOptions): number {
-  const pos = row.position.toUpperCase();
-  if (SKILL.has(pos)) return 0;
-  if ((pos === "K" || pos === "PK") && opts.needsKicker) return 0;
-  if ((pos === "DEF" || pos === "DST") && opts.needsDefense) return 0;
-  return 1;
+/** Skill players only: kickers and defences live in the fill strip. */
+function inMainList(row: RankableRow): boolean {
+  return SKILL.has(row.position.toUpperCase());
 }
 
 function primary(row: RankableRow, opts: RankOptions): number {
@@ -82,11 +74,12 @@ function primary(row: RankableRow, opts: RankOptions): number {
 }
 
 export function rankWaivers<T extends RankableRow>(rows: T[], opts: RankOptions): T[] {
-  const kept = rows.filter((r) => (opts.showInjured ? true : !isInjuredStatus(r.status)));
+  const kept = rows
+    .filter(inMainList)
+    .filter((r) => (opts.showInjured ? true : !isInjuredStatus(r.status)));
 
   const compare = (a: T, b: T): number => {
-    const t = tier(a, opts) - tier(b, opts);
-    if (t !== 0) return t;
+
 
     switch (opts.sort) {
       case "points":

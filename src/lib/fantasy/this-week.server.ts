@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis } from "./analysis.server";
+import { buildWaiverBoard } from "./waivers.server";
 import { impactAddKey, impactScore, impactSwapKey, primaryImpactText } from "./impact";
 import { nextKickoff, nextWaiverRun } from "./gamewindow";
 import { manualFreshness } from "./manual-types";
@@ -28,6 +29,8 @@ type DB = SupabaseClient<Database>;
 
 const PRIORITY: Record<ThisWeekKind, number> = {
   upkeep: -1,
+  // An empty starting spot scores zero, so it outranks every other worry.
+  fill: -0.5,
   lineup: 0,
   claim: 1,
   "trade-offer": 2,
@@ -149,6 +152,34 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
           "league",
         );
       }
+    }
+
+    // 0.5 An empty starting spot scores nothing at all, so it comes first.
+    const board = await buildWaiverBoard(supabase, row.id, { fillsOnly: true, limit: 1 });
+    for (const fill of board.fills) {
+      add(
+        "fill",
+        `slot:${fill.slot}:${fill.playerId}`,
+        `Empty ${fill.slot} — add ${fill.name}`,
+        `${fill.reason}. Bid $${fill.bid}${fill.minimumBid ? " (minimum)" : ""}.`,
+        `${fill.projWeek.toFixed(1)} pts`,
+        "moves",
+        null,
+        fill.name,
+        fill.ruleNote ?? null,
+      );
+    }
+    if (board.stream) {
+      add(
+        "fill",
+        `stream:${board.stream.position}`,
+        `Stream ${board.stream.inName} over ${board.stream.outName}`,
+        board.stream.reason,
+        `$${board.stream.bid}`,
+        "moves",
+        board.stream.outName,
+        board.stream.inName,
+      );
     }
 
     // 1. Starters who are hurt, out or on bye for the coming week.

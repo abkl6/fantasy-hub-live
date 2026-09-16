@@ -61,6 +61,15 @@ import {
   type WaiverSort,
 } from "./waiver-rank";
 import { buildFaabPlan, paceBid, type FaabPlan } from "./faab-plan";
+import {
+  buildFills,
+  buildStream,
+  emptySlots,
+  isStreamedPosition,
+  type FillCandidate,
+  type SlotFill,
+  type StreamSuggestion,
+} from "./slot-fill";
 
 import { asEligiblePositions, isEligiblePosition } from "./eligibility";
 type DB = SupabaseClient<Database>;
@@ -117,6 +126,10 @@ export interface WaiverBoard {
   /** My roster has an unfilled kicker / defense slot. */
   needsKicker: boolean;
   needsDefense: boolean;
+  /** One recommendation per empty starting slot, shown above the list. */
+  fills: SlotFill[];
+  /** A minimum-bid kicker / defense swap when the matchups are lopsided. */
+  stream: StreamSuggestion | null;
   /** The strategy rules that shaped this board, for the explainer link. */
   ruleNotes: string[];
   /** How the remaining budget is spread over the weeks still to come. */
@@ -132,6 +145,8 @@ export async function buildWaiverBoard(
     limit?: number;
     sort?: WaiverSort;
     showInjured?: boolean;
+    /** Skip the per-candidate season simulations; only the fill strip is wanted. */
+    fillsOnly?: boolean;
   } = {},
 ): Promise<WaiverBoard> {
   const { data: league, error } = await supabase
@@ -330,15 +345,21 @@ export async function buildWaiverBoard(
         }))
     : [];
 
-  // A kicker or defense only deserves a top spot when that slot is empty.
-  const hasPosition = (pos: string) =>
-    myRoster.some((p) => p.position === pos || (pos === "DEF" && p.position === "DST"));
-  const slotFor = (pos: string) => slots.some((s) => slotAccepts(s, pos));
-  const needsKicker = slotFor("K") && !hasPosition("K");
-  const needsDefense = slotFor("DEF") && !hasPosition("DEF");
+  // Empty starting spots come from the league's slot definition, never from
+  // who happens to be on the roster.
+  const holes = emptySlots(
+    slots,
+    myRoster.map((p) => p.position),
+  );
+  const needsKicker = holes.some((h) => h.position === "K");
+  const needsDefense = holes.some((h) => h.position === "DEF");
 
   // Hurt, out and suspended players are hidden unless they are asked for.
-  const eligible = freeAgents.filter((p) => opts.showInjured || !isInjuredStatus(p.status));
+  // Kickers and defences never enter the main list: they are handled by the
+  // fill strip and the streaming row instead.
+  const healthy = freeAgents.filter((p) => opts.showInjured || !isInjuredStatus(p.status));
+  const eligible = healthy.filter((p) => !isStreamedPosition(p.position));
+  const stripPool = freeAgents.filter((p) => !isInjuredStatus(p.status));
 
   // --- strategy layer ------------------------------------------------------
   // Value over replacement is measured against the wire itself: the best free
@@ -372,6 +393,10 @@ export async function buildWaiverBoard(
       : null;
   let strategy: StrategyMode | null = null;
   let strategyNote: string | null = null;
+  /** What adding one player does to this week's lineup and survival odds. */
+  let scoreAdd:
+    | ((p: EnginePlayer) => { pointsGain: number; survivalDelta: number | null })
+    | null = null;
 
   if (mine && myRoster.length) {
     const engineTeams = teams.map((t) => ({
@@ -457,7 +482,27 @@ export async function buildWaiverBoard(
     const byValue = [...myRoster].sort((a, b) => a.proj - b.proj);
     const rosterCap = slots.length + 6;
 
-    for (const fa of eligible.slice(0, SCORED_CANDIDATES)) {
+    // Filling an empty slot is priced the same way: what the best lineup gains
+    // this week, and in a chop league how much less likely the cut becomes.
+    scoreAdd = (candidate: EnginePlayer) => {
+      const next = [...myRoster, candidate];
+      const pointsGain = optimalLineup(next, slots).total - beforeLineup;
+      let survivalDelta: number | null = null;
+      if (survivalLeague && survivalBase) {
+        const dist = distributionOf(next);
+        const myBase = survivalBase.find((r) => r.id === mine.id)!;
+        const after = simulateGuillotine(
+          survivalInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t)),
+          weeksLeft,
+          1200,
+          7,
+        ).find((r) => r.id === mine.id)!;
+        survivalDelta = after.surviveWeekOdds - myBase.surviveWeekOdds;
+      }
+      return { pointsGain, survivalDelta };
+    };
+
+    for (const fa of opts.fillsOnly ? [] : eligible.slice(0, SCORED_CANDIDATES)) {
       // Only ever suggest dropping someone the new player can actually cover:
       // same position, or a flex slot they both fit.
       const droppable = byValue
@@ -581,6 +626,126 @@ export async function buildWaiverBoard(
     contender: strategy === "buy",
   });
 
+  // --- empty starting slots -------------------------------------------------
+  // A kicker or a defence is a matchup call, not a bidding war: who they play
+  // this week, how many points that opponent is expected to score, and how
+  // generous that opponent has been to the position.
+  const season = Number(league.season ?? new Date().getUTCFullYear());
+  const thisWeek = league.current_week ?? 1;
+  const [{ data: scheduleRows }, { data: impliedRows }, { data: defenseRows }] = await Promise.all([
+    supabase
+      .from("nfl_schedule")
+      .select("nfl_team, opponent")
+      .eq("season", season)
+      .eq("week", thisWeek),
+    supabase
+      .from("team_implied_totals")
+      .select("nfl_team, implied")
+      .eq("season", season)
+      .eq("week", thisWeek),
+    supabase
+      .from("defense_ranks")
+      .select("nfl_team, points_allowed")
+      .eq("season", season)
+      .eq("week", thisWeek),
+  ]);
+  const opponentOf = new Map(
+    (scheduleRows ?? []).map((r) => [r.nfl_team.toUpperCase(), r.opponent?.toUpperCase() ?? null]),
+  );
+  const impliedOf = new Map(
+    (impliedRows ?? []).map((r) => [r.nfl_team.toUpperCase(), Number(r.implied)]),
+  );
+  const allowedOf = new Map(
+    (defenseRows ?? []).map((r) => [r.nfl_team.toUpperCase(), Number(r.points_allowed)]),
+  );
+
+  const factsFor = (nflTeam: string | null) => {
+    const team = nflTeam?.toUpperCase() ?? null;
+    const opponent = team ? (opponentOf.get(team) ?? null) : null;
+    return {
+      nflTeam: team,
+      opponent,
+      impliedOwn: team ? (impliedOf.get(team) ?? null) : null,
+      impliedOpponent: opponent ? (impliedOf.get(opponent) ?? null) : null,
+      opponentPointsAllowed: opponent ? (allowedOf.get(opponent) ?? null) : null,
+    };
+  };
+
+  const bidFor = (position: string, perWeek: number) => {
+    const raw = bidRecommendation({
+      budget: myFaabRemaining ?? faabBudget,
+      perWeek,
+      bestAtPositionPerWeek: bestAtPosition.get(position) ?? perWeek,
+      winningBids,
+    });
+    const capped = applyBidRules(book, {
+      position,
+      bid: raw.recommended,
+      budget: faabBudget,
+      remaining: myFaabRemaining,
+      weeksLeft: weeksRemaining,
+    });
+    const paced = faabPlan ? paceBid(capped.bid, faabPlan) : { bid: capped.bid, note: null };
+    return { bid: paced.bid, note: paced.note ?? capped.note };
+  };
+
+  const fillCandidates: FillCandidate[] = stripPool.map((p) => {
+    const priced = isStreamedPosition(p.position)
+      ? { bid: 1, note: null }
+      : bidFor(p.position, p.projWeek);
+    return {
+      id: p.id,
+      name: p.name,
+      position: p.position,
+      status: p.status,
+      projWeek: p.projWeek,
+      projSeason: p.projSeason,
+      vor: book.on("value-over-replacement")
+        ? valueOverReplacement(p.projSeason, p.position, wireLevels)
+        : p.projSeason,
+      bid: priced.bid,
+      ruleNote: priced.note,
+      ...factsFor(p.nflTeam),
+    };
+  });
+
+  const scoreFill = (c: FillCandidate) =>
+    scoreAdd
+      ? scoreAdd({
+          id: c.id,
+          name: c.name,
+          position: c.position,
+          nflTeam: c.nflTeam,
+          proj: c.projWeek,
+          volatility: 0.35,
+        })
+      : { pointsGain: 0, survivalDelta: null };
+
+  const fills = buildFills({
+    slots,
+    rosterPositions: myRoster.map((p) => p.position),
+    candidates: fillCandidates,
+    score: scoreFill,
+  });
+
+  // Streaming: only when my man draws one of the worst matchups this week and
+  // one of the best is sitting free.
+  const stream = buildStream({
+    slots,
+    current: myRoster
+      .filter((p) => isStreamedPosition(p.position))
+      .map((p) => ({
+        name: p.name,
+        position: p.position,
+        projWeek: p.proj,
+        facts: factsFor(p.nflTeam ?? null),
+      })),
+    candidates: fillCandidates,
+    score: scoreFill,
+  });
+
+
+
   const mapped: WaiverBoardRow[] = eligible
     .filter((p) => (wanted && wanted !== "ALL" ? p.position === wanted : true))
     .filter((p) => (search ? p.name.toLowerCase().includes(search) : true))
@@ -660,8 +825,6 @@ export async function buildWaiverBoard(
     sort: opts.sort ?? "impact",
     survival: survivalLeague,
     showInjured: true,
-    needsKicker,
-    needsDefense,
     strategy,
   }).slice(0, opts.limit ?? 60);
 
@@ -692,6 +855,8 @@ export async function buildWaiverBoard(
     projectionFallback,
     needsKicker,
     needsDefense,
+    fills,
+    stream,
     ruleNotes: [...new Set(rows.map((r) => r.ruleNote).filter((n): n is string => !!n))],
     faabPlan,
   };
