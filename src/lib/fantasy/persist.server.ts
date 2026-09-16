@@ -3,10 +3,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-import { effectiveFormat } from "./format";
 import {
   asLeagueType,
   asVariant,
+  effectiveFormat,
   type LeagueType,
   type LeagueVariant,
 } from "./league-type";
