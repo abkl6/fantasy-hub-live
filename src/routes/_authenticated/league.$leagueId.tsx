@@ -762,12 +762,12 @@ function FaabBudgetStrip({
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"];
 
 const SORTS = [
-  { id: "impact", label: "Title impact" },
+  { id: "impact", label: "Impact" },
   { id: "points", label: "Points" },
-  { id: "bid", label: "Bid" },
   { id: "value", label: "Trade value" },
   { id: "ktc", label: "Market value" },
   { id: "gems", label: "Undervalued" },
+  { id: "bid", label: "Bid" },
 ] as const;
 
 function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => void }) {
