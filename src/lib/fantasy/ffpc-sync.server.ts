@@ -23,13 +23,11 @@ const DEFAULT_PROJ: Record<string, number> = {
 export const FFPC_SYNC_PAUSED_NOTE = "sync paused — update manually";
 
 /** Reads the manager's FFPC token. Returns null when they haven't connected. */
-export async function ffpcToken(supabase: DB): Promise<string | null> {
+export async function ffpcToken(supabase: DB, userId?: string): Promise<string | null> {
   const { decryptToken } = await import("./token-crypto.server");
-  const { data } = await supabase
-    .from("platform_credentials")
-    .select("payload")
-    .eq("platform", "ffpc")
-    .maybeSingle();
+  let query = supabase.from("platform_credentials").select("payload").eq("platform", "ffpc");
+  if (userId) query = query.eq("user_id", userId);
+  const { data } = await query.maybeSingle();
   const payload = (data?.payload ?? {}) as Record<string, string>;
   return decryptToken(payload["ltuid"] ?? null);
 }
@@ -281,7 +279,7 @@ export async function refreshFfpcLeague(
     return { refreshed: false, reason: "not an FFPC league" };
   }
 
-  const ltuid = await ffpcToken(supabase);
+  const ltuid = await ffpcToken(supabase, userId);
   if (!ltuid) return { refreshed: false, reason: "FFPC is not connected." };
 
   try {
