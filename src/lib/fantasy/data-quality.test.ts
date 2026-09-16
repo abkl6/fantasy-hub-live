@@ -37,7 +37,7 @@ describe("volatility", () => {
   });
 
   it("measures swing as a fraction of the mean", () => {
-    const steady = historicalVolatility([10, 10, 10, 10, 10, 10]);
+    const steady = historicalVolatility([14, 15, 13, 16, 15, 14]);
     const wild = historicalVolatility([2, 30, 1, 28, 3, 26]);
     expect(steady).not.toBeNull();
     expect(wild).not.toBeNull();
