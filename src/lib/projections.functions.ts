@@ -621,14 +621,82 @@ export const refreshScheduleStrength = createServerFn({ method: "POST" })
     return { season, ...res };
   });
 
+/**
+ * Admin: seed last season's fantasy points allowed per game. CSV columns:
+ * `nfl_team, position_group, points_allowed_per_game, games`.
+ */
+export const uploadPriorStrength = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        csv: z.string().min(1).max(2_000_000),
+        season: z.number().int().min(2020).max(2100).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (!(await callerIsAdmin(context))) {
+      throw new Error("Only an admin can upload last season's points allowed.");
+    }
+    const { savePriorStrength } = await import("@/lib/fantasy/sos.server");
+    const { POSITION_GROUPS } = await import("@/lib/fantasy/sos");
+    const season = data.season ?? new Date().getFullYear();
+
+    const rows = parseCsv(data.csv);
+    if (rows.length < 2) throw new Error("That file has no rows under the header.");
+    const header = rows[0]!.map((h) => h.trim().toLowerCase());
+    const iTeam = header.findIndex((h) => h === "nfl_team" || h === "team");
+    const iGroup = header.findIndex((h) => h === "position_group" || h === "pos" || h === "position");
+    const iPer = header.findIndex(
+      (h) => h === "points_allowed_per_game" || h === "pts_allowed_per_game" || h === "per_game",
+    );
+    const iGames = header.findIndex((h) => h === "games");
+    if (iTeam < 0 || iGroup < 0 || iPer < 0) {
+      throw new Error(
+        "That file needs nfl_team, position_group and points_allowed_per_game columns.",
+      );
+    }
+
+    const valid = new Set<string>(POSITION_GROUPS);
+    const parsed: { team: string; group: (typeof POSITION_GROUPS)[number]; perGame: number; games?: number }[] = [];
+    const skipped: string[] = [];
+    for (const raw of rows.slice(1)) {
+      const team = (raw[iTeam] ?? "").trim().toUpperCase();
+      const group = (raw[iGroup] ?? "").trim().toUpperCase();
+      const perGame = Number(raw[iPer]);
+      if (!team || !valid.has(group) || !Number.isFinite(perGame) || perGame <= 0) {
+        if (team || group) skipped.push(`${team} ${group}`.trim());
+        continue;
+      }
+      const games = iGames >= 0 ? Number(raw[iGames]) : NaN;
+      parsed.push({
+        team,
+        group: group as (typeof POSITION_GROUPS)[number],
+        perGame,
+        ...(Number.isFinite(games) && games > 0 ? { games } : {}),
+      });
+    }
+
+    const res = await savePriorStrength(context.supabase, season, parsed);
+    return { season, ...res, skipped: skipped.slice(0, 20), skippedCount: skipped.length };
+  });
+
 /** Removes every projection this member has uploaded. */
 export const clearMyProjections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const source = `user:${context.userId}`;
     const { error } = await context.supabase
       .from("player_week_stats")
       .delete()
-      .eq("source", `user:${context.userId}`);
+      .eq("source", source);
     if (error) throw new Error(error.message);
+    const { error: seasonError } = await context.supabase
+      .from("player_season_projections")
+      .delete()
+      .eq("source", source);
+    if (seasonError) throw new Error(seasonError.message);
+
     return { ok: true };
   });
