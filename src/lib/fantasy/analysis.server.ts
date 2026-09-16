@@ -628,6 +628,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   }
 
   const formatMeta = {
+    // No market book yet: the post-import fetch is still running.
+    valuesPending: !values.covered,
     format,
     formatLabel: FORMAT_LABELS[format],
     leagueType,
