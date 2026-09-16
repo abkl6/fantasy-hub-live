@@ -634,3 +634,173 @@ function AdminPage() {
     </main>
   );
 }
+
+/** Player identifier coverage, scoring gaps, and this week's Vegas totals. */
+function QualityTab() {
+  const load = useServerFn(getDataQuality);
+  const pullOdds = useServerFn(refreshImpliedTotals);
+  const saveOdds = useServerFn(saveImpliedTotal);
+  const runWeek = useServerFn(runWeeklyResults);
+  const qc = useQueryClient();
+  const season = new Date().getUTCFullYear();
+  const q = useQuery({
+    queryKey: ["admin", "quality", season],
+    queryFn: () => load({ data: { season } }),
+  });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin", "quality", season] });
+
+  const [week, setWeek] = useState("1");
+  const [team, setTeam] = useState("");
+  const [implied, setImplied] = useState("");
+
+  const odds = useMutation({
+    mutationFn: () => pullOdds({ data: { season, weeks: [Number(week) || 1] } }),
+    onSuccess: (r) => {
+      toast.success(`Saved ${r.rows} team totals.`);
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const edit = useMutation({
+    mutationFn: () =>
+      saveOdds({
+        data: { season, week: Number(week) || 1, nflTeam: team, implied: Number(implied) || 0 },
+      }),
+    onSuccess: () => {
+      toast.success("Saved.");
+      setTeam("");
+      setImplied("");
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const weekly = useMutation({
+    mutationFn: () => runWeek({ data: { season, week: Number(week) || 1 } }),
+    onSuccess: (r) =>
+      toast.success(
+        `${r.actuals} results stored, ${r.blended} players blended, ${r.reconciliation.flagged} scoring gaps.`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (q.isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  const data = q.data;
+  if (!data) return null;
+  const pct = (n: number) => (data.players ? Math.round((n / data.players) * 100) : 0);
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl bg-card p-5">
+        <h2 className="font-semibold">Player IDs</h2>
+        <p className="text-sm text-muted-foreground">
+          {data.players} players. Imports match on these before falling back to names.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(
+            [
+              ["Sleeper", data.coverage.sleeper],
+              ["ESPN", data.coverage.espn],
+              ["Yahoo", data.coverage.yahoo],
+              ["Market value", data.coverage.ktc],
+            ] as const
+          ).map(([label, count]) => (
+            <div key={label} className="rounded-lg bg-muted/40 p-3">
+              <p className="text-sm text-muted-foreground">{label}</p>
+              <p className="stat-num text-xl">{pct(count)}%</p>
+              <p className="text-xs text-muted-foreground">{count} matched</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-xl bg-card p-5">
+        <h2 className="font-semibold">Rest-of-season blend</h2>
+        <p className="text-sm text-muted-foreground">
+          {data.blend.players} players blended, {data.blend.averageGames} games each on average.
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div>
+            <Label htmlFor="quality-week">Week</Label>
+            <Input
+              id="quality-week"
+              value={week}
+              onChange={(e) => setWeek(e.target.value)}
+              className="w-24"
+            />
+          </div>
+          <Button onClick={() => weekly.mutate()} disabled={weekly.isPending}>
+            {weekly.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            Run week jobs
+          </Button>
+          <Button variant="outline" onClick={() => odds.mutate()} disabled={odds.isPending}>
+            {odds.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            Pull Vegas totals
+          </Button>
+        </div>
+      </section>
+
+      <section className="rounded-xl bg-card p-5">
+        <h2 className="font-semibold">Scoring gaps</h2>
+        {data.gaps.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Every league adds up.</p>
+        ) : (
+          <ul className="mt-2 space-y-2 text-sm">
+            {data.gaps.map((g) => (
+              <li key={`${g.leagueId}-${g.week}`} className="rounded-lg bg-muted/40 p-3">
+                <p className="font-medium">
+                  {g.leagueName} — week {g.week}, {Math.round(g.diff * 10) / 10} pt gap
+                </p>
+                {g.topPlayerName && (
+                  <p className="text-muted-foreground">
+                    Biggest single difference: {g.topPlayerName} (
+                    {Math.round(g.topPlayerDiff * 10) / 10} pts unscored)
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-xl bg-card p-5">
+        <h2 className="font-semibold">Expected team points</h2>
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div>
+            <Label htmlFor="quality-team">Team</Label>
+            <Input
+              id="quality-team"
+              value={team}
+              onChange={(e) => setTeam(e.target.value)}
+              placeholder="MIA"
+              className="w-24"
+            />
+          </div>
+          <div>
+            <Label htmlFor="quality-implied">Points</Label>
+            <Input
+              id="quality-implied"
+              value={implied}
+              onChange={(e) => setImplied(e.target.value)}
+              placeholder="24.5"
+              className="w-24"
+            />
+          </div>
+          <Button variant="outline" onClick={() => edit.mutate()} disabled={!team || !implied}>
+            Save
+          </Button>
+        </div>
+        <ul className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          {data.implied.slice(0, 32).map((row) => (
+            <li key={`${row.week}-${row.nfl_team}`} className="rounded-lg bg-muted/40 px-3 py-2">
+              <span className="font-medium">{row.nfl_team}</span>{" "}
+              <span className="stat-num">{Number(row.implied)}</span>{" "}
+              <span className="text-xs text-muted-foreground">wk {row.week}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
