@@ -186,5 +186,12 @@ export async function loadProjections(
     opponent: (playerId) => (playerId ? (weekStats.get(playerId)?.opponent ?? null) : null),
     hasOverride: (playerId, name) => !!find(playerId, name),
     sourceLabel: source.label,
+    sosOn: !!opts.sos && strength.covered,
+    matchupRating: (playerId, position) => {
+      if (!strength.covered || !playerId) return null;
+      const opponent = weekStats.get(playerId)?.opponent ?? null;
+      if (!opponent) return null;
+      return strength.rating(position, opponent);
+    },
   };
 }
