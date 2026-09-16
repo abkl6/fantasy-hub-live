@@ -38,9 +38,15 @@ import {
   isSurvival,
   simulateGuillotine,
 } from "./format";
-import { bidLadder, type BidLadder, type FaabRival } from "./faab";
 import { classifyTeam } from "./team-class";
 import { strategyFor, type StrategyMode } from "./strategy";
+import {
+  bidRecommendation,
+  rankWaivers,
+  type BidRecommendation,
+  type RankableRow,
+  type WaiverSort,
+} from "./waiver-rank";
 
 type DB = SupabaseClient<Database>;
 
