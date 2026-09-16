@@ -327,7 +327,9 @@ export async function loadProjections(
         return round((scoring ? scoring.scale(position, override.week) : override.week) * m);
       }
       const line = lineFor(playerId, position);
-      if (scoring && line?.stats) return round(scoring.score(position, line.stats));
+      if (scoring && line?.stats) {
+        return round(scoring.score(position, line.stats) * impliedOf(playerId));
+      }
       if (line && !line.stats) return 0; // bye week or no projected usage
       const m = flat(playerId, position);
       return round((scoring ? scoring.scale(position, base) : base) * m);
