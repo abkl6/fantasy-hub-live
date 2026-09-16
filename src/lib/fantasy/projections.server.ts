@@ -59,6 +59,8 @@ const EMPTY: ProjectionSet = {
   opponent: () => null,
   hasOverride: () => false,
   sourceLabel: "App projections",
+  sosOn: false,
+  matchupRating: () => null,
 };
 
 export function emptyProjections(): ProjectionSet {
