@@ -281,6 +281,21 @@ export async function refreshTradeValues(admin: DB, scope: "full" | "ir" = "full
     }
 
     const saved = await saveKtcValues(admin, data, { onlyNames, scope });
+
+    // Refit the market-implied age curves from the values we just stored. A
+    // bad fit must never fail the refresh, so it is logged and swallowed.
+    if (scope === "full") {
+      try {
+        const { refitAgeCurves } = await import("./age-curve.server");
+        await Promise.all([refitAgeCurves(admin, "sf"), refitAgeCurves(admin, "1qb")]);
+      } catch (curveError) {
+        await admin.from("job_errors").insert({
+          source: "age-curves",
+          scope: "fit",
+          message: curveError instanceof Error ? curveError.message : "Age curve fit failed",
+        });
+      }
+    }
     await admin.from("trade_value_refresh_log").insert({
       scope,
       rows_upserted: saved.players,
