@@ -134,6 +134,8 @@ export function ManualLeagueWizard() {
     currentWeek: 1,
     scoringType: "ppr",
     format: "redraft" as (typeof LEAGUE_FORMATS)[number],
+    leagueType: "redraft" as LeagueType,
+    variant: "none" as LeagueVariant,
     slots: "QB, RB, RB, WR, WR, TE, FLEX, K, DEF",
   });
   const [scoringRules, setScoringRules] = useState<Record<string, number>>({});
@@ -182,6 +184,8 @@ export function ManualLeagueWizard() {
           scoringType: form.scoringType,
           scoringRules,
           format: form.format,
+          leagueType: form.leagueType,
+          variant: form.variant,
           rosterSlots: form.slots
             .split(",")
             .map((s) => s.trim().toUpperCase())
