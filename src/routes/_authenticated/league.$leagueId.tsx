@@ -2103,6 +2103,52 @@ function PlayoffSettings({ leagueId }: { leagueId: string }) {
   );
 }
 
+/** Whether this league's numbers bend for how tough each week's opponent is. */
+function ScheduleStrengthToggle({
+  leagueId,
+  on,
+  active,
+}: {
+  leagueId: string;
+  on: boolean;
+  active: boolean;
+}) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (sosAdjust: boolean) => save({ data: { leagueId, sosAdjust } }),
+    onSuccess: (_r, next) => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success(
+        next ? "Numbers now allow for schedule strength" : "Schedule strength is shown only",
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  return (
+    <button
+      type="button"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate(!on)}
+      title={
+        on && !active
+          ? "Schedule strength has not been worked out for this season yet"
+          : "Adjust projections for how tough each week's opponent is"
+      }
+      className={`rounded-full border px-2 py-[2px] text-[10px] ${
+        on
+          ? "border-primary/40 text-primary"
+          : "border-border text-muted-foreground"
+      }`}
+    >
+      {on ? (active ? "Schedule adjusted" : "Schedule adjusted (no data yet)") : "Schedule: shown only"}
+    </button>
+  );
+}
+
 /** Which projection set this league's numbers come from. */
 function ProjectionSourcePicker({
   leagueId,
