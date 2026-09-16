@@ -665,13 +665,8 @@ export const getDataQuality = createServerFn({ method: "POST" })
     const blended = blend ?? [];
     return {
       season,
-      players: rows.length,
-      coverage: {
-        sleeper: count("sleeper_id"),
-        espn: count("espn_id"),
-        yahoo: count("yahoo_id"),
-        ktc: count("ktc_slug"),
-      },
+      players: total,
+      coverage: { sleeper: sleeperIds, espn: espnIds, yahoo: yahooIds, ktc: ktcIds },
       gaps: gaps.slice(0, 50),
       implied: implied ?? [],
       blend: {
