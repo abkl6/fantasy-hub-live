@@ -12,7 +12,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { FfpcParseError, ffpcLeagueBundle, type FfpcLeagueBundle } from "./ffpc.server";
-import { playerIndex } from "./names";
+import { normalizeName, playerIndex } from "./names";
+import { queueUnmatched, type ManualPlayerRow } from "./manual.server";
 
 type DB = SupabaseClient<Database>;
 
