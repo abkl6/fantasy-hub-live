@@ -342,7 +342,9 @@ function MatchupCard({ m: summary }: { m: LiveMatchup }) {
                 {m.starters.map((p) => (
                   <PlayerLine key={`${p.name}-${p.slot}`} p={p} />
                 ))}
+                {needsDetail && <p className="py-2 text-sm text-muted-foreground">Loading players…</p>}
               </div>
+
             </div>
             {!pointsOnly && (
               <div>
