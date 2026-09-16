@@ -299,18 +299,36 @@ export async function savePriorStrength(
   season: number,
   rows: { team: string; group: PositionGroup; perGame: number; games?: number }[],
 ): Promise<{ rows: number }> {
+  // Keep whatever multiplier and source a row already has; this only seeds the
+  // baseline measure.
+  const { data: existing } = await supabase
+    .from("team_position_strength")
+    .select("nfl_team, position_group, multiplier, source")
+    .eq("season", season);
+  const held = new Map(
+    (existing ?? []).map((r) => [
+      `${r.position_group.toUpperCase()}|${r.nfl_team.toUpperCase()}`,
+      r,
+    ]),
+  );
+
   const payload = rows
     .filter((r) => r.team && r.perGame > 0)
-    .map((r) => ({
-      season,
-      nfl_team: r.team.toUpperCase(),
-      position_group: r.group,
-      prior_measure: Math.round(r.perGame * 1000) / 1000,
-      prior_games: r.games ?? 17,
-      multiplier: 1,
-      source: "prior",
-    }));
+    .map((r) => {
+      const team = r.team.toUpperCase();
+      const prev = held.get(`${r.group}|${team}`);
+      return {
+        season,
+        nfl_team: team,
+        position_group: r.group,
+        prior_measure: Math.round(r.perGame * 1000) / 1000,
+        prior_games: r.games ?? 17,
+        multiplier: prev ? Number(prev.multiplier) : 1,
+        source: prev?.source ?? "prior",
+      };
+    });
   if (!payload.length) return { rows: 0 };
+
   for (let i = 0; i < payload.length; i += 300) {
     const { error } = await supabase
       .from("team_position_strength")
