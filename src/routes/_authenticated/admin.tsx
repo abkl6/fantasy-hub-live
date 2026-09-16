@@ -29,6 +29,7 @@ import {
   setBatchPublished,
   uploadProjectionBatch,
 } from "@/lib/admin.functions";
+import { refreshScheduleStrength } from "@/lib/projections.functions";
 
 const TITLE = "Admin — Gridiron Edge";
 const DESCRIPTION = "Internal console for members, league sync health, the projection database, alerts and errors.";
