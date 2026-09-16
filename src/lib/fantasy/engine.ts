@@ -374,14 +374,15 @@ export function simulateSeason(
       totalVp[i] += vp[i];
     }
 
-    const seeds = teams
-      .map((_, i) => i)
-      .sort((a, b) =>
-        useVp
-          ? (vp[b] ?? 0) - (vp[a] ?? 0) || (points[b] ?? 0) - (points[a] ?? 0)
-          : (wins[b] ?? 0) - (wins[a] ?? 0) || (points[b] ?? 0) - (points[a] ?? 0),
-      )
-      .slice(0, bracketSize);
+    const seeds = seedOrder(
+      teamIds,
+      teams.map((_, i) => ({ wins: wins[i] ?? 0, points: points[i] ?? 0, vp: vp[i] ?? 0 })),
+      {
+        ...(useVp ? { victoryPoints: true } : {}),
+        ...(config.divisions ? { divisions: config.divisions } : {}),
+      },
+    ).slice(0, bracketSize);
+
     for (const i of seeds) madePlayoffs[i] += 1;
 
     let field = [...seeds];
