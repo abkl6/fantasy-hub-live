@@ -897,6 +897,11 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   {p.undervalued && (
                     <Badge className="text-[10px]">Undervalued</Badge>
                   )}
+                  {p.fromCutTeam && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      From cut team
+                    </Badge>
+                  )}
                   {p.status && p.status !== "Active" && (
                     <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px]">
                       {p.status}
