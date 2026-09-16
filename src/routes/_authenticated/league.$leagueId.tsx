@@ -57,6 +57,7 @@ import {
   setPlayerConstraintFn,
   setTeamClassOverrideFn,
 } from "@/lib/constraints.functions";
+import { normalizeName } from "@/lib/fantasy/names";
 import { logTrade } from "@/lib/platforms.functions";
 import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
 import { rankWaivers } from "@/lib/fantasy/waiver-rank";
@@ -2554,7 +2555,7 @@ function PlayerTags({ leagueId, names }: { leagueId: string; names: string[] }) 
   });
 
   const tagOf = (name: string) =>
-    data?.players.find((p) => p.name.toLowerCase() === name.toLowerCase())?.tag ?? null;
+    data?.players.find((p) => normalizeName(p.name) === normalizeName(name))?.tag ?? null;
 
   const choose = async (name: string, tag: "untouchable" | "shopping") => {
     const next = tagOf(name) === tag ? "none" : tag;
