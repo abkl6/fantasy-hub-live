@@ -1234,11 +1234,26 @@ export const getGameDayFn = createServerFn({ method: "POST" })
       }
     }
 
-    return buildGameDay(context.supabase, {
-      ...(data.leagueId ? { leagueId: data.leagueId } : {}),
-      ...(data.games ? { includeGames: true } : {}),
-    });
+    const run = () =>
+      buildGameDay(context.supabase, {
+        ...(data.leagueId ? { leagueId: data.leagueId } : {}),
+        ...(data.games ? { includeGames: true } : {}),
+      });
+
+    // Only the per-league board is cached; the cross-league board and the
+    // games view are cheap and want the freshest scoreboard.
+    if (!data.leagueId || data.games || data.refresh) return run();
+
+    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const hash = await leagueInputsHash(context.supabase, data.leagueId);
+    return cached(
+      context.supabase,
+      { userId: context.userId, leagueId: data.leagueId, kind: "gameday" },
+      hash,
+      run,
+    );
   });
+
 
 export const getManagerHubFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
