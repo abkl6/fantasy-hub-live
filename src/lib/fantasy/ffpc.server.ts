@@ -218,14 +218,64 @@ export function parseLeagueHome(html: string, leagueId: string) {
   // Team | Pts table and there is no weekly opponent anywhere on the page.
   const isBestBall = /best\s*ball/i.test(text(infoMatch?.[2] ?? ""));
 
+  // Chop (guillotine) leagues: no record and no opponent. Surviving teams sit
+  // in one table and knocked-out teams in a second "Chopped teams" table.
+  const isChop =
+    /chop/i.test(text(infoMatch?.[2] ?? "")) || /rptStandingsAliveTeams/i.test(html);
+  const chopAlive = isChop ? findTable(html, "team", "remaining faab") : null;
+  const chopDead = isChop ? findTable(html, "team", "chop nfl week") : null;
+
   const standings =
+    chopAlive ??
     findTable(html, "team", "pts") ??
     findTable(html, "team", "points") ??
     findTable(html, "team", "record") ??
     findTable(html, "standings");
 
   const teams: FfpcTeam[] = [];
-  if (standings) {
+  if (isChop && chopAlive) {
+    const weeksPlayed = Math.max(1, (weekMatch ? Number(weekMatch[1]) : 1) - 1);
+    const readChopRows = (table: typeof chopAlive, eliminated: boolean) => {
+      if (!table) return;
+      const cAvg = columnIndex(table, "avg points");
+      const cFaab = columnIndex(table, "remaining faab");
+      const cWins = columnIndex(table, "week wins");
+      const cChopWeek = columnIndex(table, "chop nfl week");
+      for (let i = 0; i < table.rows.length; i++) {
+        const row = table.rows[i] ?? [];
+        const raw = table.rawRows[i] ?? [];
+        // FFPC leaves a trailing "." (and a comment marker) after each name.
+        const name = (row[0] ?? "").replace(/\s*\.\s*(?:--&gt;|-->)?\s*$/, "").trim();
+        if (!name) continue;
+        const externalId =
+          (raw[0] ?? "").match(/teamRoster_[0-9]+_([0-9]+)/i)?.[1] ??
+          idFromLinks(raw[0] ?? "", "viewingTeam", "teamID", "teamid");
+        if (!externalId) continue;
+        const avg = cAvg >= 0 ? toNumber(row[cAvg]) : 0;
+        teams.push({
+          externalId,
+          name,
+          ownerName: null,
+          isMine: externalId === (infoMatch?.[3] ?? null),
+          wins: cWins >= 0 ? toNumber(row[cWins]) : 0,
+          losses: 0,
+          ties: 0,
+          // The page reports a per-week average; totals are what the app ranks on.
+          pointsFor: Math.round(avg * weeksPlayed * 100) / 100,
+          pointsAgainst: 0,
+          vp: 0,
+          division: null,
+          playoffSeed: null,
+          faabRemaining: cFaab >= 0 ? toNumber(row[cFaab]) : null,
+          eliminatedWeek: eliminated ? (cChopWeek >= 0 ? toNumber(row[cChopWeek]) || 1 : 1) : null,
+          roster: [],
+        });
+      }
+    };
+    readChopRows(chopAlive, false);
+    readChopRows(chopDead, true);
+  } else if (standings) {
+
     const usesVp = standings.headers.some((header) => /season\s*vp/i.test(header));
     // A record table has its own W column; a points-only table does not.
     const usesRecord = standings.headers.some((header) => /^w$/i.test(header.trim()));
