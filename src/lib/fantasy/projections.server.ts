@@ -60,6 +60,12 @@ export interface ProjectionSet {
     playerId: string | null | undefined,
     position: string,
   ): "easy" | "neutral" | "tough" | null;
+  /** Games played and their share of the blend, when real games are in. */
+  blendNote(
+    playerId: string | null | undefined,
+  ): { games: number; weight: number } | null;
+  /** How much this week's betting line moves this player, 1 when none. */
+  impliedMultiplier(playerId: string | null | undefined): number;
 }
 
 const EMPTY: ProjectionSet = {
@@ -72,6 +78,8 @@ const EMPTY: ProjectionSet = {
   sourceLabel: "App projections",
   sosOn: false,
   matchupRating: () => null,
+  blendNote: () => null,
+  impliedMultiplier: () => 1,
 };
 
 export function emptyProjections(): ProjectionSet {
