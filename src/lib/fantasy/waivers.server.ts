@@ -481,23 +481,30 @@ export async function buildWaiverBoard(
     }
   }
 
-  const bestTradeValue = Math.max(1, freeAgents[0]?.tradeValue ?? 1);
+  // What claims have actually cost in this league sets the price ceiling.
+  const { data: bidRows } = await supabase
+    .from("faab_bids")
+    .select("amount, won")
+    .eq("league_id", leagueId)
+    .eq("won", true);
+  const winningBids = (bidRows ?? []).map((b) => Number(b.amount)).filter((n) => n > 0);
 
-  const rows: WaiverBoardRow[] = freeAgents
+  const bestAtPosition = new Map<string, number>();
+  for (const p of eligible) {
+    bestAtPosition.set(p.position, Math.max(bestAtPosition.get(p.position) ?? 0, p.projWeek));
+  }
+
+  const mapped: WaiverBoardRow[] = eligible
     .filter((p) => (wanted && wanted !== "ALL" ? p.position === wanted : true))
     .filter((p) => (search ? p.name.toLowerCase().includes(search) : true))
-    .slice(0, opts.limit ?? 60)
     .map((p) => {
       const impact = impacts.get(p.id) ?? null;
-      let bid = 0;
-      if (impact && impact.lineupGain > 0.1) {
-        bid = Math.round(
-          Math.min(60, impact.lineupGain * 4 + Math.max(0, impact.titleDelta) * 100 * 2.5 + 1),
-        );
-      } else if (!impact && p.tradeValue > 0) {
-        // Stash value only: a small speculative bid scaled to season upside.
-        bid = Math.round(Math.min(8, (p.tradeValue / bestTradeValue) * 8));
-      }
+      const bidRec = bidRecommendation({
+        budget: myFaabRemaining ?? faabBudget,
+        perWeek: p.projWeek,
+        bestAtPositionPerWeek: bestAtPosition.get(p.position) ?? p.projWeek,
+        winningBids,
+      });
       return {
         id: p.id,
         name: p.name,
@@ -511,26 +518,28 @@ export async function buildWaiverBoard(
         ktcValue: p.ktcValue,
         projValue: p.projValue,
         undervalued: p.undervalued,
-        bid,
-        bids: bidLadders.get(p.id) ?? null,
+        bid: bidRec.recommended,
+        bidRec,
         lineupGain: impact ? impact.lineupGain : null,
         titleDelta: impact ? impact.titleDelta : null,
         playoffDelta: impact ? impact.playoffDelta : null,
         winDelta: impact ? impact.winDelta : null,
+        survivalDelta: impact ? impact.survivalDelta : null,
+        fromCutTeam: p.fromCutTeam,
         suggestedDrop: impact ? impact.drop : null,
         scored: !!impact,
         longTermValue: p.longTermValue,
       };
     });
 
-  // A rebuilding team should see keepers first, not a half-point weekly bump.
-  if (strategy === "sell") {
-    rows.sort(
-      (a, b) =>
-        (b.longTermValue ?? 0) - (a.longTermValue ?? 0) ||
-        (b.ktcValue ?? b.projValue) - (a.ktcValue ?? a.projValue),
-    );
-  }
+  const rows = rankWaivers(mapped, {
+    sort: opts.sort ?? "impact",
+    survival: survivalLeague,
+    showInjured: true,
+    needsKicker,
+    needsDefense,
+    strategy,
+  }).slice(0, opts.limit ?? 60);
 
   const estimated = spots.filter((s) => s.is_auto).length;
   const rosterSize = mine ? spots.filter((s) => s.team_id === mine.id).length : 0;
@@ -553,5 +562,11 @@ export async function buildWaiverBoard(
     faabBudget,
     myFaabRemaining,
     myTeamId: mine?.id ?? null,
+    projectionLabel: projectionFallback
+      ? "App projections (fallback)"
+      : resolveProjectionSource(league).label,
+    projectionFallback,
+    needsKicker,
+    needsDefense,
   };
 }
