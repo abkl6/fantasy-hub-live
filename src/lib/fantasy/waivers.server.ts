@@ -455,53 +455,16 @@ export async function buildWaiverBoard(
       const res = simulateSeason(inputs, simConfig, schedule, 1500, 7);
       const m = res.find((r) => r.id === mine.id)!;
 
+      let survivalDelta: number | null = null;
       if (survivalLeague && survivalBase) {
         // Survival is the only currency here: re-simulate the week with him in
-        // my lineup, then read what each rival would pay for the same help.
+        // my lineup and read how much less likely I am to be cut.
         const myBase = survivalBase.find((r) => r.id === mine.id)!;
         const withMe = survivalInputs.map((t) =>
           t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t,
         );
         const after = simulateGuillotine(withMe, weeksLeft, 1200, 7).find((r) => r.id === mine.id)!;
-        const myGain = Math.max(0, after.surviveWeekOdds - myBase.surviveWeekOdds);
-
-        const rivals: FaabRival[] = engineTeams
-          .filter((t) => t.id !== mine.id && t.roster.length)
-          .map((t) => {
-            const theirBase = survivalBase.find((r) => r.id === t.id);
-            const before = optimalLineup(t.roster, slots).total;
-            const theirDrop = [...t.roster].sort((a, b) => a.proj - b.proj)[0];
-            const swapped = theirDrop
-              ? t.roster.map((p) => (p.name === theirDrop.name ? candidate : p))
-              : [...t.roster, candidate];
-            const gainPts = Math.max(0, optimalLineup(swapped, slots).total - before);
-            const risk = Math.max(0, 1 - (theirBase?.surviveWeekOdds ?? 1));
-            const team = teams.find((x) => x.id === t.id);
-            return {
-              id: t.id,
-              name: t.name,
-              surviveWeekOdds: theirBase?.surviveWeekOdds ?? 1,
-              // Points added shave elimination risk roughly in proportion to
-              // how big the gain is against a week's scoring spread.
-              survivalGain: risk * Math.min(0.9, gainPts / 15),
-              faabRemaining:
-                team && team.faab_remaining != null ? Number(team.faab_remaining) : null,
-            };
-          });
-
-        bidLadders.set(
-          fa.id,
-          bidLadder({
-            budget: faabBudget,
-            myRemaining: myFaabRemaining ?? faabBudget,
-            mySurviveWeekOdds: myBase.surviveWeekOdds,
-            mySurvivalGain: myGain,
-            rivals,
-            teamCount: teams.length,
-            weeksLeft,
-            poolFlooded: false,
-          }),
-        );
+        survivalDelta = after.surviveWeekOdds - myBase.surviveWeekOdds;
       }
 
       // A pickup that does not improve the optimal lineup cannot move the
@@ -511,6 +474,7 @@ export async function buildWaiverBoard(
         titleDelta: meaningful ? m.titleOdds - baseMine.titleOdds : 0,
         playoffDelta: meaningful ? m.playoffOdds - baseMine.playoffOdds : 0,
         winDelta: meaningful ? Math.round((m.projWins - baseMine.projWins) * 100) / 100 : 0,
+        survivalDelta: meaningful ? survivalDelta : survivalDelta === null ? null : 0,
         lineupGain: Math.round(lineupGain * 10) / 10,
         drop: lineupGain > 0 && drop ? drop.name : null,
       });
