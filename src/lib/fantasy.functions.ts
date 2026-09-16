@@ -1291,12 +1291,17 @@ export const getThisWeekFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildThisWeek } = await import("./fantasy/this-week.server");
-    const { cached, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
     const hash = await allLeaguesInputsHash(context.supabase);
-    return cached(context.supabase, { userId: context.userId, kind: "this-week" }, hash, () =>
-      buildThisWeek(context.supabase),
+    const result = await cachedWithMeta(
+      context.supabase,
+      { userId: context.userId, kind: "this-week" },
+      hash,
+      () => buildThisWeek(context.supabase),
     );
+    return { ...result.payload, computedAt: result.computedAt };
   });
+
 
 
 export const getLineupCheckFn = createServerFn({ method: "GET" })
