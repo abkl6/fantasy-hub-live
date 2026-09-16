@@ -41,6 +41,7 @@ import {
   getDraftRecapFn,
   getLeagueMeta,
   getPlayoffPictureFn,
+  getScoringGapFn,
   getTrendsFn,
   getWaiverBoard,
   importSleeperDraftFn,
