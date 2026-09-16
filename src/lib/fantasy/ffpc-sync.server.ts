@@ -85,9 +85,33 @@ export async function applyFfpcBundle(
   bundle: FfpcLeagueBundle,
   options: { live?: boolean } = {},
 ) {
+  // Re-detect the league type, but never over a manager's own choice.
+  const { detectLeagueType, effectiveFormat } = await import("./league-type");
+  const { data: stored } = await supabase
+    .from("leagues")
+    .select("type_source, format")
+    .eq("id", leagueId)
+    .maybeSingle();
+  const detected =
+    options.live || stored?.type_source === "user"
+      ? null
+      : detectLeagueType({
+          typeDescription: `${bundle.leagueType} ${bundle.name}`,
+          hasEmpirePanel: bundle.hasEmpirePanel,
+          hasFuturePicks: bundle.futurePicks.length > 0,
+        });
+
   await supabase
     .from("leagues")
     .update({
+      ...(detected
+        ? {
+            league_type: detected.leagueType,
+            variant: detected.variant,
+            type_source: detected.typeSource,
+            format: effectiveFormat(detected.leagueType, detected.variant, stored?.format),
+          }
+        : {}),
       name: bundle.name,
       current_week: bundle.currentWeek,
       contest_format: bundle.contestFormat,
