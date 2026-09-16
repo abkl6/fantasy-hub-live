@@ -44,6 +44,12 @@ const IGNORED = new Set(["K", "PK", "DEF", "DST"]);
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/** Rank every partner cheaply, then re-price only the ideas that get shown. */
+const COARSE_ITERATIONS = 300;
+const FULL_ITERATIONS = 1500;
+const DISPLAYED_IDEAS = 5;
+
+
 interface Ctx {
   slots: Slot[];
   values: Awaited<ReturnType<typeof loadLeague>>["values"];
