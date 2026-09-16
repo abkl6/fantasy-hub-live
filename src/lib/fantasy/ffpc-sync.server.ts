@@ -332,7 +332,7 @@ export async function refreshFfpcLeague(
     return { refreshed: false, reason: "not an FFPC league" };
   }
 
-  const ltuid = await ffpcToken(supabase, userId);
+  const ltuid = await ffpcToken(supabase, userId, league.external_id);
   if (!ltuid) return { refreshed: false, reason: "FFPC is not connected." };
 
   try {
