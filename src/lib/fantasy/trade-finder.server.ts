@@ -378,6 +378,32 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
   }
 
   ideas.sort((a, b) => b.impactRank - a.impactRank || b.fairness - a.fairness);
+
+  // Full-accuracy numbers for the handful the member will actually read.
+  for (let i = 0; i < Math.min(DISPLAYED_IDEAS, ideas.length); i++) {
+    const idea = ideas[i]!;
+    const saved = rerun.get(idea.teamId);
+    if (!saved) continue;
+    const impact = recommendationImpact({
+      teams: simTeams,
+      config: loaded.simConfig,
+      schedule: loaded.schedule,
+      teamId: mine.id,
+      baseline,
+      after: saved.after,
+      iterations: FULL_ITERATIONS,
+      seed: 7,
+      dynasty: saved.dynasty,
+    });
+    ideas[i] = {
+      ...idea,
+      impact,
+      impactLabel: primaryImpactText(impact, myClass, loaded.isDynasty),
+      impactRank: impactScore(impact, myClass, loaded.isDynasty) * (0.4 + 1.2 * idea.acceptance),
+    };
+  }
+  ideas.sort((a, b) => b.impactRank - a.impactRank || b.fairness - a.fairness);
+
   // The order is the team's class talking: say so on the idea it put first.
   if (book.on("class-tiebreak") && ideas.length > 1) {
     ideas[0] = { ...ideas[0]!, ruleNote: book.why("class-tiebreak") };
