@@ -290,12 +290,18 @@ export function simulateSeason(
     byWeek.set(g.week, list);
   }
 
-  const draw = (i: number) => Math.max(0, teams[i]!.mean + gaussian(rand) * teams[i]!.sd);
+  // Season drift: each simulated season assumes a slightly different team than
+  // the projections say, held steady for that whole run.
+  let drift = new Array(n).fill(0) as number[];
+  const draw = (i: number) =>
+    Math.max(0, teams[i]!.mean + (drift[i] ?? 0) + gaussian(rand) * teams[i]!.sd);
 
-  for (let it = 0; it < iterations; it++) {
+  for (let it = 0; it < runs; it++) {
+    drift = teams.map((t) => gaussian(rand) * Math.abs(t.mean) * 0.05);
     const wins = teams.map((t) => t.wins + t.ties * 0.5);
     const points = teams.map((t) => t.pointsFor);
     const vp = teams.map((t) => t.vp ?? 0);
+
 
     for (let w = 0; w < weeksLeft; w++) {
       const week = config.currentWeek + w;
