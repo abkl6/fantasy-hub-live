@@ -287,12 +287,21 @@ export async function loadProjections(
     return { ...line, stats: shaped as StatLine };
   };
 
+  /** How much this week's betting line moves a player, 1 when there is none. */
+  const impliedOf = (playerId: string | null | undefined) => {
+    if (!playerId || !implied.covered) return 1;
+    const team = teamOf.get(playerId)?.nfl_team ?? null;
+    return implied.multiplier(team, week);
+  };
+
   /** Whole-player multiplier, for numbers that have no stat line behind them. */
   const flat = (playerId: string | null | undefined, position: string) => {
-    if (!sosOn || !playerId) return 1;
-    const line = weekStats.get(playerId);
-    if (!line || line.shaped || line.weekly) return 1;
-    return strength.multiplier(position, line.opponent);
+    const line = playerId ? weekStats.get(playerId) : undefined;
+    const sos =
+      sosOn && line && !line.shaped && !line.weekly
+        ? strength.multiplier(position, line.opponent)
+        : 1;
+    return sos * impliedOf(playerId);
   };
 
   /** See ProjectionSet.basis. */
