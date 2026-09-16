@@ -5,6 +5,8 @@
  * values (SWID and espn_s2) the manager copies out of their own browser.
  */
 
+import { detectLeagueType, type LeagueType, type LeagueVariant } from "./league-type";
+
 const HOST = "https://lm-api-reads.fantasy.espn.com";
 
 const POSITION_BY_ID: Record<number, string> = {
@@ -73,6 +75,9 @@ export interface EspnLeagueBundle {
   scoringType: string;
   rosterSlots: string[];
   contestFormat?: "h2h" | "points" | "hybrid";
+  leagueType?: LeagueType;
+  variant?: LeagueVariant;
+  typeSource?: "detected" | "inferred";
   teams: EspnTeam[];
   schedule: {
     week: number;
