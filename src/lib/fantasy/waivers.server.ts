@@ -258,7 +258,7 @@ export async function buildWaiverBoard(
     return Math.max(1, direct + Math.ceil(flex / 3));
   };
   const replacement = new Map<string, number>();
-  for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"]) {
+  for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"].filter(usablePosition)) {
     const pool = players
       .filter((p) => p.position.toUpperCase() === pos)
       .map((p) => seasonOf(p))
