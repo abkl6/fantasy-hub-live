@@ -6,6 +6,7 @@ import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import {
   asLeagueType,
   asVariant,
+  detectLeagueType,
   effectiveFormat,
   LEAGUE_TYPES,
   LEAGUE_VARIANTS,
