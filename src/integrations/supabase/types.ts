@@ -880,6 +880,47 @@ export type Database = {
           },
         ]
       }
+      player_season_projections: {
+        Row: {
+          created_at: string
+          id: string
+          player_id: string
+          season: number
+          source: string
+          src_points: number
+          stats: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          player_id: string
+          season: number
+          source: string
+          src_points?: number
+          stats?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          player_id?: string
+          season?: number
+          source?: string
+          src_points?: number
+          stats?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_season_projections_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_trade_values: {
         Row: {
           age: number | null
@@ -1398,30 +1439,42 @@ export type Database = {
       team_position_strength: {
         Row: {
           created_at: string
+          games: number
           id: string
+          measure: number | null
           multiplier: number
           nfl_team: string
           position_group: string
+          prior_games: number
+          prior_measure: number | null
           season: number
           source: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          games?: number
           id?: string
+          measure?: number | null
           multiplier?: number
           nfl_team: string
           position_group: string
+          prior_games?: number
+          prior_measure?: number | null
           season: number
           source?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          games?: number
           id?: string
+          measure?: number | null
           multiplier?: number
           nfl_team?: string
           position_group?: string
+          prior_games?: number
+          prior_measure?: number | null
           season?: number
           source?: string
           updated_at?: string
