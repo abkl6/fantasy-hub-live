@@ -193,12 +193,36 @@ export async function loadProjections(
   ]);
   const sosOn = wantsSos && strength.covered;
 
+  // Betting lines for the week: a team expected to score heavily carries its
+  // players a little further. Applied after the schedule split.
+  const { loadImpliedBook } = await import("./implied.server");
+  const implied = await loadImpliedBook(supabase, season);
+
+  const { data: teamRows } = await supabase.from("players").select("id, position, nfl_team");
+  const teamOf = new Map((teamRows ?? []).map((p) => [p.id, p]));
+
+  // What each player has actually been doing this season, mixed into the
+  // preseason projection. Rebuilt after every week's results load.
+  const { data: blendRows } = await supabase
+    .from("player_blend_rates")
+    .select("player_id, per_game, blend_weight, games_played")
+    .eq("season", season);
+  const blendByPlayer = new Map(
+    (blendRows ?? []).map((row) => [
+      row.player_id,
+      {
+        perGame: (row.per_game ?? {}) as Record<string, number>,
+        weight: Number(row.blend_weight) || 0,
+        games: row.games_played ?? 0,
+      },
+    ]),
+  );
+
   // Where a player has no week row, fall back to their season total split
   // across the weeks their team plays.
   if (seasonTotals.size) {
     const { spreadSeasonTotals } = await import("./sos");
-    const { data: teamRows } = await supabase.from("players").select("id, position, nfl_team");
-    const teamOf = new Map((teamRows ?? []).map((p) => [p.id, p]));
+    const { ratesToTotals } = await import("./blend");
     for (const [playerId, entry] of seasonTotals) {
       const held = weekStats.get(playerId);
       if (held && held.rank <= entry.rank) continue;
