@@ -54,6 +54,14 @@ import {
   CONTEST_LABELS,
   type ContestFormat,
 } from "@/lib/fantasy/contest";
+import {
+  LEAGUE_TYPES,
+  LEAGUE_TYPE_LABELS,
+  LEAGUE_VARIANTS,
+  LEAGUE_VARIANT_LABELS,
+  type LeagueType,
+  type LeagueVariant,
+} from "@/lib/fantasy/league-type";
 
 const statusTone: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   Active: "default",
