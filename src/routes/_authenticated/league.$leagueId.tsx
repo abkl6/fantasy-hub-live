@@ -1602,6 +1602,125 @@ function Stat({ label, before, after }: { label: string; before: string; after: 
   );
 }
 
+/** Two selects for the league type and its variant, editable at any time. */
+function LeagueTypeSelects({
+  leagueId,
+  leagueType,
+  variant,
+  sourceLabel,
+  onSaved,
+}: {
+  leagueId: string;
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+  sourceLabel?: string;
+  onSaved?: () => void;
+}) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (patch: { leagueType?: LeagueType; variant?: LeagueVariant }) =>
+      save({ data: { leagueId, ...patch } as never }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success("League type updated");
+      onSaved?.();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <label className="text-sm text-muted-foreground" htmlFor="league-type">
+        League type
+      </label>
+      <select
+        id="league-type"
+        value={leagueType}
+        disabled={mutation.isPending}
+        onChange={(e) => mutation.mutate({ leagueType: e.target.value as LeagueType })}
+        className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+      >
+        {LEAGUE_TYPES.map((key) => (
+          <option key={key} value={key}>
+            {LEAGUE_TYPE_LABELS[key]}
+          </option>
+        ))}
+      </select>
+      <label className="text-sm text-muted-foreground" htmlFor="league-variant">
+        Variant
+      </label>
+      <select
+        id="league-variant"
+        value={variant}
+        disabled={mutation.isPending}
+        onChange={(e) => mutation.mutate({ variant: e.target.value as LeagueVariant })}
+        className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+      >
+        {LEAGUE_VARIANTS.map((key) => (
+          <option key={key} value={key}>
+            {LEAGUE_VARIANT_LABELS[key]}
+          </option>
+        ))}
+      </select>
+      {sourceLabel && <span className="text-xs text-muted-foreground">{sourceLabel}</span>}
+    </div>
+  );
+}
+
+/** Asks the manager to confirm a type we worked out rather than were told. */
+function LeagueTypePrompt({
+  leagueId,
+  leagueType,
+  variant,
+  sourceLabel,
+}: {
+  leagueId: string;
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+  sourceLabel: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const confirm = useMutation({
+    mutationFn: () => save({ data: { leagueId, leagueType, variant } as never }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      toast.success("Thanks — locked in");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  return (
+    <div className="mt-6 space-y-3 rounded-xl bg-card p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm">
+          Looks like a {LEAGUE_TYPE_LABELS[leagueType].toLowerCase()}
+          {variant !== "none" ? ` ${LEAGUE_VARIANT_LABELS[variant].toLowerCase()}` : ""} league —
+          correct?
+        </p>
+        <Button size="sm" onClick={() => confirm.mutate()} disabled={confirm.isPending}>
+          Yes
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
+          Change
+        </Button>
+      </div>
+      {editing && (
+        <LeagueTypeSelects
+          leagueId={leagueId}
+          leagueType={leagueType}
+          variant={variant}
+          sourceLabel={sourceLabel}
+          onSaved={() => setEditing(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 /** How the league is won, and whether it pays a weekly top-scorer bonus. */
 function ContestSettings({
   leagueId,
@@ -1609,12 +1728,18 @@ function ContestSettings({
   pointsPlayoff,
   weeklyHighBonus,
   weeklyHighLabel,
+  leagueType,
+  variant,
+  typeSourceLabel,
 }: {
   leagueId: string;
   contestFormat: ContestFormat;
   pointsPlayoff: { teams: number | null; afterWeek: number | null };
   weeklyHighBonus: boolean;
   weeklyHighLabel: string | null;
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+  typeSourceLabel: string;
 }) {
   const save = useServerFn(updateLeagueSettings);
   const queryClient = useQueryClient();
