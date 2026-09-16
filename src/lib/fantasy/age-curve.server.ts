@@ -42,7 +42,9 @@ export async function refitAgeCurves(admin: DB, format: "1qb" | "sf" = "sf") {
     curves.map((c) => ({
       position: c.position,
       format,
-      points: c.points as unknown as Database["public"]["Tables"]["age_curves"]["Insert"]["points"],
+      points: c.points as unknown as NonNullable<
+        Database["public"]["Tables"]["age_curves"]["Insert"]["points"]
+      >,
       sample_size: c.sampleSize,
       source: c.source === "market" ? "ktc" : "hand",
       fitted_at: fittedAt,
