@@ -3,6 +3,14 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
+import {
+  asLeagueType,
+  asVariant,
+  detectLeagueType,
+  effectiveFormat,
+  LEAGUE_TYPES,
+  LEAGUE_VARIANTS,
+} from "@/lib/fantasy/league-type";
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
@@ -22,6 +30,18 @@ function sleeperFormat(settings: Record<string, unknown> | undefined) {
   if (type === 2) return "dynasty";
   if (type === 1) return "keeper";
   return "redraft";
+}
+
+/** Picks traded for a later season only exist in leagues that keep rosters. */
+async function sleeperHasFuturePicks(leagueId: string, season: number) {
+  try {
+    const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/traded_picks`);
+    if (!res.ok) return false;
+    const picks = (await res.json()) as { season?: string }[];
+    return (picks ?? []).some((p) => Number(p.season ?? 0) > season);
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------- leagues
@@ -182,6 +202,29 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
     const playoffTeams = Number(bundle.league.settings?.["playoff_teams"] ?? 6);
     const regularWeeks = Number(bundle.league.settings?.["playoff_week_start"] ?? 15) - 1;
 
+    // League type: Sleeper's own setting, plus future picks as a dynasty tell.
+    const sleeperSettings = bundle.league.settings as Record<string, unknown> | undefined;
+    const detectedType = detectLeagueType({
+      sleeperType: sleeperSettings?.["type"] == null ? null : Number(sleeperSettings["type"]),
+      hasFuturePicks: await sleeperHasFuturePicks(data.sleeperLeagueId, Number(season)),
+      typeDescription: bundle.league.name,
+    });
+    const { data: priorLeague } = await supabase
+      .from("leagues")
+      .select("league_type, variant, type_source")
+      .eq("platform", "sleeper")
+      .eq("external_id", data.sleeperLeagueId)
+      .maybeSingle();
+    const keepUserType = priorLeague?.type_source === "user";
+    const leagueType = keepUserType
+      ? (priorLeague!.league_type as "redraft" | "keeper" | "dynasty")
+      : detectedType.leagueType;
+    const variant = keepUserType
+      ? (priorLeague!.variant as "none" | "empire" | "guillotine")
+      : detectedType.variant;
+    const typeSource = keepUserType ? "user" : detectedType.typeSource;
+    const storedFormat = sleeperFormat(sleeperSettings);
+
     // Replace any prior import of this league.
     await supabase
       .from("leagues")
@@ -213,7 +256,10 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         scoring_type: (bundle.league.scoring_settings?.["rec"] ?? 0) >= 1 ? "ppr" : (bundle.league.scoring_settings?.["rec"] ?? 0) > 0 ? "half_ppr" : "standard",
         scoring_rules: bundle.league.scoring_settings ?? {},
         roster_slots: slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],
-        format: sleeperFormat(bundle.league.settings as Record<string, unknown> | undefined),
+        format: effectiveFormat(leagueType, variant, storedFormat),
+        league_type: leagueType,
+        variant,
+        type_source: typeSource,
         // Sleeper best-ball leagues are decided on total points, not matchups.
         contest_format:
           Number(
@@ -359,6 +405,10 @@ export const createManualLeague = createServerFn({ method: "POST" })
         scoring_rules: data.scoringRules ?? {},
         roster_slots: data.rosterSlots,
         format: data.format ?? "redraft",
+        league_type:
+          data.format === "dynasty" || data.format === "keeper" ? data.format : "redraft",
+        variant: data.format === "guillotine" ? "guillotine" : "none",
+        type_source: "user",
         last_synced_at: new Date().toISOString(),
       })
       .select()
@@ -482,6 +532,8 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         rosterSlots: z.array(z.string()).optional(),
         scoringType: z.string().max(20).optional(),
         format: z.enum(LEAGUE_FORMATS).optional(),
+        leagueType: z.enum(LEAGUE_TYPES).optional(),
+        variant: z.enum(LEAGUE_VARIANTS).optional(),
         color: z.string().max(20).optional(),
         projectionSource: z.enum(["platform", "app", "user"]).optional(),
         contestFormat: z.enum(["h2h", "points", "hybrid"]).optional(),
@@ -508,6 +560,22 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.format !== undefined) patch["format"] = data.format;
     if (data.color !== undefined) patch["color"] = data.color;
     if (data.projectionSource !== undefined) patch["projection_source"] = data.projectionSource;
+
+    // Any hand-set league type is final: later syncs must not overwrite it.
+    if (data.leagueType !== undefined || data.variant !== undefined) {
+      const { data: current } = await context.supabase
+        .from("leagues")
+        .select("league_type, variant, format")
+        .eq("id", data.leagueId)
+        .maybeSingle();
+      const leagueType = asLeagueType(data.leagueType ?? current?.league_type);
+      const variant = asVariant(data.variant ?? current?.variant);
+      patch["league_type"] = leagueType;
+      patch["variant"] = variant;
+      patch["type_source"] = "user";
+      patch["format"] = effectiveFormat(leagueType, variant, current?.format);
+    }
+
     const { error } = await context.supabase
       .from("leagues")
       .update(patch as never)

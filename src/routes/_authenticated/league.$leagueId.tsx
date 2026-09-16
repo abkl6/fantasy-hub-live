@@ -54,6 +54,14 @@ import {
   CONTEST_LABELS,
   type ContestFormat,
 } from "@/lib/fantasy/contest";
+import {
+  LEAGUE_TYPES,
+  LEAGUE_TYPE_LABELS,
+  LEAGUE_VARIANTS,
+  LEAGUE_VARIANT_LABELS,
+  type LeagueType,
+  type LeagueVariant,
+} from "@/lib/fantasy/league-type";
 
 const statusTone: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   Active: "default",
@@ -167,6 +175,10 @@ function LeaguePage() {
             <Badge variant="outline" className="text-[10px]">
               {data.scoringLabel}
             </Badge>
+            <Badge variant="secondary" className="text-[10px]">
+              {LEAGUE_TYPE_LABELS[data.leagueType]}
+              {data.variant !== "none" ? ` · ${LEAGUE_VARIANT_LABELS[data.variant]}` : ""}
+            </Badge>
             <ProjectionSourcePicker
               leagueId={leagueId}
               platform={data.league.platform}
@@ -180,6 +192,15 @@ function LeaguePage() {
           Refresh
         </Button>
       </div>
+
+      {data.typeSource === "inferred" && (
+        <LeagueTypePrompt
+          leagueId={leagueId}
+          leagueType={data.leagueType}
+          variant={data.variant}
+          sourceLabel={data.typeSourceLabel}
+        />
+      )}
 
       {data.league.platform === "manual" && <ManualUpkeep leagueId={leagueId} />}
 
@@ -203,6 +224,16 @@ function LeaguePage() {
             value={`${data.mySurvival.expectedWeeksLeft}`}
           />
         </div>
+      )}
+
+      {data.showSurvival && !!data.survival?.length && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Weekly cut:{" "}
+          <span className="font-medium text-foreground">
+            {[...data.survival].sort((a, b) => a.surviveWeekOdds - b.surviveWeekOdds)[0]!.name}
+          </span>{" "}
+          is most likely to go out this week.
+        </p>
       )}
 
       {data.league.sync_paused && (
@@ -293,7 +324,7 @@ function LeaguePage() {
             <div className="space-y-6">
               <TradeBuilder leagueId={leagueId} />
               <TradePanel leagueId={leagueId} />
-              <DraftPicksPanel leagueId={leagueId} />
+              {data.showPickValues && <DraftPicksPanel leagueId={leagueId} />}
             </div>
           </Section>
         </TabsContent>
@@ -389,8 +420,42 @@ function LeaguePage() {
               pointsPlayoff={data.pointsPlayoff}
               weeklyHighBonus={data.weeklyHighBonus}
               weeklyHighLabel={data.weeklyHighLabel}
+              leagueType={data.leagueType}
+              variant={data.variant}
+              typeSourceLabel={data.typeSourceLabel}
             />
           </Section>
+
+          {data.showPickValues && !!data.dynasty?.length && (
+            <Section title="Long-term value">
+              <div className="rounded-xl bg-card p-5">
+                <p className="text-xs text-muted-foreground">
+                  Age curve and future value for everyone on your roster.
+                </p>
+                <ul className="mt-3 space-y-1">
+                  {data.dynasty.map((row) => (
+                    <li
+                      key={`${row.name}-${row.position}`}
+                      className="flex items-center justify-between border-t border-border py-2 text-sm"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="eyebrow text-muted-foreground">{row.position}</span>
+                        <span className="font-medium">{row.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {row.age ? `${row.age} yrs` : "age unknown"}
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Future <span className="stat-num text-foreground">{row.longTermValue}</span>{" "}
+                        · Overall{" "}
+                        <span className="stat-num text-foreground">{row.blendedValue}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Section>
+          )}
 
           <Section title="Position grades">
             <div className="space-y-3">
@@ -1547,6 +1612,125 @@ function Stat({ label, before, after }: { label: string; before: string; after: 
   );
 }
 
+/** Two selects for the league type and its variant, editable at any time. */
+function LeagueTypeSelects({
+  leagueId,
+  leagueType,
+  variant,
+  sourceLabel,
+  onSaved,
+}: {
+  leagueId: string;
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+  sourceLabel?: string;
+  onSaved?: () => void;
+}) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (patch: { leagueType?: LeagueType; variant?: LeagueVariant }) =>
+      save({ data: { leagueId, ...patch } as never }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success("League type updated");
+      onSaved?.();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <label className="text-sm text-muted-foreground" htmlFor="league-type">
+        League type
+      </label>
+      <select
+        id="league-type"
+        value={leagueType}
+        disabled={mutation.isPending}
+        onChange={(e) => mutation.mutate({ leagueType: e.target.value as LeagueType })}
+        className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+      >
+        {LEAGUE_TYPES.map((key) => (
+          <option key={key} value={key}>
+            {LEAGUE_TYPE_LABELS[key]}
+          </option>
+        ))}
+      </select>
+      <label className="text-sm text-muted-foreground" htmlFor="league-variant">
+        Variant
+      </label>
+      <select
+        id="league-variant"
+        value={variant}
+        disabled={mutation.isPending}
+        onChange={(e) => mutation.mutate({ variant: e.target.value as LeagueVariant })}
+        className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
+      >
+        {LEAGUE_VARIANTS.map((key) => (
+          <option key={key} value={key}>
+            {LEAGUE_VARIANT_LABELS[key]}
+          </option>
+        ))}
+      </select>
+      {sourceLabel && <span className="text-xs text-muted-foreground">{sourceLabel}</span>}
+    </div>
+  );
+}
+
+/** Asks the manager to confirm a type we worked out rather than were told. */
+function LeagueTypePrompt({
+  leagueId,
+  leagueType,
+  variant,
+  sourceLabel,
+}: {
+  leagueId: string;
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+  sourceLabel: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const confirm = useMutation({
+    mutationFn: () => save({ data: { leagueId, leagueType, variant } as never }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      toast.success("Thanks — locked in");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+  });
+
+  return (
+    <div className="mt-6 space-y-3 rounded-xl bg-card p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm">
+          Looks like a {LEAGUE_TYPE_LABELS[leagueType].toLowerCase()}
+          {variant !== "none" ? ` ${LEAGUE_VARIANT_LABELS[variant].toLowerCase()}` : ""} league —
+          correct?
+        </p>
+        <Button size="sm" onClick={() => confirm.mutate()} disabled={confirm.isPending}>
+          Yes
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
+          Change
+        </Button>
+      </div>
+      {editing && (
+        <LeagueTypeSelects
+          leagueId={leagueId}
+          leagueType={leagueType}
+          variant={variant}
+          sourceLabel={sourceLabel}
+          onSaved={() => setEditing(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 /** How the league is won, and whether it pays a weekly top-scorer bonus. */
 function ContestSettings({
   leagueId,
@@ -1554,12 +1738,18 @@ function ContestSettings({
   pointsPlayoff,
   weeklyHighBonus,
   weeklyHighLabel,
+  leagueType,
+  variant,
+  typeSourceLabel,
 }: {
   leagueId: string;
   contestFormat: ContestFormat;
   pointsPlayoff: { teams: number | null; afterWeek: number | null };
   weeklyHighBonus: boolean;
   weeklyHighLabel: string | null;
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+  typeSourceLabel: string;
 }) {
   const save = useServerFn(updateLeagueSettings);
   const queryClient = useQueryClient();
@@ -1577,6 +1767,12 @@ function ContestSettings({
 
   return (
     <div className="space-y-4 rounded-xl bg-card p-5">
+      <LeagueTypeSelects
+        leagueId={leagueId}
+        leagueType={leagueType}
+        variant={variant}
+        sourceLabel={typeSourceLabel}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm text-muted-foreground" htmlFor="contest-format">
           How the league is won

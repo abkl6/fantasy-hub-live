@@ -20,6 +20,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
+import {
+  LEAGUE_TYPES,
+  LEAGUE_TYPE_LABELS,
+  LEAGUE_VARIANTS,
+  LEAGUE_VARIANT_LABELS,
+  type LeagueType,
+  type LeagueVariant,
+} from "@/lib/fantasy/league-type";
 import type { ManualDraftPreview } from "@/lib/fantasy/manual-types";
 import { readScreenshot, updateLeagueSettings } from "@/lib/fantasy.functions";
 import {
@@ -134,6 +142,8 @@ export function ManualLeagueWizard() {
     currentWeek: 1,
     scoringType: "ppr",
     format: "redraft" as (typeof LEAGUE_FORMATS)[number],
+    leagueType: "redraft" as LeagueType,
+    variant: "none" as LeagueVariant,
     slots: "QB, RB, RB, WR, WR, TE, FLEX, K, DEF",
   });
   const [scoringRules, setScoringRules] = useState<Record<string, number>>({});
@@ -182,6 +192,8 @@ export function ManualLeagueWizard() {
           scoringType: form.scoringType,
           scoringRules,
           format: form.format,
+          leagueType: form.leagueType,
+          variant: form.variant,
           rosterSlots: form.slots
             .split(",")
             .map((s) => s.trim().toUpperCase())
@@ -369,7 +381,43 @@ export function ManualLeagueWizard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="m-format">League type</Label>
+              <Label htmlFor="m-league-type">League type</Label>
+              <Select
+                value={form.leagueType}
+                onValueChange={(v) => setForm({ ...form, leagueType: v as LeagueType })}
+              >
+                <SelectTrigger id="m-league-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAGUE_TYPES.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {LEAGUE_TYPE_LABELS[f]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="m-variant">Variant</Label>
+              <Select
+                value={form.variant}
+                onValueChange={(v) => setForm({ ...form, variant: v as LeagueVariant })}
+              >
+                <SelectTrigger id="m-variant">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAGUE_VARIANTS.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {LEAGUE_VARIANT_LABELS[f]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="m-format">Lineups</Label>
               <Select
                 value={form.format}
                 onValueChange={(v) =>

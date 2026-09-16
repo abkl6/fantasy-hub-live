@@ -152,6 +152,8 @@ export interface FfpcLeagueBundle {
   externalId: string;
   name: string;
   leagueType: string;
+  /** FFPC shows an Empire Details panel on empire leagues. */
+  hasEmpirePanel: boolean;
   season: number;
   currentWeek: number;
   teamCount: number;
@@ -281,6 +283,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
   return {
     name: name || `FFPC league ${leagueId}`,
     leagueType: text(infoMatch?.[2] ?? "") || "FFPC",
+    hasEmpirePanel: /empire\s*details/i.test(html),
     season: selectedSeason ? Number(selectedSeason[1]) : new Date().getFullYear(),
     currentWeek: weekMatch ? Number(weekMatch[1]) : 1,
     teams,
@@ -675,6 +678,7 @@ export async function ffpcLeagueBundle(
     externalId: leagueId,
     name: home.name,
     leagueType: home.leagueType,
+    hasEmpirePanel: home.hasEmpirePanel,
     season: home.season,
     currentWeek: week,
     teamCount,

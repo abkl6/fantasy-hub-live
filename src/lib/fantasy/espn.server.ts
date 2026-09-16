@@ -5,6 +5,8 @@
  * values (SWID and espn_s2) the manager copies out of their own browser.
  */
 
+import { detectLeagueType, type LeagueType, type LeagueVariant } from "./league-type";
+
 const HOST = "https://lm-api-reads.fantasy.espn.com";
 
 const POSITION_BY_ID: Record<number, string> = {
@@ -73,6 +75,9 @@ export interface EspnLeagueBundle {
   scoringType: string;
   rosterSlots: string[];
   contestFormat?: "h2h" | "points" | "hybrid";
+  leagueType?: LeagueType;
+  variant?: LeagueVariant;
+  typeSource?: "detected" | "inferred";
   teams: EspnTeam[];
   schedule: {
     week: number;
@@ -141,7 +146,9 @@ interface RawLeague {
     scoringSettings?: { scoringItems?: { statId: number; points?: number; pointsOverrides?: Record<string, number> }[] };
     scheduleSettings?: { matchupPeriodCount?: number; playoffTeamCount?: number };
     rosterSettings?: { lineupSlotCounts?: Record<string, number> };
+    draftSettings?: { keeperCount?: number };
   };
+  previousSeasons?: number[];
   teams?: RawTeam[];
   members?: { id: string; displayName?: string; firstName?: string; lastName?: string }[];
   schedule?: {
@@ -248,7 +255,15 @@ export async function espnLeagueBundle(
 
   const slots = slotsFromCounts(league.settings?.rosterSettings?.lineupSlotCounts);
 
+  // ESPN says how many players carry over and whether the league has run before.
+  const detected = detectLeagueType({
+    keeperCount: league.settings?.draftSettings?.keeperCount ?? null,
+    previousSeasons: league.previousSeasons ?? null,
+    typeDescription: league.settings?.name ?? null,
+  });
+
   return {
+    ...detected,
     externalId: String(league.id),
     name: league.settings?.name ?? `ESPN League ${league.id}`,
     season: league.seasonId ?? season,

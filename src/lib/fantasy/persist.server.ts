@@ -3,6 +3,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+import {
+  asLeagueType,
+  asVariant,
+  effectiveFormat,
+  type LeagueType,
+  type LeagueVariant,
+} from "./league-type";
 import { playerIndex } from "./names";
 
 type DB = SupabaseClient<Database>;
@@ -40,6 +47,10 @@ export interface NormalizedBundle {
   rosterSlots: string[];
   /** How the platform says the league is won, when it exposes it. */
   contestFormat?: "h2h" | "points" | "hybrid" | "vp";
+  /** Redraft / keeper / dynasty, and how confident we are about it. */
+  leagueType?: LeagueType;
+  variant?: LeagueVariant;
+  typeSource?: "detected" | "inferred";
   teams: NormalizedTeam[];
   schedule: {
     week: number;
@@ -61,11 +72,25 @@ export async function persistBundle(
   bundle: NormalizedBundle,
   myTeamExternalId: string | null,
 ) {
+  // A manager's own league-type choice outlives a re-import of the league.
+  const { data: previous } = await supabase
+    .from("leagues")
+    .select("league_type, variant, type_source")
+    .eq("platform", bundle.platform)
+    .eq("external_id", bundle.externalId)
+    .maybeSingle();
+
   await supabase
     .from("leagues")
     .delete()
     .eq("platform", bundle.platform)
     .eq("external_id", bundle.externalId);
+
+  const keepUser = previous?.type_source === "user";
+  const leagueType = keepUser ? asLeagueType(previous?.league_type) : asLeagueType(bundle.leagueType);
+  const variant = keepUser ? asVariant(previous?.variant) : asVariant(bundle.variant);
+  const typeSource = keepUser ? "user" : (bundle.typeSource ?? "inferred");
+
 
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
@@ -83,6 +108,10 @@ export async function persistBundle(
       scoring_rules: bundle.scoringRules ?? {},
       roster_slots: bundle.rosterSlots,
       contest_format: bundle.contestFormat ?? "h2h",
+      league_type: leagueType,
+      variant,
+      type_source: typeSource,
+      format: effectiveFormat(leagueType, variant),
       last_synced_at: new Date().toISOString(),
     })
     .select()

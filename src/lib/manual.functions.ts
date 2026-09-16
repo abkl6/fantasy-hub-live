@@ -5,6 +5,13 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
+import {
+  asLeagueType,
+  asVariant,
+  effectiveFormat,
+  LEAGUE_TYPES,
+  LEAGUE_VARIANTS,
+} from "@/lib/fantasy/league-type";
 import { normalizeName } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
@@ -29,6 +36,8 @@ export const createManualLeagueWizard = createServerFn({ method: "POST" })
         scoringRules: z.record(z.string(), z.number()).optional(),
         rosterSlots: z.array(z.string()).min(1).max(30),
         format: z.enum(LEAGUE_FORMATS).optional(),
+        leagueType: z.enum(LEAGUE_TYPES).optional(),
+        variant: z.enum(LEAGUE_VARIANTS).optional(),
         contestFormat: z.enum(["h2h", "points", "hybrid"]).optional(),
         pointsPlayoffTeams: z.number().int().min(0).max(32).nullable().optional(),
         pointsPlayoffWeek: z.number().int().min(1).max(18).nullable().optional(),
@@ -60,7 +69,14 @@ export const createManualLeagueWizard = createServerFn({ method: "POST" })
         scoring_type: data.scoringType,
         scoring_rules: data.scoringRules ?? {},
         roster_slots: data.rosterSlots,
-        format: data.format ?? "redraft",
+        format: effectiveFormat(
+          asLeagueType(data.leagueType),
+          asVariant(data.variant),
+          data.format,
+        ),
+        league_type: asLeagueType(data.leagueType),
+        variant: asVariant(data.variant),
+        type_source: "user",
         contest_format: data.contestFormat ?? "h2h",
         points_playoff_teams: data.pointsPlayoffTeams || null,
         points_playoff_week: data.pointsPlayoffWeek ?? null,
