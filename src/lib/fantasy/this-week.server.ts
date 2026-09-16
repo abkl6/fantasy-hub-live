@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis } from "./analysis.server";
+import { impactAddKey, impactScore, impactSwapKey, primaryImpactText } from "./impact";
 import { nextKickoff, nextWaiverRun } from "./gamewindow";
 import { manualFreshness } from "./manual-types";
 
@@ -51,6 +52,20 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
     if (!analysis.myTeam) continue;
     const week = row.current_week;
     const items: ThisWeekItem[] = [];
+    const isDynasty = analysis.dynasty !== null;
+    // Same simulated numbers the league page shows for the same move.
+    const impactOf = (replacement: string | null, swap: string | null) => {
+      if (!replacement) return { impactLabel: null, impactRank: 0 };
+      const found =
+        (swap ? analysis.impactIndex[impactSwapKey(replacement, swap)] : null) ??
+        analysis.impactIndex[impactAddKey(replacement)] ??
+        null;
+      if (!found) return { impactLabel: null, impactRank: 0 };
+      return {
+        impactLabel: primaryImpactText(found, analysis.teamClass, isDynasty),
+        impactRank: impactScore(found, analysis.teamClass, isDynasty),
+      };
+    };
 
     const add = (
       kind: ThisWeekKind,
@@ -75,6 +90,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         tab,
         swap,
         replacement,
+        ...impactOf(replacement, swap),
       });
     };
 
@@ -198,7 +214,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
       );
     }
 
-    items.sort((a, b) => a.priority - b.priority);
+    items.sort((a, b) => a.priority - b.priority || b.impactRank - a.impactRank);
     leagues.push({
       id: row.id,
       name: row.name,
@@ -213,7 +229,12 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
 
   const items = leagues
     .flatMap((l) => l.items)
-    .sort((a, b) => a.priority - b.priority || a.leagueName.localeCompare(b.leagueName));
+    .sort(
+      (a, b) =>
+        a.priority - b.priority ||
+        b.impactRank - a.impactRank ||
+        a.leagueName.localeCompare(b.leagueName),
+    );
 
   return {
     generatedAt: now.toISOString(),

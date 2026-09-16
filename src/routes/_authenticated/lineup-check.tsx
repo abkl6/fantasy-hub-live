@@ -129,6 +129,11 @@ function LeagueCard({
                         }`
                       : "No eligible bench replacement."}
                   </p>
+                  {issue.impactLabel ? (
+                    <p className="truncate text-[11px] text-muted-foreground tabular-nums">
+                      {issue.impactLabel}
+                    </p>
+                  ) : null}
                 </div>
                 <Badge variant={issue.severity === "red" ? "destructive" : "secondary"}>
                   {issue.severity === "red" ? "Fix" : "Check"}

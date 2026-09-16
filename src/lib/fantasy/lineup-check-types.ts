@@ -16,6 +16,9 @@ export interface LineupIssue {
   replacementPosition: string | null;
   /** Projected points gained by making the swap. */
   gain: number | null;
+  /** "+1.8% title" — what the swap is worth to this team. */
+  impactLabel: string | null;
+  impactRank: number;
 }
 
 export interface LineupCheckLeague {

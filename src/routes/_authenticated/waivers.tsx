@@ -63,6 +63,11 @@ function PlayerCard({ player }: { player: WaiverHubPlayer }) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold">{entry.leagueName}</p>
               <p className="truncate text-[11px] text-muted-foreground">{entry.basis}</p>
+              {entry.impactLabel ? (
+                <p className="truncate text-[11px] text-muted-foreground tabular-nums">
+                  {entry.impactLabel}
+                </p>
+              ) : null}
             </div>
             <div className="shrink-0 text-right">
               <p className="text-sm font-semibold tabular-nums">${entry.suggestedBid}</p>

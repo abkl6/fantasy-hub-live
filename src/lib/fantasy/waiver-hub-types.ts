@@ -16,6 +16,9 @@ export interface WaiverHubLeagueEntry {
   /** The platform's waiver / add-player page for that league. */
   url: string | null;
   urlLabel: string | null;
+  /** "+1.8% title" — simulated worth of the claim in that league. */
+  impactLabel: string | null;
+  impactRank: number;
 }
 
 export interface WaiverHubPlayer {
@@ -29,6 +32,8 @@ export interface WaiverHubPlayer {
   bestProj: number;
   /** Rank inside the top-120 projection pool. */
   rank: number;
+  /** Best impact score across the leagues he is free in. */
+  bestImpact: number;
   leagues: WaiverHubLeagueEntry[];
 }
 

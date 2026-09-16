@@ -48,9 +48,14 @@ function IdeaCard({ idea }: { idea: TradeFinderIdea }) {
           <p className="truncate text-sm font-semibold">{idea.teamName}</p>
           <p className="text-xs text-muted-foreground">{idea.fitReason}</p>
         </div>
-        <Badge variant="secondary" className="shrink-0">
-          {idea.shape}
-        </Badge>
+        <div className="shrink-0 text-right">
+          <Badge variant="secondary">{idea.shape}</Badge>
+          {idea.impactLabel ? (
+            <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">
+              {idea.impactLabel}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-3 flex gap-4">

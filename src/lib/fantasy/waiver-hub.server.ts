@@ -8,7 +8,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
+import {
+  optimalLineup,
+  recommendationImpact,
+  simulateSeason,
+  teamDistribution,
+  type EnginePlayer,
+  type Slot,
+} from "./engine";
+import { bestBallDistribution } from "./format";
+import { EMPTY_IMPACT, impactScore, primaryImpactText, type TeamClass } from "./impact";
 import { normalizeName } from "./names";
+import { loadLeague } from "./proposal.server";
 import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
@@ -21,6 +32,9 @@ type DB = SupabaseClient<Database>;
 
 /** How many projected players the board considers. */
 const POOL = 120;
+
+/** Only the best few free agents per league are worth a full simulation. */
+const IMPACT_DEPTH = 8;
 
 const SKIP_POSITIONS = new Set(["K", "DEF", "DST"]);
 
@@ -121,6 +135,82 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
     const free = ranked.filter((p) => !rostered.has(normalizeName(p.row.full_name)));
     if (!free.length) continue;
 
+    // What each claim is worth: the season is re-simulated with the player in
+    // my lineup in place of my weakest bench piece.
+    const impactByName = new Map<string, { label: string; rank: number }>();
+    let myClass: TeamClass = "middle";
+    if (mine) {
+      const loaded = await loadLeague(supabase, league.id);
+      const slots = loaded.slots as Slot[];
+      const myRoster = loaded.rosters.get(mine.id) ?? [];
+      const distOf = (roster: EnginePlayer[]) =>
+        loaded.bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
+      const simTeams = loaded.teams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        isMine: t.isMine,
+        wins: t.wins,
+        losses: t.losses,
+        ties: t.ties,
+        pointsFor: t.pointsFor,
+        ...distOf(loaded.rosters.get(t.id) ?? []),
+      }));
+      const baseline = simulateSeason(simTeams, loaded.simConfig, loaded.schedule, 1500, 7);
+      const mineBase = baseline.find((r) => r.id === mine.id);
+      myClass =
+        (mineBase?.titleOdds ?? 0) >= 0.15
+          ? "contender"
+          : (mineBase?.playoffOdds ?? 0) <= 0.25
+            ? "rebuilder"
+            : "middle";
+      const dropPick = [...optimalLineup(myRoster, slots).bench].sort((a, b) => a.proj - b.proj)[0];
+      const valueByTeam: Record<string, number> = {};
+      for (const t of loaded.teams) {
+        valueByTeam[t.id] = (loaded.rosters.get(t.id) ?? []).reduce(
+          (sum, p) => sum + loaded.values.player(p.id, p.name, p.position, p.proj * 17),
+          0,
+        );
+      }
+
+      for (const fa of free.slice(0, IMPACT_DEPTH)) {
+        const position = fa.row.position.toUpperCase();
+        const incoming: EnginePlayer = {
+          id: fa.row.id,
+          name: fa.row.full_name,
+          position,
+          nflTeam: fa.row.nfl_team,
+          proj: fa.projWeek,
+          volatility: 0.35,
+        };
+        const nextRoster = dropPick
+          ? myRoster.map((p) => (p.name === dropPick.name ? incoming : p))
+          : [...myRoster, incoming];
+        const addValue = loaded.values.player(incoming.id, incoming.name, position, fa.projWeek * 17);
+        const dropValue = dropPick
+          ? loaded.values.player(dropPick.id, dropPick.name, dropPick.position, dropPick.proj * 17)
+          : 0;
+        const impact = myRoster.length
+          ? recommendationImpact({
+              teams: simTeams,
+              config: loaded.simConfig,
+              schedule: loaded.schedule,
+              teamId: mine.id,
+              baseline,
+              after: distOf(nextRoster),
+              iterations: 900,
+              seed: 7,
+              dynasty: loaded.isDynasty
+                ? { valueByTeam, valueDelta: addValue - dropValue }
+                : undefined,
+            })
+          : EMPTY_IMPACT;
+        impactByName.set(normalizeName(fa.row.full_name), {
+          label: primaryImpactText(impact, myClass, loaded.isDynasty),
+          rank: impactScore(impact, myClass, loaded.isDynasty),
+        });
+      }
+    }
+
     // Bid history sets the price ceiling; the best free agent sets the top of
     // the ladder and everyone else is priced down from there.
     const wins = (bidRows ?? []).map((b) => Number(b.amount)).filter((n) => n > 0);
@@ -158,6 +248,8 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
         basis,
         url: link?.url ?? null,
         urlLabel: link?.label ?? null,
+        impactLabel: impactByName.get(normalizeName(fa.row.full_name))?.label ?? null,
+        impactRank: impactByName.get(normalizeName(fa.row.full_name))?.rank ?? 0,
       };
 
       const key = `${normalizeName(fa.row.full_name)}::${fa.row.position.toUpperCase()}`;
@@ -165,6 +257,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
       if (existing) {
         existing.leagues.push(entry);
         existing.bestProj = Math.max(existing.bestProj, entry.projWeek);
+        existing.bestImpact = Math.max(existing.bestImpact, entry.impactRank);
       } else {
         byKey.set(key, {
           key,
@@ -174,6 +267,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
           status: fa.row.status,
           byeWeek: fa.row.bye_week,
           bestProj: entry.projWeek,
+          bestImpact: entry.impactRank,
           rank: 0,
           leagues: [entry],
         });
@@ -182,7 +276,10 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
   }
 
   const list = [...byKey.values()].sort(
-    (a, b) => b.leagues.length - a.leagues.length || b.bestProj - a.bestProj,
+    (a, b) =>
+      b.bestImpact - a.bestImpact ||
+      b.leagues.length - a.leagues.length ||
+      b.bestProj - a.bestProj,
   );
   list.forEach((p, i) => {
     p.rank = i + 1;

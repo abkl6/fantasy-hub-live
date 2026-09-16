@@ -74,6 +74,11 @@ function ItemRow({ item }: { item: ThisWeekItem }) {
         <p className="truncate text-xs text-muted-foreground">
           {item.leagueName} · {item.detail}
         </p>
+        {item.impactLabel ? (
+          <p className="truncate text-[11px] text-muted-foreground tabular-nums">
+            {item.impactLabel}
+          </p>
+        ) : null}
       </div>
       {item.meta ? (
         <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{item.meta}</span>
