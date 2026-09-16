@@ -29,7 +29,7 @@ import {
   setBatchPublished,
   uploadProjectionBatch,
 } from "@/lib/admin.functions";
-import { refreshScheduleStrength } from "@/lib/projections.functions";
+import { refreshScheduleStrength, uploadPriorStrength } from "@/lib/projections.functions";
 
 const TITLE = "Admin — Gridiron Edge";
 const DESCRIPTION = "Internal console for members, league sync health, the projection database, alerts and errors.";
@@ -240,6 +240,7 @@ function DataTab() {
   const publish = useServerFn(setBatchPublished);
   const recompute = useServerFn(recomputeProjections);
   const refreshStrength = useServerFn(refreshScheduleStrength);
+  const uploadPrior = useServerFn(uploadPriorStrength);
   const saveSchedule = useServerFn(saveScheduleRow);
   const saveDefense = useServerFn(saveDefenseRank);
   const qc = useQueryClient();
