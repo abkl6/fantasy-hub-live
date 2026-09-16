@@ -300,8 +300,14 @@ export function parseLeagueHome(html: string, leagueId: string) {
     myTeamExternalId,
     faabRemaining: faabMatch ? toNumber(faabMatch[1]) : null,
     faabBudget: budgetMatch ? toNumber(budgetMatch[1]) : 1000,
-    usesVp: standings?.headers.some((header) => /season\s*vp/i.test(header)) ?? detectVictoryPoints(html),
-    allPlayWeeks: detectAllPlayWeeks(html),
+    usesVp:
+      (standings?.headers.some((header) => /season\s*vp/i.test(header)) ?? false) ||
+      settings.usesVp ||
+      detectVictoryPoints(html),
+    allPlayWeeks: settings.allPlay.length
+      ? settings.allPlay.map((a) => a.week)
+      : detectAllPlayWeeks(html),
+    settings,
     mySchedule,
     myRoster,
   };
