@@ -141,6 +141,18 @@ function LeaguePage() {
     return refetch();
   };
 
+  // Throws away the stored result for this league and rebuilds it now.
+  const clearCacheFn = useServerFn(clearLeagueCache);
+  const recompute = useMutation({
+    mutationFn: () => clearCacheFn({ data: { leagueId } }),
+    onSuccess: () => {
+      toast.success("Recomputing this league");
+      hardRefresh();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not recompute"),
+  });
+
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-6xl space-y-4 px-6 py-10">
