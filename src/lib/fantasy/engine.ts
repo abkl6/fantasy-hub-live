@@ -100,16 +100,39 @@ export function optimalLineup(roster: EnginePlayer[], slots: Slot[]): LineupResu
   return { starters, bench, total };
 }
 
+/**
+ * How wildly a position swings week to week when nothing more specific is
+ * known. Quarterbacks are the steadiest; kickers and defences are coin flips.
+ */
+export const DEFAULT_VOLATILITY: Record<string, number> = {
+  QB: 0.25,
+  RB: 0.35,
+  WR: 0.4,
+  TE: 0.45,
+  K: 0.5,
+  PK: 0.5,
+  DEF: 0.45,
+  DST: 0.45,
+};
+
+export function volatilityOf(player: EnginePlayer): number {
+  if (typeof player.volatility === "number" && Number.isFinite(player.volatility)) {
+    return player.volatility;
+  }
+  return DEFAULT_VOLATILITY[player.position.toUpperCase()] ?? 0.4;
+}
+
 /** Weekly scoring distribution for a team, derived from its optimal lineup. */
 export function teamDistribution(roster: EnginePlayer[], slots: Slot[]) {
   const { starters, total } = optimalLineup(roster, slots);
   const variance = starters.reduce((sum, s) => {
     if (!s.player) return sum + 25;
-    const sd = s.player.proj * (s.player.volatility ?? 0.35);
+    const sd = s.player.proj * volatilityOf(s.player);
     return sum + sd * sd;
   }, 0);
   return { mean: total, sd: Math.max(Math.sqrt(variance), 8) };
 }
+
 
 // --- random helpers -------------------------------------------------------
 
