@@ -627,6 +627,7 @@ function AdminPage() {
         <TabsContent value="overview" className="mt-4"><OverviewTab /></TabsContent>
         <TabsContent value="sync" className="mt-4"><SyncTab /></TabsContent>
         <TabsContent value="data" className="mt-4"><DataTab /></TabsContent>
+        <TabsContent value="quality" className="mt-4"><QualityTab /></TabsContent>
         <TabsContent value="notifications" className="mt-4"><NotificationsTab /></TabsContent>
         <TabsContent value="errors" className="mt-4"><ErrorsTab /></TabsContent>
       </Tabs>
