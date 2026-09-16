@@ -197,6 +197,7 @@ export async function loadLeague(supabase: DB, leagueId: string): Promise<Loaded
       .map((m) => ({ week: m.week, homeTeamId: m.home_team_id!, awayTeamId: m.away_team_id! })),
     simConfig: {
       playoffTeams: league.playoff_teams,
+      byes: Number((league as { playoff_byes?: number | null }).playoff_byes ?? 0),
       regularSeasonWeeks: league.regular_season_weeks,
       currentWeek: league.current_week,
     },
