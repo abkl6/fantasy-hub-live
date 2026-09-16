@@ -152,11 +152,19 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
     return byName.get(`${norm}|${pos}`) ?? byName.get(norm) ?? null;
   };
 
+  const age = (id: string | null, name: string, position: string) => {
+    if (id && ageById.has(id)) return ageById.get(id)!;
+    const norm = normalizeName(name);
+    return ageByName.get(`${norm}|${position.toUpperCase()}`) ?? ageByName.get(norm) ?? null;
+  };
+
   return {
     format,
     lastRefreshed,
     covered: byName.size > 0,
     market,
+    age,
+    medianAge: (position: string) => medians.get(position.toUpperCase()) ?? null,
     player: (id, name, position, projSeason) =>
       market(id, name, position) ?? fallbackValue(position.toUpperCase(), projSeason),
     pick,
