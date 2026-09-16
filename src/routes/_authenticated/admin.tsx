@@ -115,7 +115,18 @@ function OverviewTab() {
           )}
         </div>
       </div>
+      {d.queue ? (
+        <div className="rounded-xl border border-border bg-card">
+          <p className="px-3 pt-3 text-sm font-semibold">Background work</p>
+          <p className="px-3 pb-3 pt-1 text-xs text-muted-foreground">
+            {d.queue.queued} waiting · {d.queue.running} running · {d.queue.failed} failed · last
+            finished{" "}
+            {d.queue.lastRunAt ? new Date(d.queue.lastRunAt).toLocaleString() : "never"}
+          </p>
+        </div>
+      ) : null}
       <p className="text-xs text-muted-foreground">{d.newUsers7d} new member(s) in the last 7 days.</p>
+
 
     </div>
   );
