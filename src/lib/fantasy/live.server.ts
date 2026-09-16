@@ -1058,10 +1058,15 @@ export async function buildGameDay(
     season,
     week,
     updatedAt,
-    matchups,
+    // Summary mode ships the scoreboard only; player rows arrive when a card
+    // is opened, which keeps the cross-league payload small.
+    matchups: opts.summariesOnly
+      ? matchups.map((m) => ({ ...m, starters: [], bench: [], oppStarters: [], oppBench: [] }))
+      : matchups,
     events: events.slice(0, 120),
     games,
     nextKickoff: nextKickoffFrom(board),
   };
+
 
 }
