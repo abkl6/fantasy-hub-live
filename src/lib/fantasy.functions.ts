@@ -584,6 +584,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         variant: z.enum(LEAGUE_VARIANTS).optional(),
         color: z.string().max(20).optional(),
         projectionSource: z.enum(["platform", "app", "user"]).optional(),
+        sosAdjust: z.boolean().optional(),
         contestFormat: z.enum(["h2h", "points", "hybrid"]).optional(),
         pointsPlayoffTeams: z.number().int().min(0).max(32).nullable().optional(),
         pointsPlayoffWeek: z.number().int().min(1).max(18).nullable().optional(),
@@ -649,6 +650,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.format !== undefined) patch["format"] = data.format;
     if (data.color !== undefined) patch["color"] = data.color;
     if (data.projectionSource !== undefined) patch["projection_source"] = data.projectionSource;
+    if (data.sosAdjust !== undefined) patch["sos_adjust"] = data.sosAdjust;
 
     // Any hand-set league type is final: later syncs must not overwrite it.
     if (data.leagueType !== undefined || data.variant !== undefined) {
