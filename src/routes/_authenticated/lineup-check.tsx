@@ -101,6 +101,10 @@ function LeagueCard({
         ) : null}
       </div>
 
+      {league.startSitLine ? (
+        <p className="px-4 pb-2 text-xs text-muted-foreground">{league.startSitLine}</p>
+      ) : null}
+
       {league.issues.length ? (
         <div className="divide-y divide-border border-t border-border">
           {league.issues.map((issue) => {

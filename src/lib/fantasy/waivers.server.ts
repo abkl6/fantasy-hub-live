@@ -60,6 +60,7 @@ import {
   type RankableRow,
   type WaiverSort,
 } from "./waiver-rank";
+import { buildFaabPlan, paceBid, type FaabPlan } from "./faab-plan";
 
 type DB = SupabaseClient<Database>;
 
@@ -118,6 +119,8 @@ export interface WaiverBoard {
   needsDefense: boolean;
   /** The strategy rules that shaped this board, for the explainer link. */
   ruleNotes: string[];
+  /** How the remaining budget is spread over the weeks still to come. */
+  faabPlan: FaabPlan | null;
 }
 
 export async function buildWaiverBoard(
@@ -537,10 +540,31 @@ export async function buildWaiverBoard(
   // What claims have actually cost in this league sets the price ceiling.
   const { data: bidRows } = await supabase
     .from("faab_bids")
-    .select("amount, won")
+    .select("amount, won, week")
     .eq("league_id", leagueId)
     .eq("won", true);
   const winningBids = (bidRows ?? []).map((b) => Number(b.amount)).filter((n) => n > 0);
+
+  // --- budget pacing -------------------------------------------------------
+  // Spend now against the weeks your own starters are on bye, priced by what
+  // claims have historically cost in this league at that point of the season.
+  const byeByName = new Map(players.map((p) => [key(p.full_name), p.bye_week]));
+  const myStarterByes = (mine ? spots.filter((s) => s.team_id === mine.id && s.is_starter) : [])
+    .map((s) => byeByName.get(key(s.player_name)) ?? null)
+    .filter((w): w is number => typeof w === "number" && w >= (league.current_week ?? 1));
+  const faabPlan =
+    myFaabRemaining !== null && myFaabRemaining > 0
+      ? buildFaabPlan({
+          currentWeek: league.current_week ?? 1,
+          lastWeek: league.regular_season_weeks ?? 17,
+          remaining: myFaabRemaining,
+          starterByeWeeks: myStarterByes,
+          historicalWins: (bidRows ?? []).map((b) => ({
+            week: Number(b.week ?? 0),
+            amount: Number(b.amount),
+          })),
+        })
+      : null;
 
   const bestAtPosition = new Map<string, number>();
   for (const p of eligible) {
@@ -574,14 +598,16 @@ export async function buildWaiverBoard(
         remaining: myFaabRemaining,
         weeksLeft: weeksRemaining,
       });
+      // A bid that would eat into the reserve gets trimmed, and says why.
+      const paced = faabPlan ? paceBid(capped.bid, faabPlan) : { bid: capped.bid, note: null };
       const bidRec: BidRecommendation = {
-        recommended: capped.bid,
-        passive: Math.max(0, Math.round(capped.bid * 0.7)),
+        recommended: paced.bid,
+        passive: Math.max(0, Math.round(paced.bid * 0.7)),
         aggressive: Math.min(
-          Math.round(capped.bid * 1.3),
-          isStreamPosition(p.position) && book.on("stream-k-def") ? capped.bid : raw.aggressive,
+          Math.round(paced.bid * 1.3),
+          isStreamPosition(p.position) && book.on("stream-k-def") ? paced.bid : raw.aggressive,
         ),
-        ceiling: Math.min(raw.ceiling, Math.max(capped.bid, raw.ceiling)),
+        ceiling: Math.min(raw.ceiling, Math.max(paced.bid, raw.ceiling)),
       };
 
       const handcuff = book.on("handcuff-top-rb") && isHandcuff(p, myRoster);
@@ -611,6 +637,7 @@ export async function buildWaiverBoard(
         ruleNote: ruleNote([
           duplicate,
           capped.note,
+          paced.note,
           handcuff ? book.why("handcuff-top-rb") : null,
           playoffWeight > 1 ? book.why("playoff-schedule") : null,
         ]),
@@ -663,5 +690,6 @@ export async function buildWaiverBoard(
     needsKicker,
     needsDefense,
     ruleNotes: [...new Set(rows.map((r) => r.ruleNote).filter((n): n is string => !!n))],
+    faabPlan,
   };
 }

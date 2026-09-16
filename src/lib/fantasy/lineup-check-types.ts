@@ -33,6 +33,10 @@ export interface LineupCheckLeague {
   state: LineupState;
   summary: string;
   issues: LineupIssue[];
+  /** My chance of winning this week's matchup, 0-1. */
+  winProbability: number | null;
+  /** "You're favored — playing it safe with Burden." */
+  startSitLine: string | null;
   /** Where to make the change, since this app is read-only. */
   externalUrl: string | null;
   externalLabel: string | null;

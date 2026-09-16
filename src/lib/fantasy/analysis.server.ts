@@ -81,7 +81,7 @@ import {
   type TeamStrategy,
 } from "./strategy";
 import { acceptanceBandOf, acceptanceScore } from "./proposal.server";
-import { recommendationImpact } from "./engine";
+import { recommendationImpact, volatilityOf } from "./engine";
 import {
   EMPTY_IMPACT,
   impactAddKey,
@@ -106,6 +106,14 @@ import {
   valueOverReplacement,
 } from "./rules";
 import { loadStrategyRules } from "./rules.server";
+import { loadVolatilityDefaults, recordPredictions } from "./calibration.server";
+import {
+  BORDERLINE_POINTS,
+  modeLine,
+  scoreFor,
+  startSitMode,
+  type StartSitMode,
+} from "./startsit";
 
 
 type DB = SupabaseClient<Database>;
@@ -322,11 +330,19 @@ export interface AnalysisPayload {
   buySell: BuySellRow[];
   /** Impact by move, so other screens show the same numbers. */
   impactIndex: Record<string, RecommendationImpact>;
+  /** My chance of winning this week's matchup, 0-1; null with no opponent. */
+  matchupWinProb: number | null;
+  /** Whether close lineup calls are being made on floor, ceiling or mean. */
+  startSitMode: StartSitMode;
+  /** One line explaining that choice, shown above the lineup advice. */
+  startSitLine: string | null;
 }
 
 /** The one-line read at the top of a league page. */
 export interface TeamClassLine {
   teamClass: TeamClass;
+  /** Set when the manager picked the class by hand. */
+  override: TeamClass | null;
   label: string;
   badge: string;
   /** The two numbers behind the class. */
@@ -375,6 +391,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // The strategy layer: every ranking below is filtered and ordered by it.
   const book = await loadStrategyRules(supabase);
+  // Any swing assumptions the calibration loop has already corrected.
+  await loadVolatilityDefaults(supabase, league.season);
 
   const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, playerRows] =
     await Promise.all([
@@ -817,11 +835,75 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       classLine: null,
       buySell: [],
       impactIndex: {},
+      matchupWinProb: null,
+      startSitMode: "mean" as StartSitMode,
+      startSitLine: null,
     };
   }
 
   const grades = positionGrades(mine, engineTeams, slots);
   const best = optimalLineup(mine.roster, slots);
+
+  // --- this week's matchup: how likely am I to win it? ----------------------
+  // A heavy favourite should protect the floor on close calls; a heavy
+  // underdog needs the ceiling. Everything hinges on this one number.
+  const myGame = matchups.find(
+    (m) =>
+      m.week === league.current_week &&
+      (m.home_team_id === mine.id || m.away_team_id === mine.id),
+  );
+  const opponentId = myGame
+    ? myGame.home_team_id === mine.id
+      ? myGame.away_team_id
+      : myGame.home_team_id
+    : null;
+  const opponentTeam = opponentId ? engineTeams.find((t) => t.id === opponentId) : null;
+  let matchupWinProb: number | null = null;
+  if (opponentTeam) {
+    const me = distributionOf(mine.roster);
+    const them = distributionOf(opponentTeam.roster);
+    const spread = Math.sqrt(me.sd * me.sd + them.sd * them.sd) || 1;
+    // Normal approximation of P(my score > theirs).
+    const z = (me.mean - them.mean) / spread;
+    matchupWinProb = Math.round(normalCdf(z) * 1000) / 1000;
+  }
+  const lineupMode = startSitMode(matchupWinProb);
+  let startSitLine: string | null = null;
+
+  // Write down what we are telling the manager, so next week we can check it.
+  try {
+    await recordPredictions(supabase, [
+      ...(matchupWinProb !== null
+        ? [
+            {
+              userId: league.user_id,
+              leagueId: league.id,
+              teamId: mine.id,
+              season: league.season,
+              week: league.current_week,
+              kind: "win_prob" as const,
+              subject: mine.id,
+              predicted: matchupWinProb,
+            },
+          ]
+        : []),
+      ...best.starters
+        .filter((s) => s.player && s.slot.toUpperCase() !== "BN")
+        .map((s) => ({
+          userId: league.user_id,
+          leagueId: league.id,
+          teamId: mine.id,
+          season: league.season,
+          week: league.current_week,
+          kind: "projection" as const,
+          subject: s.player!.name,
+          position: s.player!.position,
+          predicted: Math.round(s.player!.proj * 100) / 100,
+        })),
+    ]);
+  } catch {
+    // Accuracy bookkeeping must never stop a league page from rendering.
+  }
 
   // --- what-if helper: re-run the season with my team's roster swapped -----
   const baseMine = baselineById.get(mine.id)!;
@@ -885,6 +967,35 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       );
       const gain = s.player.proj - benchedProj;
       if (gain < 0.6) continue;
+      // Close calls get decided by the week's mode rather than the raw
+      // projection: floor when favoured, ceiling when a big underdog.
+      let modeNote = "";
+      if (gain < BORDERLINE_POINTS && lineupMode !== "mean") {
+        const up = {
+          name: s.player.name,
+          position: s.player.position,
+          proj: s.player.proj,
+          volatility: volatilityOf(s.player),
+        };
+        const down = {
+          name: benched.player_name,
+          position: benched.position.toUpperCase(),
+          proj: benchedProj,
+          volatility: volatilityOf({
+            id: benched.player_id ?? benched.player_name,
+            name: benched.player_name,
+            position: benched.position.toUpperCase(),
+            proj: benchedProj,
+          }),
+        };
+        // The player already starting wins the close call under this mode.
+        if (scoreFor(down, lineupMode) >= scoreFor(up, lineupMode)) {
+          startSitLine = startSitLine ?? modeLine(lineupMode, down.name);
+          continue;
+        }
+        startSitLine = startSitLine ?? modeLine(lineupMode, up.name);
+        modeNote = ` ${modeLine(lineupMode, up.name)}`;
+      }
       // Never promote a player priced from a weaker source than the one the
       // player he would replace is priced from, and never one we cannot
       // identify at all.
@@ -901,7 +1012,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         id: `start-${s.player.name}`,
         kind: "start-sit",
         headline: `Start ${s.player.name} over ${benched.player_name}`,
-        detail: `${s.slot} slot. Projection goes from ${benchedProj.toFixed(1)} to ${s.player.proj.toFixed(1)} points this week.${basisNote}`,
+        detail: `${s.slot} slot. Projection goes from ${benchedProj.toFixed(1)} to ${s.player.proj.toFixed(1)} points this week.${basisNote}${modeNote}`,
         pointsDelta: Math.round(gain * 10) / 10,
         winDelta: Math.round(impact.winDelta * 100) / 100,
         titleDelta: impact.titleDelta,
@@ -1311,7 +1422,13 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // future value they bring back instead (5,000 market points ~ one title point).
   // Deals the other manager would actually take are worth more than perfect
   // ones they would laugh at, so acceptance is part of the ranking.
-  const teamClass: TeamClass = teamClassOf(myBadge.key);
+  // A manager who knows they are rebuilding can say so and have every screen
+  // follow, whatever the record says.
+  const override = (league as { class_override?: string | null }).class_override;
+  const teamClass: TeamClass =
+    override === "contender" || override === "middle" || override === "rebuilder"
+      ? override
+      : teamClassOf(myBadge.key);
   const rankScore = (s: MoveSuggestion) =>
     impactScore(s.impact, teamClass, isDynastyLeague) * (0.4 + 1.2 * (s.acceptance ?? 0.5));
   tradeIdeas.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
@@ -1383,6 +1500,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const myDynastyRank = dynastyRankById.get(mine.id) ?? null;
   const classLine: TeamClassLine = {
     teamClass,
+    override:
+      override === "contender" || override === "middle" || override === "rebuilder"
+        ? override
+        : null,
     label: TEAM_CLASS_LABEL[teamClass],
     badge: myBadge.label,
     numbers: [
@@ -1612,7 +1733,18 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     classLine,
     buySell,
     impactIndex,
+    matchupWinProb,
+    startSitMode: lineupMode,
+    startSitLine,
   };
+}
+
+/** Standard normal cumulative distribution, Abramowitz & Stegun 7.1.26. */
+function normalCdf(z: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp((-z * z) / 2);
+  const p = d * t * (1.330274429 * t ** 4 - 1.821255978 * t ** 3 + 1.781477937 * t ** 2 - 0.356563782 * t + 0.319381530);
+  return z > 0 ? 1 - p : p;
 }
 
 async function saveWeeklySnapshot(

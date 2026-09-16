@@ -84,7 +84,10 @@ function IdeaCard({ idea }: { idea: TradeFinderIdea }) {
         </div>
       </div>
       <Progress value={idea.fairness} className="mt-2 h-1.5" />
-      <p className="mt-1 text-[11px] text-muted-foreground">{idea.fairnessText}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        {idea.fairnessText}
+        {idea.acceptanceLabel ? ` · ${idea.acceptanceLabel} (${idea.acceptanceReason})` : ""}
+      </p>
 
       <Button size="sm" variant="secondary" className="mt-3" onClick={copy}>
         <Copy className="size-4" aria-hidden="true" />

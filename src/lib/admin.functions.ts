@@ -734,3 +734,47 @@ export const runWeeklyResults = createServerFn({ method: "POST" })
     const { runWeeklyResultsJob } = await import("@/lib/fantasy/weekly-jobs.server");
     return runWeeklyResultsJob(supabaseAdmin, data.season, data.week);
   });
+
+/**
+ * How accurate the app has actually been: matchup calls scored with a Brier
+ * score week by week, and projection error by position.
+ */
+export const getCalibration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        season: z.number().int().min(2000).max(2100).optional(),
+        week: z.number().int().min(1).max(22).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const season = data.season ?? new Date().getUTCFullYear();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { calibrationSummary } = await import("@/lib/fantasy/calibration.server");
+    return calibrationSummary(supabaseAdmin, season, data.week ?? 18);
+  });
+
+/** Runs the self-correction now instead of waiting for the weekly job. */
+export const applyCalibrationNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        season: z.number().int().min(2000).max(2100),
+        week: z.number().int().min(1).max(22),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { applyCalibration, gradeCalibration } = await import(
+      "@/lib/fantasy/calibration.server"
+    );
+    const graded = await gradeCalibration(supabaseAdmin, data.season, data.week);
+    const adjusted = await applyCalibration(supabaseAdmin, data.season, data.week);
+    return { graded: graded.graded, ...adjusted };
+  });

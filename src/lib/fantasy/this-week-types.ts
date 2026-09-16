@@ -43,6 +43,13 @@ export interface ThisWeekLeague {
   items: ThisWeekItem[];
 }
 
+/** "Waiver picks: 7 of 10 right this season" */
+export interface ThisWeekHitRate {
+  kind: string;
+  label: string;
+  rate: number;
+}
+
 export interface ThisWeekPayload {
   generatedAt: string;
   kickoffAt: string;
@@ -50,5 +57,6 @@ export interface ThisWeekPayload {
   waiverRunAt: string;
   leagues: ThisWeekLeague[];
   items: ThisWeekItem[];
+  /** How often each kind of advice has been right over the last six weeks. */
+  hitRates: ThisWeekHitRate[];
 }
-

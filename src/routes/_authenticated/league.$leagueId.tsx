@@ -882,6 +882,13 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
         </p>
       )}
 
+      {data?.faabPlan?.line && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {data.faabPlan.line}. Spend up to{" "}
+          <span className="stat-num text-foreground">${data.faabPlan.spendableNow}</span> now.
+        </p>
+      )}
+
       {data?.isSurvivalLeague && (
         <FaabBudgetStrip
           leagueId={leagueId}

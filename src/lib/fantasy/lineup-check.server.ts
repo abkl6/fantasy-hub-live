@@ -207,6 +207,8 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
       state,
       summary,
       issues,
+      winProbability: analysis.matchupWinProb,
+      startSitLine: analysis.startSitLine,
       externalUrl: link?.url ?? null,
       externalLabel: link?.label ?? null,
     });

@@ -43,6 +43,13 @@ export interface TradeFinderIdea {
   impactRank: number;
   /** One line naming the strategy rule that shaped this idea. */
   ruleNote?: string | null;
+  /** 0-1 chance this manager accepts, read off their trading history. */
+  acceptance: number;
+  acceptanceBand: "low" | "medium" | "high";
+  /** "Likely to accept: medium" */
+  acceptanceLabel: string;
+  /** What in their history says so. */
+  acceptanceReason: string;
 }
 
 export interface TradeFinderPayload {
