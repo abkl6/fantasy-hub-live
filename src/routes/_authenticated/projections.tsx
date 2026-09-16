@@ -407,7 +407,13 @@ function MyProjectionsUpload() {
           {result && (
             <div className="space-y-3 text-sm">
               <p>
-                {result.matchedCount} players matched ({result.mode === "weekly" ? "week by week" : "season totals"})
+                {result.matchedCount} {result.groupLabel.toLowerCase()} players matched (
+                {result.mode === "weekly"
+                  ? "week by week"
+                  : result.spread === "sos"
+                    ? "season totals, shaped by schedule"
+                    : "season totals, split evenly"}
+                )
                 {result.unmatchedCount > 0 ? `, ${result.unmatchedCount} names not recognised` : ""}.
               </p>
               {result.unmatched.length > 0 && (
