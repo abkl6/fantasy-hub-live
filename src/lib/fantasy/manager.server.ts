@@ -189,6 +189,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
           leagueName: analysis.league.name,
           platform: analysis.league.platform,
           isDynasty: isMultiYear(analysis.format),
+          valuesPending: analysis.valuesPending,
           myTeamId: analysis.myTeam?.id ?? null,
           swing,
           swingFromWeek,
