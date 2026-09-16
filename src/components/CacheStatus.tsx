@@ -1,16 +1,31 @@
 import { lastUpdatedLabel } from "@/lib/offline-cache";
 
-/** Subtle line telling you the view is cached: updating now, or stuck after a failed refresh. */
+/**
+ * Subtle line telling you how fresh the view is: when the stored result was
+ * built, that it is updating now, or that a refresh failed.
+ */
 export function CacheStatus({
   updating,
   stale,
   lastUpdated,
+  computedAt,
 }: {
   updating: boolean;
   stale: boolean;
   lastUpdated: number | null;
+  /** When the server built the stored result, if it came from the cache. */
+  computedAt?: string | null | undefined;
 }) {
-  if (!updating && !stale) return null;
+  const computed = computedAt ? new Date(computedAt).getTime() : null;
+
+  if (!updating && !stale) {
+    if (!computed || Number.isNaN(computed)) return null;
+    return (
+      <p className="text-[11px] text-muted-foreground" aria-live="polite">
+        Updated {lastUpdatedLabel(computed)}
+      </p>
+    );
+  }
 
   return (
     <p className="text-[11px] text-muted-foreground" aria-live="polite">
@@ -25,3 +40,4 @@ export function CacheStatus({
     </p>
   );
 }
+
