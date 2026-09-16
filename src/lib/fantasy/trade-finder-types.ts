@@ -1,10 +1,14 @@
 /** Client-safe shapes for the Trade Finder. */
 
+import type { Trajectory } from "./age-curve";
+
 export interface TradeFinderAsset {
   name: string;
   position: string;
   proj: number;
   value: number;
+  /** Dynasty, keeper and empire leagues only. */
+  trajectory?: Trajectory | null;
 }
 
 export interface TradeFinderIdea {
