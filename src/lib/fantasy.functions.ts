@@ -107,8 +107,32 @@ export const getAnalysis = createServerFn({ method: "POST" })
     await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
     // Refresh injury/status data in the background.
     await syncPlayerNews(context.supabase).catch(() => {});
-    return buildAnalysis(context.supabase, data.leagueId);
+
+    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const hash = await leagueInputsHash(context.supabase, data.leagueId);
+    return cached(
+      context.supabase,
+      {
+        userId: context.userId,
+        leagueId: data.leagueId,
+        kind: "analysis",
+        ...(data.force ? { force: true } : {}),
+      },
+      hash,
+      () => buildAnalysis(context.supabase, data.leagueId),
+    );
   });
+
+/** Clears a league's stored results so the next load recomputes from scratch. */
+export const clearLeagueCache = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { clearCache } = await import("./fantasy/cache.server");
+    await clearCache(context.supabase, context.userId, data.leagueId);
+    return { ok: true };
+  });
+
 
 export const deleteLeague = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
