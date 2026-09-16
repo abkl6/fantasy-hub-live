@@ -44,6 +44,12 @@ const IGNORED = new Set(["K", "PK", "DEF", "DST"]);
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/** Rank every partner cheaply, then re-price only the ideas that get shown. */
+const COARSE_ITERATIONS = 300;
+const FULL_ITERATIONS = 1500;
+const DISPLAYED_IDEAS = 5;
+
+
 interface Ctx {
   slots: Slot[];
   values: Awaited<ReturnType<typeof loadLeague>>["values"];
@@ -221,6 +227,15 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
   };
 
   const ideas: TradeFinderIdea[] = [];
+  /** Kept so the displayed ideas can be re-simulated at full accuracy. */
+  const rerun = new Map<
+    string,
+    {
+      after: { mean: number; sd: number };
+      dynasty: { valueByTeam: Record<string, number>; valueDelta: number } | undefined;
+    }
+  >();
+
 
   for (const team of loaded.teams) {
     if (team.id === mine.id) continue;
@@ -318,20 +333,25 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
     }
 
     if (best) {
-      // One simulation per partner: only the idea that actually gets shown.
+      // One coarse simulation per partner; the few ideas that get displayed
+      // are re-run at full accuracy below.
+      const after = distFor(bestRoster, slots, loaded.bestBall);
+      const dynasty = loaded.isDynasty
+        ? { valueByTeam, valueDelta: bestValueDelta }
+        : undefined;
+      rerun.set(team.id, { after, dynasty });
       const impact = recommendationImpact({
         teams: simTeams,
         config: loaded.simConfig,
         schedule: loaded.schedule,
         teamId: mine.id,
         baseline,
-        after: distFor(bestRoster, slots, loaded.bestBall),
-        iterations: 900,
+        after,
+        iterations: COARSE_ITERATIONS,
         seed: 7,
-        dynasty: loaded.isDynasty
-          ? { valueByTeam, valueDelta: bestValueDelta }
-          : undefined,
+        dynasty,
       });
+
       // How likely this manager is to say yes, read off what they have done
       // in this league before. A great offer they would never take is worth
       // less than a fair one they would.
@@ -358,6 +378,32 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
   }
 
   ideas.sort((a, b) => b.impactRank - a.impactRank || b.fairness - a.fairness);
+
+  // Full-accuracy numbers for the handful the member will actually read.
+  for (let i = 0; i < Math.min(DISPLAYED_IDEAS, ideas.length); i++) {
+    const idea = ideas[i]!;
+    const saved = rerun.get(idea.teamId);
+    if (!saved) continue;
+    const impact = recommendationImpact({
+      teams: simTeams,
+      config: loaded.simConfig,
+      schedule: loaded.schedule,
+      teamId: mine.id,
+      baseline,
+      after: saved.after,
+      iterations: FULL_ITERATIONS,
+      seed: 7,
+      dynasty: saved.dynasty,
+    });
+    ideas[i] = {
+      ...idea,
+      impact,
+      impactLabel: primaryImpactText(impact, myClass, loaded.isDynasty),
+      impactRank: impactScore(impact, myClass, loaded.isDynasty) * (0.4 + 1.2 * idea.acceptance),
+    };
+  }
+  ideas.sort((a, b) => b.impactRank - a.impactRank || b.fairness - a.fairness);
+
   // The order is the team's class talking: say so on the idea it put first.
   if (book.on("class-tiebreak") && ideas.length > 1) {
     ideas[0] = { ...ideas[0]!, ruleNote: book.why("class-tiebreak") };

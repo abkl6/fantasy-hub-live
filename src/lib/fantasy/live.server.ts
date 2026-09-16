@@ -483,8 +483,29 @@ export async function refreshLiveScoring(admin: DB): Promise<{
       .upsert(events as never, { onConflict: "dedupe_key", ignoreDuplicates: true });
   }
 
+  // During a game window, rebuild the cached league payloads in the
+  // background so page loads stay plain reads.
+  await warmActiveLeagues(admin).catch(() => {});
+
   return { season, week, players: snapshots.length, events: events.length };
 }
+
+/** Recomputes cached payloads for recently synced leagues after a live poll. */
+async function warmActiveLeagues(admin: DB): Promise<void> {
+  const { gameWindow } = await import("./gamewindow");
+  if (!gameWindow().live) return;
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data } = await admin
+    .from("leagues")
+    .select("id, user_id, last_synced_at")
+    .gte("last_synced_at", since)
+    .limit(50);
+  const { warmLeagueCache } = await import("./cache.server");
+  for (const row of data ?? []) {
+    await warmLeagueCache(admin, row.user_id, row.id);
+  }
+}
+
 
 // ---------------------------------------------------------------- game day
 

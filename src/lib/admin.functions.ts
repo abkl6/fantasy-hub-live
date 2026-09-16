@@ -70,6 +70,27 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       byPlatform.set(key, entry);
     }
 
+    // How long each kind of cached calculation is taking, so slowdowns show up.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: timings } = await supabaseAdmin
+      .from("analysis_cache")
+      .select("kind, compute_ms, computed_at, expires_at")
+      .order("computed_at", { ascending: false })
+      .limit(200);
+
+    const byKind = new Map<string, { kind: string; runs: number; ms: number[]; live: number }>();
+    for (const row of timings ?? []) {
+      const entry = byKind.get(row.kind) ?? { kind: row.kind, runs: 0, ms: [], live: 0 };
+      entry.runs += 1;
+      entry.ms.push(row.compute_ms);
+      if (new Date(row.expires_at).getTime() > Date.now()) entry.live += 1;
+      byKind.set(row.kind, entry);
+    }
+    const median = (values: number[]) => {
+      const sorted = [...values].sort((a, b) => a - b);
+      return sorted.length ? sorted[Math.floor(sorted.length / 2)]! : 0;
+    };
+
     return {
       users: (profiles ?? []).length,
       activeThisWeek: active.size,
@@ -78,7 +99,17 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       notifications24h: (notifications ?? []).length,
       platforms: [...byPlatform.values()].sort((a, b) => b.leagues - a.leagues),
       newUsers7d: (profiles ?? []).filter((p) => p.created_at >= since).length,
+      computeTimes: [...byKind.values()]
+        .map((e) => ({
+          kind: e.kind,
+          runs: e.runs,
+          medianMs: median(e.ms),
+          worstMs: Math.max(0, ...e.ms),
+          fresh: e.live,
+        }))
+        .sort((a, b) => b.medianMs - a.medianMs),
     };
+
   });
 
 // --------------------------------------------------------------- sync health

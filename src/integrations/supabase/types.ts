@@ -50,6 +50,56 @@ export type Database = {
         }
         Relationships: []
       }
+      analysis_cache: {
+        Row: {
+          compute_ms: number
+          computed_at: string
+          created_at: string
+          expires_at: string
+          id: string
+          inputs_hash: string
+          kind: string
+          league_id: string | null
+          payload: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          compute_ms?: number
+          computed_at?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inputs_hash: string
+          kind: string
+          league_id?: string | null
+          payload: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          compute_ms?: number
+          computed_at?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inputs_hash?: string
+          kind?: string
+          league_id?: string | null
+          payload?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_cache_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calibration_log: {
         Row: {
           actual: number | null

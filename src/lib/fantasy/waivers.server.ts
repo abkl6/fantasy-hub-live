@@ -77,6 +77,11 @@ type DB = SupabaseClient<Database>;
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
 /** How many candidates get a full season re-simulation. */
 const SCORED_CANDIDATES = 12;
+/** Cheap pass to order candidates, full pass only for the ones displayed. */
+const COARSE_ITERATIONS = 300;
+const FULL_ITERATIONS = 1500;
+const DISPLAYED_CANDIDATES = 5;
+
 
 function asSlots(value: unknown): string[] {
   if (Array.isArray(value) && value.length) return value.map(String).filter((s) => s.toUpperCase() !== "BN");
@@ -502,7 +507,9 @@ export async function buildWaiverBoard(
       return { pointsGain, survivalDelta };
     };
 
-    for (const fa of opts.fillsOnly ? [] : eligible.slice(0, SCORED_CANDIDATES)) {
+    // Ranking every candidate at full accuracy is wasted work: a coarse pass
+    // orders them, then only the handful actually shown gets the long run.
+    const priceCandidate = (fa: (typeof eligible)[number], iterations: number) => {
       // Only ever suggest dropping someone the new player can actually cover:
       // same position, or a flex slot they both fit.
       const droppable = byValue
@@ -534,7 +541,7 @@ export async function buildWaiverBoard(
       // bench player so the add is still priced rather than skipped.
       if (!options.length) {
         const weakest = [...myRoster].sort((a, b) => a.proj - b.proj)[0];
-        if (!weakest) continue;
+        if (!weakest) return null;
         options.push({
           roster: myRoster.map((p) => (p.name === weakest.name ? candidate : p)),
           drop: weakest,
@@ -555,35 +562,60 @@ export async function buildWaiverBoard(
       const lineupGain = bestTotal - beforeLineup;
 
       const dist = distributionOf(nextRoster);
-      const inputs = simInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
-      const res = simulateSeason(inputs, simConfig, schedule, 1500, 7);
-      const m = res.find((r) => r.id === mine.id)!;
+      const inputs = simInputs.map((t) => (t.id === mine!.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
+      const res = simulateSeason(inputs, simConfig, schedule, iterations, 7);
+      const m = res.find((r) => r.id === mine!.id)!;
 
       let survivalDelta: number | null = null;
       if (survivalLeague && survivalBase) {
         // Survival is the only currency here: re-simulate the week with him in
         // my lineup and read how much less likely I am to be cut.
-        const myBase = survivalBase.find((r) => r.id === mine.id)!;
+        const myBase = survivalBase.find((r) => r.id === mine!.id)!;
         const withMe = survivalInputs.map((t) =>
-          t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t,
+          t.id === mine!.id ? { ...t, mean: dist.mean, sd: dist.sd } : t,
         );
-        const after = simulateGuillotine(withMe, weeksLeft, 1200, 7).find((r) => r.id === mine.id)!;
+        const after = simulateGuillotine(withMe, weeksLeft, Math.max(300, iterations - 300), 7).find(
+          (r) => r.id === mine!.id,
+        )!;
         survivalDelta = after.surviveWeekOdds - myBase.surviveWeekOdds;
       }
 
       // A pickup that does not improve the optimal lineup cannot move the
       // season odds; anything the simulation reports there is noise.
       const meaningful = lineupGain > 0.05;
-      impacts.set(fa.id, {
+      return {
         titleDelta: meaningful ? m.titleOdds - baseMine.titleOdds : 0,
         playoffDelta: meaningful ? m.playoffOdds - baseMine.playoffOdds : 0,
         winDelta: meaningful ? Math.round((m.projWins - baseMine.projWins) * 100) / 100 : 0,
         survivalDelta: meaningful ? survivalDelta : survivalDelta === null ? null : 0,
         lineupGain: Math.round(lineupGain * 10) / 10,
         drop: lineupGain > 0 && drop ? drop.name : null,
-      });
+      };
+    };
+
+    const shortlist = opts.fillsOnly ? [] : eligible.slice(0, SCORED_CANDIDATES);
+    for (const fa of shortlist) {
+      const rough = priceCandidate(fa, COARSE_ITERATIONS);
+      if (rough) impacts.set(fa.id, rough);
+    }
+
+    // Re-price the five the member will actually read at full accuracy.
+    const headline = [...shortlist]
+      .filter((fa) => impacts.has(fa.id))
+      .sort((a, b) => {
+        const x = impacts.get(a.id)!;
+        const y = impacts.get(b.id)!;
+        return survivalLeague
+          ? (y.survivalDelta ?? 0) - (x.survivalDelta ?? 0) || y.titleDelta - x.titleDelta
+          : y.titleDelta - x.titleDelta || y.lineupGain - x.lineupGain;
+      })
+      .slice(0, DISPLAYED_CANDIDATES);
+    for (const fa of headline) {
+      const exact = priceCandidate(fa, FULL_ITERATIONS);
+      if (exact) impacts.set(fa.id, exact);
     }
   }
+
 
   // What claims have actually cost in this league sets the price ceiling.
   const { data: bidRows } = await supabase

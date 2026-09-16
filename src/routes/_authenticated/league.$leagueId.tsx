@@ -36,6 +36,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   applyMoveFn,
+  clearLeagueCache,
+
   evaluateTradeFn,
   getAnalysis,
   getDraftRecapFn,
@@ -141,6 +143,18 @@ function LeaguePage() {
     return refetch();
   };
 
+  // Throws away the stored result for this league and rebuilds it now.
+  const clearCacheFn = useServerFn(clearLeagueCache);
+  const recompute = useMutation({
+    mutationFn: () => clearCacheFn({ data: { leagueId } }),
+    onSuccess: () => {
+      toast.success("Recomputing this league");
+      hardRefresh();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not recompute"),
+  });
+
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-6xl space-y-4 px-6 py-10">
@@ -208,10 +222,17 @@ function LeaguePage() {
             />
           </div>
         </div>
-        <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
-          {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => recompute.mutate()} disabled={recompute.isPending || isFetching}>
+            {recompute.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            Recompute
+          </Button>
+          <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Refresh
+          </Button>
+        </div>
+
       </div>
 
       <ScoringGapBanner leagueId={leagueId} />

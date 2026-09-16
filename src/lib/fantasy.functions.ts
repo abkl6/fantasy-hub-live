@@ -107,8 +107,32 @@ export const getAnalysis = createServerFn({ method: "POST" })
     await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
     // Refresh injury/status data in the background.
     await syncPlayerNews(context.supabase).catch(() => {});
-    return buildAnalysis(context.supabase, data.leagueId);
+
+    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const hash = await leagueInputsHash(context.supabase, data.leagueId);
+    return cached(
+      context.supabase,
+      {
+        userId: context.userId,
+        leagueId: data.leagueId,
+        kind: "analysis",
+        ...(data.force ? { force: true } : {}),
+      },
+      hash,
+      () => buildAnalysis(context.supabase, data.leagueId),
+    );
   });
+
+/** Clears a league's stored results so the next load recomputes from scratch. */
+export const clearLeagueCache = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { clearCache } = await import("./fantasy/cache.server");
+    await clearCache(context.supabase, context.userId, data.leagueId);
+    return { ok: true };
+  });
+
 
 export const deleteLeague = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -925,8 +949,16 @@ export const getPlayoffPictureFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { loadPlayoffPicture } = await import("./fantasy/playoff.server");
-    return loadPlayoffPicture(context.supabase, data.leagueId);
+    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const hash = await leagueInputsHash(context.supabase, data.leagueId);
+    return cached(
+      context.supabase,
+      { userId: context.userId, leagueId: data.leagueId, kind: "playoff" },
+      hash,
+      () => loadPlayoffPicture(context.supabase, data.leagueId),
+    );
   });
+
 
 export const getTrendsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1202,11 +1234,26 @@ export const getGameDayFn = createServerFn({ method: "POST" })
       }
     }
 
-    return buildGameDay(context.supabase, {
-      ...(data.leagueId ? { leagueId: data.leagueId } : {}),
-      ...(data.games ? { includeGames: true } : {}),
-    });
+    const run = () =>
+      buildGameDay(context.supabase, {
+        ...(data.leagueId ? { leagueId: data.leagueId } : {}),
+        ...(data.games ? { includeGames: true } : {}),
+      });
+
+    // Only the per-league board is cached; the cross-league board and the
+    // games view are cheap and want the freshest scoreboard.
+    if (!data.leagueId || data.games || data.refresh) return run();
+
+    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const hash = await leagueInputsHash(context.supabase, data.leagueId);
+    return cached(
+      context.supabase,
+      { userId: context.userId, leagueId: data.leagueId, kind: "gameday" },
+      hash,
+      run,
+    );
   });
+
 
 export const getManagerHubFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -1219,8 +1266,13 @@ export const getThisWeekFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildThisWeek } = await import("./fantasy/this-week.server");
-    return buildThisWeek(context.supabase);
+    const { cached, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const hash = await allLeaguesInputsHash(context.supabase);
+    return cached(context.supabase, { userId: context.userId, kind: "this-week" }, hash, () =>
+      buildThisWeek(context.supabase),
+    );
   });
+
 
 export const getLineupCheckFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
