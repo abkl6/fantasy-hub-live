@@ -521,6 +521,30 @@ export const getWaiverWire = createServerFn({ method: "POST" })
     return { players, estimatedRosterSpots: count ?? 0 };
   });
 
+/** Just the league type fields, so the selects never wait on a full recompute. */
+export const getLeagueMeta = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("leagues")
+      .select("league_type, variant, type_source, format, platform")
+      .eq("id", data.leagueId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("League not found.");
+    const leagueType = asLeagueType(row.league_type);
+    const variant = asVariant(row.variant);
+    const typeSource = (row.type_source ?? "inferred") as "detected" | "inferred" | "user";
+    return {
+      leagueType,
+      variant,
+      typeSource,
+      typeSourceLabel: typeSourceLabel(typeSource, row.platform),
+      format: String(row.format),
+    };
+  });
+
 export const updateLeagueSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
