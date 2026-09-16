@@ -59,8 +59,15 @@ export const updateStrategyRule = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context as unknown as Ctx);
-    const { id, ...patch } = data;
-    const { error } = await context.supabase.from("strategy_rules").update(patch).eq("id", id);
+    const patch: Record<string, unknown> = {};
+    if (data.rule !== undefined) patch["rule"] = data.rule;
+    if (data.rationale !== undefined) patch["rationale"] = data.rationale;
+    if (data.weight !== undefined) patch["weight"] = data.weight;
+    if (data.enabled !== undefined) patch["enabled"] = data.enabled;
+    const { error } = await context.supabase
+      .from("strategy_rules")
+      .update(patch as never)
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
