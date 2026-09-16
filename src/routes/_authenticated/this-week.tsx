@@ -143,7 +143,13 @@ function ThisWeekPage() {
         ) : null}
         </div>
       </div>
-      <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
+      <CacheStatus
+        updating={updating}
+        stale={stale}
+        lastUpdated={lastUpdated}
+        computedAt={(data as { computedAt?: string | null } | undefined)?.computedAt ?? null}
+      />
+
 
       {data?.hitRates?.length ? (
         <p className="mt-2 text-xs text-muted-foreground">
