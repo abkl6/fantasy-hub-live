@@ -309,7 +309,7 @@ function MyProjectionsUpload() {
   });
 
   const run = useMutation({
-    mutationFn: (apply: boolean) => upload({ data: { csv, apply, group, spread } }),
+    mutationFn: (apply: boolean) => upload({ data: { csv, apply, group } }),
     onSuccess: (result) => {
       if (result.applied) {
         toast.success(`Saved projections for ${result.matchedCount} players.`);
