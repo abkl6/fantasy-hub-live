@@ -213,6 +213,14 @@ export interface AnalysisPayload {
   alerts: Alert[];
   format: LeagueFormat;
   formatLabel: string;
+  /** Redraft / keeper / dynasty, its variant, and where those came from. */
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+  typeSource: TypeSource;
+  typeSourceLabel: string;
+  /** Feature switches driven by the league type. */
+  showPickValues: boolean;
+  showSurvival: boolean;
   /** How the league is won: head to head, total points, or both. */
   contestFormat: ContestFormat;
   contestLabel: string;
@@ -606,6 +614,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const formatMeta = {
     format,
     formatLabel: FORMAT_LABELS[format],
+    leagueType,
+    variant,
+    typeSource,
+    typeSourceLabel: typeSourceLabel(typeSource, league.platform),
+    showPickValues: showsPickValues(leagueType, variant),
+    showSurvival: showsSurvival(variant),
     contestFormat,
     contestLabel: CONTEST_LABELS[contestFormat],
     pointsStandings,
