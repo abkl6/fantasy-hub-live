@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { detectGroup, mapHeaders, templateColumns, templateHeaderRow } from "./projection-templates";
-import { clampMultiplier, multipliersFromMeasure, ratingOf, spreadSeasonTotals } from "./sos";
+import {
+  blendMeasure,
+  blendWeight,
+  categoryGroupFor,
+  clampMultiplier,
+  multipliersFromMeasure,
+  ratingOf,
+  spreadSeasonTotals,
+} from "./sos";
+
 
 describe("projection templates", () => {
   it("tells the four layouts apart from their headings", () => {
