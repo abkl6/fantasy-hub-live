@@ -493,15 +493,28 @@ export interface FfpcFetchOptions {
 
 /** Reads a whole FFPC league. Throws FfpcParseError when a page can't be read. */
 export async function ffpcLeagueBundle(
-  leagueId: string,
+  leagueIdInput: string | null,
   ltuid: string,
   options: FfpcFetchOptions = {},
 ): Promise<FfpcLeagueBundle> {
-  const homeHtml = await getPage("LeagueHome.aspx", ltuid, { leagueID: leagueId });
+  // Links copied from FFPC often carry only the private token; the league page
+  // itself then tells us which league it is.
+  const firstHtml = await getPage(
+    "LeagueHome.aspx",
+    ltuid,
+    leagueIdInput ? { leagueID: leagueIdInput } : {},
+  );
+  const { discoverLeagueId } = await import("./ffpc-parse");
+  const leagueId = leagueIdInput ?? discoverLeagueId(firstHtml);
+  if (!leagueId) {
+    throw new FfpcParseError("LeagueHome.aspx", "FFPC's league page could not be read.");
+  }
+  const homeHtml = firstHtml;
   const home = parseLeagueHome(homeHtml, leagueId);
   if (!home.teams.length) {
     throw new FfpcParseError("LeagueHome.aspx", "FFPC's league page could not be read.");
   }
+
 
   let rules = {
     rosterSlots: [] as string[],

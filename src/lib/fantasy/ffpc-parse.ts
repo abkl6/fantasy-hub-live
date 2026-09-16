@@ -175,8 +175,12 @@ export function idFromLinks(rawCell: string, ...params: string[]): string | null
   return null;
 }
 
-/** Any myffpc.com URL -> the league id and the private ltuid token. */
-export function parseFfpcUrl(input: string): { leagueId: string; ltuid: string } | null {
+/**
+ * Any myffpc.com URL -> the private ltuid token and, when the link carries it,
+ * the league id. Many FFPC links are just `LeagueHome.aspx?ltuid=...`, so the
+ * league id is discovered from the page itself in that case.
+ */
+export function parseFfpcUrl(input: string): { leagueId: string | null; ltuid: string } | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
   let url: URL;
@@ -196,9 +200,16 @@ export function parseFfpcUrl(input: string): { leagueId: string; ltuid: string }
 
   const ltuid = get("ltuid");
   const leagueId = get("leagueid") ?? get("leagueno") ?? get("lid");
-  if (!ltuid || !leagueId) return null;
+  if (!ltuid) return null;
   return { leagueId, ltuid };
 }
+
+/** Reads the league id out of a league page's own links when the URL omitted it. */
+export function discoverLeagueId(html: string): string | null {
+  const m = html.match(/league(?:id|no)=([0-9]+)/i);
+  return m?.[1] ?? null;
+}
+
 
 /** "Season VP" in the standings means the league is scored on victory points. */
 export function detectVictoryPoints(html: string): boolean {
