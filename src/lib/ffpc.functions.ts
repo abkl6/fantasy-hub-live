@@ -90,6 +90,7 @@ export const importFfpcLeague = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { ffpcLeagueBundle } = await import("./fantasy/ffpc.server");
     const { persistBundle } = await import("./fantasy/persist.server");
+    const { detectLeagueType } = await import("./fantasy/league-type");
     const { ffpcToken, applyFfpcBundle, recordFfpcFailure } = await import(
       "./fantasy/ffpc-sync.server"
     );
