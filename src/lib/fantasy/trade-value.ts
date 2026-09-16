@@ -53,6 +53,10 @@ export interface TradeValueBook {
   player: (id: string | null, name: string, position: string, projSeason: number) => number;
   /** Real KTC market price only — null when the player is not in the book. */
   market: (id: string | null, name: string, position: string) => number | null;
+  /** Age from the market table — the primary age source for every player. */
+  age: (id: string | null, name: string, position: string) => number | null;
+  /** Median age of the position in the current market table. */
+  medianAge: (position: string) => number | null;
   pick: (season: number, round: number, slot: PickSlot) => number;
   lastRefreshed: string | null;
   covered: boolean;
