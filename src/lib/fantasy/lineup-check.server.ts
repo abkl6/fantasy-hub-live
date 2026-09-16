@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis } from "./analysis.server";
 import { slotAccepts, type Slot } from "./engine";
+import { impactAddKey, impactScore, impactSwapKey, primaryImpactText } from "./impact";
 import type {
   LineupCheckLeague,
   LineupCheckPayload,
@@ -62,6 +63,21 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
     const week = row.current_week;
     const bench = analysis.bench.filter((p) => p.name !== "Empty");
     const issues: LineupIssue[] = [];
+    const isDynasty = analysis.dynasty !== null;
+    // The simulation already priced these swaps on the league page; reuse the
+    // same numbers here so the two screens never disagree.
+    const impactOf = (replacement: string | null, starter: string) => {
+      if (!replacement) return { impactLabel: null, impactRank: 0 };
+      const found =
+        analysis.impactIndex[impactSwapKey(replacement, starter)] ??
+        analysis.impactIndex[impactAddKey(replacement)] ??
+        null;
+      if (!found) return { impactLabel: null, impactRank: 0 };
+      return {
+        impactLabel: primaryImpactText(found, analysis.teamClass, isDynasty),
+        impactRank: impactScore(found, analysis.teamClass, isDynasty),
+      };
+    };
 
     for (const starter of analysis.lineup) {
       if (starter.name === "Empty") continue;
@@ -89,6 +105,7 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
           replacement: best?.name ?? null,
           replacementPosition: best?.position ?? null,
           gain,
+          ...impactOf(best?.name ?? null, starter.name),
         });
         continue;
       }
@@ -105,6 +122,7 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
           replacement: best?.name ?? null,
           replacementPosition: best?.position ?? null,
           gain,
+          ...impactOf(best?.name ?? null, starter.name),
         });
         continue;
       }
@@ -121,9 +139,14 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
           replacement: best.name,
           replacementPosition: best.position,
           gain,
+          ...impactOf(best.name, starter.name),
         });
       }
     }
+
+    // Within a severity band, the swap that moves the needle most comes first.
+    const sev: Record<LineupIssue["severity"], number> = { red: 0, yellow: 1 };
+    issues.sort((a, b) => sev[a.severity] - sev[b.severity] || b.impactRank - a.impactRank);
 
     const state: LineupState = issues.some((i) => i.severity === "red")
       ? "red"

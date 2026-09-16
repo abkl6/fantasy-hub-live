@@ -1,6 +1,7 @@
 /** Client-safe shapes for the Trade Finder. */
 
 import type { Trajectory } from "./age-curve";
+import type { RecommendationImpact, TeamClass } from "./impact";
 
 export interface TradeFinderAsset {
   name: string;
@@ -35,6 +36,11 @@ export interface TradeFinderIdea {
   valueGap: number;
   /** Ready-to-send message. */
   offerText: string;
+  /** Simulated change in title odds, playoff odds and dynasty value. */
+  impact: RecommendationImpact;
+  /** The one line shown on the card, e.g. "+1.8% title". */
+  impactLabel: string;
+  impactRank: number;
 }
 
 export interface TradeFinderPayload {
@@ -44,5 +50,6 @@ export interface TradeFinderPayload {
   myTeamName: string | null;
   projectionLabel: string;
   scoringLabel: string;
+  teamClass: TeamClass;
   ideas: TradeFinderIdea[];
 }

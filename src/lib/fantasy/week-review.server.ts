@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { optimalLineup, slotAccepts, type EnginePlayer, type Slot } from "./engine";
+import { normalizeName } from "./names";
 
 type DB = SupabaseClient<Database>;
 
@@ -36,6 +37,18 @@ export interface WeekReview {
   /** The league's weekly top-scorer bonus, when it runs one. */
   weeklyHigh: { won: boolean; margin: number; topTeam: string; label: string | null } | null;
   recommendation: { headline: string; detail: string } | null;
+  /** How last week's advice actually turned out. */
+  grades: RecommendationGrade[];
+}
+
+export type GradeVerdict = "right" | "wrong" | "missed" | "dodged" | "push";
+
+export interface RecommendationGrade {
+  id: string;
+  headline: string;
+  action: "taken" | "ignored";
+  verdict: GradeVerdict;
+  note: string;
 }
 
 /**
@@ -63,6 +76,92 @@ function median(values: number[]): number {
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+const VERDICT_WORD: Record<GradeVerdict, string> = {
+  right: "Good call",
+  wrong: "Didn't work out",
+  missed: "Missed",
+  dodged: "Dodged one",
+  push: "Line ball",
+};
+
+/**
+ * Grades the advice the manager acted on last week against what the players
+ * actually scored. Taken moves are right when they gained points; ignored ones
+ * are missed when they would have.
+ */
+export async function gradeRecommendations(
+  supabase: DB,
+  input: { leagueId: string; season: number; week: number },
+): Promise<RecommendationGrade[]> {
+  const { data: logRows } = await supabase
+    .from("recommendation_log")
+    .select("id, headline, action, add_name, drop_name, grade, grade_note")
+    .eq("league_id", input.leagueId)
+    .eq("week", input.week)
+    .in("action", ["taken", "ignored"]);
+
+  const rows = logRows ?? [];
+  if (!rows.length) return [];
+
+  const names = new Set<string>();
+  for (const r of rows) {
+    if (r.add_name) names.add(normalizeName(r.add_name));
+    if (r.drop_name) names.add(normalizeName(r.drop_name));
+  }
+
+  const { data: statRows } = await supabase
+    .from("player_week_stats")
+    .select("src_points, players!inner(full_name)")
+    .eq("season", input.season)
+    .eq("week", input.week);
+  const actualByName = new Map<string, number>();
+  for (const row of statRows ?? []) {
+    const full = (row as { players?: { full_name?: string } }).players?.full_name;
+    if (!full) continue;
+    const key = normalizeName(full);
+    if (names.has(key)) actualByName.set(key, Number(row.src_points ?? 0));
+  }
+
+  const grades: RecommendationGrade[] = [];
+  const updates: { id: string; grade: GradeVerdict; grade_note: string; graded_week: number }[] = [];
+
+  for (const r of rows) {
+    const action = r.action === "taken" ? "taken" : "ignored";
+    const gained = r.add_name ? (actualByName.get(normalizeName(r.add_name)) ?? null) : null;
+    const lost = r.drop_name ? (actualByName.get(normalizeName(r.drop_name)) ?? null) : null;
+    if (gained === null && lost === null) continue;
+    const delta = (gained ?? 0) - (lost ?? 0);
+    const verdict: GradeVerdict =
+      Math.abs(delta) < 1
+        ? "push"
+        : action === "taken"
+          ? delta > 0
+            ? "right"
+            : "wrong"
+          : delta > 0
+            ? "missed"
+            : "dodged";
+    const note =
+      `${VERDICT_WORD[verdict]} — ` +
+      `${r.add_name ?? "the add"} scored ${round1(gained ?? 0)}` +
+      (r.drop_name ? ` against ${r.drop_name}'s ${round1(lost ?? 0)}.` : ".");
+    grades.push({ id: r.id, headline: r.headline, action, verdict, note });
+    if (r.grade !== verdict || r.grade_note !== note) {
+      updates.push({ id: r.id, grade: verdict, grade_note: note, graded_week: input.week });
+    }
+  }
+
+  for (const u of updates) {
+    await supabase
+      .from("recommendation_log")
+      .update({ grade: u.grade, grade_note: u.grade_note, graded_week: u.graded_week })
+      .eq("id", u.id);
+  }
+
+  return grades;
+}
+
 
 /**
  * Builds last week's recap for one team, or returns null when there is no
@@ -239,6 +338,11 @@ export async function buildWeekReview(
     seasonRankChange,
     weeklyHigh,
     recommendation: input.recommendation,
+    grades: await gradeRecommendations(supabase, {
+      leagueId: input.leagueId,
+      season: input.season,
+      week,
+    }),
   };
 }
 

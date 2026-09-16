@@ -1233,3 +1233,84 @@ export const getTradeFinderFn = createServerFn({ method: "POST" })
     const { buildTradeFinder } = await import("./fantasy/trade-finder.server");
     return buildTradeFinder(context.supabase, data.leagueId);
   });
+
+// ------------------------------------------------- recommendation tracking
+
+const recSchema = z.object({
+  leagueId: z.string().uuid(),
+  teamId: z.string().uuid().nullish(),
+  week: z.number().int(),
+  surface: z.string(),
+  kind: z.string(),
+  recKey: z.string(),
+  headline: z.string(),
+  detail: z.string().nullish(),
+  addName: z.string().nullish(),
+  dropName: z.string().nullish(),
+  pointsDelta: z.number().default(0),
+  titleDelta: z.number().default(0),
+  playoffDelta: z.number().default(0),
+  dynastyValueDelta: z.number().default(0),
+  dynastyRankDelta: z.number().default(0),
+  teamClass: z.string().nullish(),
+  impactLabel: z.string().nullish(),
+});
+
+const rowFor = (userId: string, r: z.infer<typeof recSchema>, action: string) => ({
+  user_id: userId,
+  league_id: r.leagueId,
+  team_id: r.teamId ?? null,
+  week: r.week,
+  surface: r.surface,
+  kind: r.kind,
+  rec_key: r.recKey,
+  headline: r.headline,
+  detail: r.detail ?? null,
+  add_name: r.addName ?? null,
+  drop_name: r.dropName ?? null,
+  points_delta: r.pointsDelta,
+  title_delta: r.titleDelta,
+  playoff_delta: r.playoffDelta,
+  dynasty_value_delta: r.dynastyValueDelta,
+  dynasty_rank_delta: r.dynastyRankDelta,
+  team_class: r.teamClass ?? null,
+  impact_label: r.impactLabel ?? null,
+  action,
+});
+
+/** Records every suggestion the manager was actually shown. */
+export const logRecommendationsShownFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ items: z.array(recSchema).max(50) }).parse(d))
+  .handler(async ({ data, context }) => {
+    if (!data.items.length) return { saved: 0 };
+    const rows = data.items.map((r) => rowFor(context.userId, r, "shown"));
+    const { error } = await context.supabase
+      .from("recommendation_log")
+      .upsert(rows, { onConflict: "user_id,league_id,week,rec_key", ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+    return { saved: rows.length };
+  });
+
+/** Records what the manager did with a suggestion. */
+export const logRecommendationActionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        item: recSchema,
+        action: z.enum(["taken", "ignored", "dismissed"]),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const row = {
+      ...rowFor(context.userId, data.item, data.action),
+      acted_at: new Date().toISOString(),
+    };
+    const { error } = await context.supabase
+      .from("recommendation_log")
+      .upsert(row, { onConflict: "user_id,league_id,week,rec_key" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

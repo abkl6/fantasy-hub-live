@@ -1192,6 +1192,108 @@ export type Database = {
         }
         Relationships: []
       }
+      recommendation_log: {
+        Row: {
+          acted_at: string | null
+          action: string
+          add_name: string | null
+          created_at: string
+          detail: string | null
+          drop_name: string | null
+          dynasty_rank_delta: number
+          dynasty_value_delta: number
+          grade: string | null
+          grade_note: string | null
+          graded_week: number | null
+          headline: string
+          id: string
+          impact_label: string | null
+          kind: string
+          league_id: string
+          playoff_delta: number
+          points_delta: number
+          rec_key: string
+          surface: string
+          team_class: string | null
+          team_id: string | null
+          title_delta: number
+          updated_at: string
+          user_id: string
+          week: number
+        }
+        Insert: {
+          acted_at?: string | null
+          action?: string
+          add_name?: string | null
+          created_at?: string
+          detail?: string | null
+          drop_name?: string | null
+          dynasty_rank_delta?: number
+          dynasty_value_delta?: number
+          grade?: string | null
+          grade_note?: string | null
+          graded_week?: number | null
+          headline: string
+          id?: string
+          impact_label?: string | null
+          kind: string
+          league_id: string
+          playoff_delta?: number
+          points_delta?: number
+          rec_key: string
+          surface?: string
+          team_class?: string | null
+          team_id?: string | null
+          title_delta?: number
+          updated_at?: string
+          user_id: string
+          week: number
+        }
+        Update: {
+          acted_at?: string | null
+          action?: string
+          add_name?: string | null
+          created_at?: string
+          detail?: string | null
+          drop_name?: string | null
+          dynasty_rank_delta?: number
+          dynasty_value_delta?: number
+          grade?: string | null
+          grade_note?: string | null
+          graded_week?: number | null
+          headline?: string
+          id?: string
+          impact_label?: string | null
+          kind?: string
+          league_id?: string
+          playoff_delta?: number
+          points_delta?: number
+          rec_key?: string
+          surface?: string
+          team_class?: string | null
+          team_id?: string | null
+          title_delta?: number
+          updated_at?: string
+          user_id?: string
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_log_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_log_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roster_spots: {
         Row: {
           created_at: string

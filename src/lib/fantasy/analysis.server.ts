@@ -81,6 +81,19 @@ import {
   type TeamStrategy,
 } from "./strategy";
 import { acceptanceBandOf, acceptanceScore } from "./proposal.server";
+import { recommendationImpact } from "./engine";
+import {
+  EMPTY_IMPACT,
+  impactAddKey,
+  impactScore,
+  impactSwapKey,
+  primaryImpactText,
+  teamClassOf,
+  TEAM_CLASS_LABEL,
+  type RecommendationImpact,
+  type TeamClass,
+} from "./impact";
+import { buildBuySell, filterBuySellForClass, type BuySellRow } from "./buy-sell";
 
 
 type DB = SupabaseClient<Database>;
@@ -172,6 +185,12 @@ export interface MoveSuggestion {
   acceptance?: number;
   acceptanceBand?: string;
   acceptanceReason?: string;
+  /** Full impact of making this move: odds, value and rank movement. */
+  impact: RecommendationImpact;
+  /** The one number shown on the card, chosen by the team's class. */
+  impactLabel: string;
+  /** Sort key for this team: bigger is better. */
+  impactRank: number;
 }
 
 
@@ -280,6 +299,24 @@ export interface AnalysisPayload {
   /** My team's badge and the trading posture that follows from it. */
   myBadge: TeamBadge | null;
   myStrategy: TeamStrategy | null;
+  /** Contender, middle class or rebuilder — the first line of the page. */
+  teamClass: TeamClass;
+  classLine: TeamClassLine | null;
+  /** Dynasty / keeper only: players priced away from what they produce. */
+  buySell: BuySellRow[];
+  /** Impact by move, so other screens show the same numbers. */
+  impactIndex: Record<string, RecommendationImpact>;
+}
+
+/** The one-line read at the top of a league page. */
+export interface TeamClassLine {
+  teamClass: TeamClass;
+  label: string;
+  badge: string;
+  /** The two numbers behind the class. */
+  numbers: [string, string];
+  /** One sentence of reasoning. */
+  reason: string;
 }
 
 export interface Alert {
@@ -757,6 +794,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       showTrajectories: isMultiYear(format) || variant === "empire",
       myBadge: null,
       myStrategy: null,
+      teamClass: "middle" as TeamClass,
+      classLine: null,
+      buySell: [],
+      impactIndex: {},
     };
   }
 
@@ -765,18 +806,42 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // --- what-if helper: re-run the season with my team's roster swapped -----
   const baseMine = baselineById.get(mine.id)!;
-  const whatIf = (roster: EnginePlayer[]) => {
-    const dist = distributionOf(roster);
-    const inputs = simInputs.map((t) => (t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t));
-    const res = simulateSeason(inputs, simConfig, schedule, 1200, 7);
-    const m = res.find((r) => r.id === mine.id)!;
+  const valueByTeam: Record<string, number> = Object.fromEntries(dynastyValueById);
+  /**
+   * The impact score behind every recommendation: re-run the season with the
+   * change applied, and in dynasty leagues also move the roster's market value
+   * so the rank change comes out with it.
+   */
+  const whatIf = (roster: EnginePlayer[], valueDelta = 0): RecommendationImpact =>
+    recommendationImpact({
+      teams: simInputs,
+      config: simConfig,
+      schedule,
+      teamId: mine.id,
+      baseline,
+      after: distributionOf(roster),
+      iterations: 1200,
+      seed: 7,
+      dynasty: isDynastyLeague ? { valueByTeam, valueDelta } : undefined,
+    });
+
+  /** Re-prices an impact when a trade moves market value as well as odds. */
+  const withValueDelta = (impact: RecommendationImpact, valueDelta: number): RecommendationImpact => {
+    if (!isDynastyLeague) return impact;
+    const mineValue = valueByTeam[mine.id] ?? 0;
+    const others = Object.entries(valueByTeam).filter(([id]) => id !== mine.id);
+    const rankOf = (v: number) => others.filter(([, x]) => x > v).length + 1;
     return {
-      titleDelta: m.titleOdds - baseMine.titleOdds,
-      playoffDelta: m.playoffOdds - baseMine.playoffOdds,
-      winDelta: m.projWins - baseMine.projWins,
-      pointsDelta: dist.mean - (baseMine.projPointsPerWeek ?? dist.mean),
+      ...impact,
+      dynastyValueDelta: valueDelta,
+      dynastyRankDelta: rankOf(mineValue) - rankOf(mineValue + valueDelta),
     };
   };
+
+  /** Impact by move, so the cross-league screens can read the same numbers. */
+  const impactIndex: Record<string, RecommendationImpact> = {};
+  const swapKey = impactSwapKey;
+  const addKey = impactAddKey;
 
   const suggestions: MoveSuggestion[] = [];
 
@@ -813,7 +878,11 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         playoffDelta: impact.playoffDelta,
         addName: s.player.name,
         dropName: benched.player_name,
+        impact,
+        impactLabel: "",
+        impactRank: 0,
       });
+      impactIndex[swapKey(s.player.name, benched.player_name)] = impact;
     }
   }
 
@@ -889,7 +958,11 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     const before = optimalLineup(mine.roster, slots).total;
     const after = optimalLineup(nextRoster, slots).total;
     const gain = after - before;
-    const impact = whatIf(nextRoster);
+    const addValue = values.player(fa.id, fa.name, fa.position, fa.proj * 17);
+    const dropValue = values.player(drop.id, drop.name, drop.position, drop.proj * 17);
+    const impact = whatIf(nextRoster, addValue - dropValue);
+    impactIndex[addKey(fa.name)] = impact;
+    impactIndex[swapKey(fa.name, drop.name)] = impact;
     waiverIdeas.push({
       id: `waiver-${fa.name}`,
       kind: "waiver",
@@ -905,6 +978,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       addName: fa.name,
       dropName: drop.name,
       bids: survival ? survivalBidsFor(fa) : null,
+      impact,
+      impactLabel: "",
+      impactRank: 0,
     });
   }
   waiverIdeas.sort((a, b) => b.pointsDelta - a.pointsDelta || b.titleDelta - a.titleDelta);
@@ -1057,6 +1133,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           acceptance: read.acceptance,
           acceptanceBand: read.band,
           acceptanceReason: read.reason,
+          impact: withValueDelta(impact, balanced.getValue - balanced.giveValue),
+          impactLabel: "",
+          impactRank: 0,
         });
         break;
       }
@@ -1153,6 +1232,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           acceptance: read.acceptance,
           acceptanceBand: read.band,
           acceptanceReason: read.reason,
+          impact: withValueDelta(impact, balanced.getValue - balanced.giveValue),
+          impactLabel: "",
+          impactRank: 0,
         });
       }
     }
@@ -1163,14 +1245,79 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // future value they bring back instead (5,000 market points ~ one title point).
   // Deals the other manager would actually take are worth more than perfect
   // ones they would laugh at, so acceptance is part of the ranking.
-  const rankScore = (s: MoveSuggestion) => {
-    const core = s.strategy === "sell" ? (s.dynastyDelta ?? 0) / 5000 : s.titleDelta;
-    return core * (0.4 + 1.2 * (s.acceptance ?? 0.5));
-  };
+  const teamClass: TeamClass = teamClassOf(myBadge.key);
+  const rankScore = (s: MoveSuggestion) =>
+    impactScore(s.impact, teamClass, isDynastyLeague) * (0.4 + 1.2 * (s.acceptance ?? 0.5));
   tradeIdeas.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
   // Always show five trade ideas, even when the best of them still costs points.
   suggestions.push(...keepTopFive(tradeIdeas, (s) => rankScore(s) > 0));
-  suggestions.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
+
+  for (const s of suggestions) {
+    if (s.addName && s.dropName) impactIndex[swapKey(s.addName, s.dropName)] = s.impact;
+    if (s.addName) impactIndex[addKey(s.addName)] = s.impact;
+    s.impactRank = rankScore(s);
+    s.impactLabel = primaryImpactText(s.impact, teamClass, isDynastyLeague);
+  }
+
+  // A contender should not be reading sell ideas, and a rebuilder should not be
+  // reading win-now buys — unless there is nothing else to show.
+  const offClass = (s: MoveSuggestion) =>
+    (teamClass === "contender" && s.strategy === "sell") ||
+    (teamClass === "rebuilder" && s.strategy === "buy");
+  const onClass = suggestions.filter((s) => !offClass(s));
+  const ranked = (onClass.length >= 4 ? onClass : suggestions).sort(
+    (a, b) => b.impactRank - a.impactRank || b.pointsDelta - a.pointsDelta,
+  );
+  suggestions.length = 0;
+  suggestions.push(...ranked);
+
+  // --- buy / sell: market price against actual production -------------------
+  let buySell: BuySellRow[] = [];
+  if (isDynastyLeague) {
+    const statRows = await fetchAllRows((from, to) =>
+      supabase
+        .from("player_week_stats")
+        .select("player_id, src_points")
+        .eq("season", league.season)
+        .order("player_id")
+        .range(from, to),
+    );
+    const productionById = new Map<string, number>();
+    for (const row of statRows) {
+      const id = row.player_id as string;
+      productionById.set(id, (productionById.get(id) ?? 0) + Number(row.src_points ?? 0));
+    }
+    const played = league.current_week > 1;
+    const candidates = engineTeams.flatMap((t) =>
+      t.roster
+        .map((p) => ({
+          name: p.name,
+          position: p.position,
+          nflTeam: p.nflTeam ?? null,
+          value: values.player(p.id, p.name, p.position, p.proj * 17),
+          production: p.id ? (productionById.get(p.id) ?? 0) : 0,
+          mine: t.id === mine.id,
+        }))
+        // A player with no value or no recorded games would rank last on one
+        // side for reasons that have nothing to do with the market.
+        .filter((c) => c.value > 0 && (!played || c.production > 0)),
+    );
+    buySell = filterBuySellForClass(buildBuySell(candidates), teamClass).slice(0, 12);
+  }
+
+  const myDynastyRank = dynastyRankById.get(mine.id) ?? null;
+  const classLine: TeamClassLine = {
+    teamClass,
+    label: TEAM_CLASS_LABEL[teamClass],
+    badge: myBadge.label,
+    numbers: [
+      `${(baseMine.titleOdds * 100).toFixed(1)}% title`,
+      isDynastyLeague && myDynastyRank
+        ? `#${myDynastyRank} roster value`
+        : `${Math.round(baseMine.playoffOdds * 100)}% playoffs`,
+    ],
+    reason: myBadge.reason,
+  };
 
 
   const why: string[] = [];
@@ -1386,6 +1533,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     showTrajectories,
     myBadge,
     myStrategy,
+    teamClass,
+    classLine,
+    buySell,
+    impactIndex,
   };
 }
 

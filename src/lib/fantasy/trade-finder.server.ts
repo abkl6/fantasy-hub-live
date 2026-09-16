@@ -9,7 +9,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
-import { optimalLineup, slotAccepts, type EnginePlayer, type Slot } from "./engine";
+import {
+  optimalLineup,
+  recommendationImpact,
+  simulateSeason,
+  slotAccepts,
+  teamDistribution,
+  type EnginePlayer,
+  type Slot,
+} from "./engine";
+import { bestBallDistribution } from "./format";
+import { EMPTY_IMPACT, impactScore, primaryImpactText, type TeamClass } from "./impact";
 import { normalizeName } from "./names";
 import { tierFromRank, trajectoryFor } from "./age-curve";
 import { loadAgeCurves, type AgeCurveBook } from "./age-curve.server";
@@ -103,6 +113,11 @@ function offerMessage(
   return `${leagueName} — trade offer for ${theirName}:\n\nYou get: ${list(iGive)}\nI get: ${list(iGet)}\n\n${help} Happy to tweak it if the shape is wrong.`;
 }
 
+/** Scoring distribution of a roster, for the season simulation. */
+function distFor(roster: EnginePlayer[], slots: Slot[], bestBall: boolean) {
+  return bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
+}
+
 export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<TradeFinderPayload> {
   const loaded = await loadLeague(supabase, leagueId);
   const slots = loaded.slots as Slot[];
@@ -120,6 +135,7 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
     (loaded.league.scoring_rules ?? {}) as Record<string, number>,
   );
   const base: Omit<TradeFinderPayload, "ideas"> = {
+    teamClass: "middle",
     leagueId,
     leagueName: loaded.league.name,
     hasMyTeam: false,
@@ -138,6 +154,34 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
   const myWeak = weakestSlot(myRoster, slots);
   const mySurplus = surplus(myRoster, slots);
   const myDeepPosition = mySurplus[0]?.position ?? "—";
+
+  // Every idea is re-simulated with the trade applied, so the card can say what
+  // it is actually worth rather than just how the points move.
+  const simTeams = loaded.teams.map((t) => ({
+    id: t.id,
+    name: t.name,
+    wins: t.wins,
+    losses: t.losses,
+    ties: t.ties,
+    pointsFor: t.pointsFor,
+    isMine: t.isMine,
+    ...distFor(loaded.rosters.get(t.id) ?? [], slots, loaded.bestBall),
+  }));
+  const baseline = simulateSeason(simTeams, loaded.simConfig, loaded.schedule, 1500, 7);
+  const valueByTeam: Record<string, number> = {};
+  for (const t of loaded.teams) {
+    valueByTeam[t.id] =
+      (loaded.rosters.get(t.id) ?? []).reduce(
+        (sum, p) => sum + loaded.values.player(p.id, p.name, p.position, (ctx.seasonProj.get(normalizeName(p.name)) ?? p.proj * 17)),
+        0,
+      ) + (loaded.picksByTeam.get(t.id) ?? []).reduce((sum, a) => sum + a.value, 0);
+  }
+  const myClass: TeamClass =
+    (baseline.find((r) => r.id === mine.id)?.titleOdds ?? 0) >= 0.15
+      ? "contender"
+      : (baseline.find((r) => r.id === mine.id)?.playoffOdds ?? 0) <= 0.25
+        ? "rebuilder"
+        : "middle";
 
   const ideas: TradeFinderIdea[] = [];
 
@@ -168,6 +212,8 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
     const theirSpare = surplus(theirRoster, slots).slice(0, 3);
 
     let best: TradeFinderIdea | null = null;
+    let bestRoster: EnginePlayer[] = myRoster;
+    let bestValueDelta = 0;
 
     for (const anchor of myFits) {
       for (const sweet of sweeteners) {
@@ -203,6 +249,8 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
             const score = myDelta + theirDelta * 0.8 + (fairness / 100) * 4;
             if (best && score <= best.fitScore) continue;
 
+            bestRoster = swap(myRoster, combo.iGive, combo.iGet);
+            bestValueDelta = getValue - giveValue;
             best = {
               teamId: team.id,
               teamName: team.name,
@@ -219,20 +267,41 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
               fairnessText: fairnessLabel(giveValue, getValue),
               valueGap: Math.round(giveValue - getValue),
               offerText: offerMessage(loaded.league.name, team.name, giveAssets, getAssets, theirDelta),
+              impact: EMPTY_IMPACT,
+              impactLabel: "",
+              impactRank: 0,
             };
           }
         }
       }
     }
 
-    if (best) ideas.push({ ...best, fitScore: round1(fitScore) });
+    if (best) {
+      // One simulation per partner: only the idea that actually gets shown.
+      const impact = recommendationImpact({
+        teams: simTeams,
+        config: loaded.simConfig,
+        schedule: loaded.schedule,
+        teamId: mine.id,
+        baseline,
+        after: distFor(bestRoster, slots, loaded.bestBall),
+        iterations: 900,
+        seed: 7,
+        dynasty: loaded.isDynasty
+          ? { valueByTeam, valueDelta: bestValueDelta }
+          : undefined,
+      });
+      ideas.push({
+        ...best,
+        fitScore: round1(fitScore),
+        impact,
+        impactLabel: primaryImpactText(impact, myClass, loaded.isDynasty),
+        impactRank: impactScore(impact, myClass, loaded.isDynasty),
+      });
+    }
   }
 
-  ideas.sort(
-    (a, b) =>
-      b.myPointsDelta + b.theirPointsDelta * 0.8 - (a.myPointsDelta + a.theirPointsDelta * 0.8) ||
-      b.fairness - a.fairness,
-  );
+  ideas.sort((a, b) => b.impactRank - a.impactRank || b.fairness - a.fairness);
 
-  return { ...base, hasMyTeam: true, myTeamName: mine.name, ideas };
+  return { ...base, teamClass: myClass, hasMyTeam: true, myTeamName: mine.name, ideas };
 }

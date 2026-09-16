@@ -9,6 +9,8 @@
  *  - win-impact of any hypothetical roster change
  */
 
+import { EMPTY_IMPACT, type RecommendationImpact } from "./impact";
+
 export type Slot = string;
 
 export interface EnginePlayer {
@@ -640,4 +642,65 @@ export function positionGrades(
       verdict: ratio >= 1.08 ? "strength" : ratio >= 0.93 ? "solid" : "weakness",
     } as PositionGrade;
   });
+}
+
+// --- recommendation impact -------------------------------------------------
+
+/**
+ * Re-runs the season with one team's roster changed and reports what the change
+ * is worth: the movement in title and playoff odds, and (in dynasty and keeper
+ * leagues) the movement in roster value and where that value ranks.
+ *
+ * The baseline is passed in so a list of suggestions only simulates the
+ * unchanged season once.
+ */
+export function recommendationImpact(input: {
+  teams: SimTeamInput[];
+  config: Parameters<typeof simulateSeason>[1];
+  schedule?: ScheduleGame[];
+  /** The team the recommendation is for. */
+  teamId: string;
+  /** Season odds without the change. */
+  baseline: SimTeamResult[];
+  /** Scoring distribution of the team after the change. */
+  after: { mean: number; sd: number };
+  iterations?: number;
+  seed?: number;
+  /** Dynasty / keeper only: every team's market value and what the move adds. */
+  dynasty?: { valueByTeam: Record<string, number>; valueDelta: number } | undefined;
+}): RecommendationImpact {
+  const base = input.baseline.find((r) => r.id === input.teamId);
+  if (!base) return { ...EMPTY_IMPACT };
+
+  const teams = input.teams.map((t) =>
+    t.id === input.teamId ? { ...t, mean: input.after.mean, sd: input.after.sd } : t,
+  );
+  const after = simulateSeason(
+    teams,
+    input.config,
+    input.schedule ?? [],
+    input.iterations ?? 1200,
+    input.seed ?? 7,
+  ).find((r) => r.id === input.teamId);
+  if (!after) return { ...EMPTY_IMPACT };
+
+  let dynastyValueDelta = 0;
+  let dynastyRankDelta = 0;
+  if (input.dynasty) {
+    const { valueByTeam, valueDelta } = input.dynasty;
+    dynastyValueDelta = valueDelta;
+    const mineBefore = valueByTeam[input.teamId] ?? 0;
+    const others = Object.entries(valueByTeam).filter(([id]) => id !== input.teamId);
+    const rankOf = (value: number) => others.filter(([, v]) => v > value).length + 1;
+    dynastyRankDelta = rankOf(mineBefore) - rankOf(mineBefore + valueDelta);
+  }
+
+  return {
+    titleDelta: after.titleOdds - base.titleOdds,
+    playoffDelta: after.playoffOdds - base.playoffOdds,
+    winDelta: after.projWins - base.projWins,
+    pointsDelta: input.after.mean - base.projPointsPerWeek,
+    dynastyValueDelta,
+    dynastyRankDelta,
+  };
 }

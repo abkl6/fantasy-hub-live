@@ -24,6 +24,10 @@ export interface ThisWeekItem {
   tab: "lineup" | "moves" | "league";
   swap: string | null;
   replacement: string | null;
+  /** "+1.8% title" — the change this move makes, in the team's own terms. */
+  impactLabel: string | null;
+  /** Sort key; bigger is better for this team. */
+  impactRank: number;
 }
 
 export interface ThisWeekLeague {

@@ -44,6 +44,8 @@ import {
   getTrendsFn,
   getWaiverBoard,
   importSleeperDraftFn,
+  logRecommendationActionFn,
+  logRecommendationsShownFn,
   setBestLineupFn,
   updateFaab,
   updateLeagueSettings,
@@ -202,6 +204,21 @@ function LeaguePage() {
         </Button>
       </div>
 
+      {data.classLine && (
+        <section className="mt-6 rounded-xl bg-card p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge>{data.classLine.label}</Badge>
+            <Badge variant="secondary">{data.classLine.badge}</Badge>
+            {data.classLine.numbers.map((n) => (
+              <span key={n} className="stat-num text-sm text-muted-foreground">
+                {n}
+              </span>
+            ))}
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">{data.classLine.reason}</p>
+        </section>
+      )}
+
       {data.typeSource === "inferred" && (
         <LeagueTypePrompt
           leagueId={leagueId}
@@ -316,14 +333,59 @@ function LeaguePage() {
               </p>
             </div>
           )}
+          <ShownLogger
+            leagueId={leagueId}
+            teamId={data.myTeam?.id ?? null}
+            week={data.league.current_week}
+            teamClass={data.teamClass}
+            suggestions={data.suggestions}
+          />
           {!data.suggestions.length && (
             <p className="text-sm text-muted-foreground">
               No moves worth making right now — your lineup is already the strongest one available.
             </p>
           )}
           {data.suggestions.map((s) => (
-            <MoveCard key={s.id} leagueId={leagueId} suggestion={s} onApplied={() => refetch()} />
+            <MoveCard
+              key={s.id}
+              leagueId={leagueId}
+              week={data.league.current_week}
+              teamId={data.myTeam?.id ?? null}
+              teamClass={data.teamClass}
+              suggestion={s}
+              onApplied={() => refetch()}
+            />
           ))}
+
+          {!!data.buySell.length && (
+            <Section title="Buy and sell">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Where the market price and the actual production disagree at each position.
+                </p>
+                {data.buySell.map((row) => (
+                  <div
+                    key={`${row.name}-${row.position}`}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-card p-4"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {row.name}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          {row.position}
+                          {row.nflTeam ? ` · ${row.nflTeam}` : ""}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">{row.reason}</p>
+                    </div>
+                    <Badge variant={row.side === "buy" ? "default" : "secondary"}>
+                      {row.side === "buy" ? "Buy" : "Sell"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
 
           <Section title="Waiver wire">
             <WaiverPanel leagueId={leagueId} onAdded={() => refetch()} />
@@ -1244,12 +1306,80 @@ function MiniSparkline({ points }: { points: number[] }) {
   );
 }
 
+/** Records the suggestions the manager was actually shown, once per week. */
+function ShownLogger({
+  leagueId,
+  teamId,
+  week,
+  teamClass,
+  suggestions,
+}: {
+  leagueId: string;
+  teamId: string | null;
+  week: number;
+  teamClass: string;
+  suggestions: {
+    id: string;
+    kind: string;
+    headline: string;
+    detail: string;
+    titleDelta: number;
+    playoffDelta: number;
+    pointsDelta: number;
+    addName?: string;
+    dropName?: string;
+    impactLabel?: string;
+    impact?: { dynastyValueDelta: number; dynastyRankDelta: number };
+  }[];
+}) {
+  const logShown = useServerFn(logRecommendationsShownFn);
+  const sent = useRef("");
+
+  useEffect(() => {
+    if (!suggestions.length) return;
+    const stamp = `${leagueId}:${week}:${suggestions.map((s) => s.id).join(",")}`;
+    if (sent.current === stamp) return;
+    sent.current = stamp;
+    void logShown({
+      data: {
+        items: suggestions.slice(0, 50).map((s) => ({
+          leagueId,
+          teamId,
+          week,
+          surface: "league",
+          kind: s.kind,
+          recKey: s.id,
+          headline: s.headline,
+          detail: s.detail,
+          addName: s.addName ?? null,
+          dropName: s.dropName ?? null,
+          pointsDelta: s.pointsDelta,
+          titleDelta: s.titleDelta,
+          playoffDelta: s.playoffDelta,
+          dynastyValueDelta: s.impact?.dynastyValueDelta ?? 0,
+          dynastyRankDelta: s.impact?.dynastyRankDelta ?? 0,
+          teamClass,
+          impactLabel: s.impactLabel ?? null,
+        })),
+      },
+    }).catch(() => {});
+  }, [leagueId, teamId, week, teamClass, suggestions, logShown]);
+
+  return null;
+}
+
 function MoveCard({
   leagueId,
+  week,
+  teamId,
+  teamClass,
   suggestion,
   onApplied,
 }: {
   leagueId: string;
+  week: number;
+  teamId: string | null;
+  teamClass: string;
   suggestion: {
     id: string;
     kind: string;
@@ -1267,11 +1397,46 @@ function MoveCard({
     acceptanceBand?: string;
     acceptanceReason?: string;
     partnerPointsDelta?: number;
-
+    impactLabel?: string;
+    impact?: {
+      titleDelta: number;
+      playoffDelta: number;
+      pointsDelta: number;
+      dynastyValueDelta: number;
+      dynastyRankDelta: number;
+    };
   };
   onApplied: () => void;
 }) {
   const apply = useServerFn(applyMoveFn);
+  const logAction = useServerFn(logRecommendationActionFn);
+  const [decision, setDecision] = useState<"taken" | "ignored" | "dismissed" | null>(null);
+
+  const logPayload = {
+    leagueId,
+    teamId,
+    week,
+    surface: "league",
+    kind: suggestion.kind,
+    recKey: suggestion.id,
+    headline: suggestion.headline,
+    detail: suggestion.detail,
+    addName: suggestion.addName ?? null,
+    dropName: suggestion.dropName ?? null,
+    pointsDelta: suggestion.pointsDelta,
+    titleDelta: suggestion.titleDelta,
+    playoffDelta: suggestion.playoffDelta,
+    dynastyValueDelta: suggestion.impact?.dynastyValueDelta ?? 0,
+    dynastyRankDelta: suggestion.impact?.dynastyRankDelta ?? 0,
+    teamClass,
+    impactLabel: suggestion.impactLabel ?? null,
+  };
+
+  const record = useMutation({
+    mutationFn: (action: "taken" | "ignored" | "dismissed") =>
+      logAction({ data: { item: logPayload, action } }),
+    onSuccess: (_r, action) => setDecision(action),
+  });
   const mutation = useMutation({
     mutationFn: () =>
       apply({
@@ -1284,6 +1449,7 @@ function MoveCard({
       }),
     onSuccess: () => {
       toast.success("Move applied");
+      record.mutate("taken");
       onApplied();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not apply move."),
@@ -1338,7 +1504,10 @@ function MoveCard({
           )}
         </div>
         <div className="text-right">
-          <p className="eyebrow text-muted-foreground">Title odds</p>
+          <p className="eyebrow text-muted-foreground">Impact</p>
+          {suggestion.impactLabel ? (
+            <p className="stat-num text-lg text-muted-foreground">{suggestion.impactLabel}</p>
+          ) : null}
 
           <p
             className={`stat-num text-2xl ${suggestion.titleDelta >= 0 ? "text-primary" : "text-destructive"}`}
@@ -1351,14 +1520,47 @@ function MoveCard({
           </p>
         </div>
       </div>
-      {canApply && (
-        <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {canApply && (
           <Button size="sm" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
             {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             Apply this move
           </Button>
-        </div>
-      )}
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={record.isPending}
+          onClick={() => record.mutate("taken")}
+        >
+          I did this
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={record.isPending}
+          onClick={() => record.mutate("ignored")}
+        >
+          Not for me
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={record.isPending}
+          onClick={() => record.mutate("dismissed")}
+        >
+          Hide
+        </Button>
+        {decision && (
+          <span className="text-xs text-muted-foreground">
+            {decision === "taken"
+              ? "Saved — we'll grade it in next week's recap."
+              : decision === "ignored"
+                ? "Noted — we'll tell you how it would have gone."
+                : "Hidden."}
+          </span>
+        )}
+      </div>
     </article>
   );
 }
