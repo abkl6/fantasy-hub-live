@@ -292,7 +292,7 @@ function MyProjectionsUpload() {
   const [open, setOpen] = useState(false);
   const [csv, setCsv] = useState("");
   const [group, setGroup] = useState<UploadGroup>("offense");
-  const [spread, setSpread] = useState<"even" | "sos">("even");
+
 
   const download = useMutation({
     mutationFn: () => template({ data: { group } }),
