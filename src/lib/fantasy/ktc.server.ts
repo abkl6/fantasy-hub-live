@@ -173,10 +173,22 @@ async function backfillPlayerAges(
   const { data: blank } = await admin.from("players").select("id").is("age", null);
   const needed = (blank ?? []).map((r) => r.id as string).filter((id) => ageById.has(id));
 
-  let filled = 0;
+  // Group by age so one update covers every player of that age.
+  const idsByAge = new Map<number, string[]>();
   for (const id of needed) {
-    const { error } = await admin.from("players").update({ age: ageById.get(id)! }).eq("id", id);
-    if (!error) filled += 1;
+    const age = ageById.get(id)!;
+    const list = idsByAge.get(age);
+    if (list) list.push(id);
+    else idsByAge.set(age, [id]);
+  }
+
+  let filled = 0;
+  for (const [age, ids] of idsByAge) {
+    for (let i = 0; i < ids.length; i += 200) {
+      const slice = ids.slice(i, i + 200);
+      const { error } = await admin.from("players").update({ age }).in("id", slice);
+      if (!error) filled += slice.length;
+    }
   }
   return filled;
 }
