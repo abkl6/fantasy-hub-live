@@ -561,7 +561,7 @@ function needLine(
 
 export async function buildGameDay(
   supabase: DB,
-  opts: { leagueId?: string; includeGames?: boolean } = {},
+  opts: { leagueId?: string; includeGames?: boolean; summariesOnly?: boolean } = {},
 ): Promise<GameDayPayload> {
   const { season, week } = await currentLiveWeek();
   // The live scoreboard is the source of truth for game status; stored rows can
