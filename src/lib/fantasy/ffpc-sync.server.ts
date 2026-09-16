@@ -13,7 +13,8 @@ import type { Database } from "@/integrations/supabase/types";
 
 import { FfpcParseError, ffpcLeagueBundle, type FfpcLeagueBundle } from "./ffpc.server";
 import { normalizeName, playerIndex } from "./names";
-import { queueUnmatched, type ManualPlayerRow } from "./manual.server";
+import { queueUnmatched } from "./manual.server";
+import type { ManualPlayerRow } from "./manual-types";
 
 type DB = SupabaseClient<Database>;
 
