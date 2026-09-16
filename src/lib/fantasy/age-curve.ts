@@ -226,7 +226,10 @@ export function trajectoryFor(options: {
   const slope = TIER_SLOPE[tier];
   const ratio = (years: number) => {
     const raw = curveValueAt(curve, age + years) / here;
-    return Math.max(0.05, 1 + (raw - 1) * slope);
+    // Production rank only changes how fast a player falls, not how fast the
+    // curve lifts a young player.
+    const adjusted = raw < 1 ? 1 + (raw - 1) * slope : raw;
+    return Math.max(0.05, adjusted);
   };
   const r1 = ratio(1);
   const r2 = ratio(2);
