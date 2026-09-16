@@ -347,7 +347,28 @@ function DataTab() {
             <RefreshCw className="size-4" aria-hidden="true" />
             Schedule strength
           </Button>
+          <Button asChild size="sm" variant="ghost" disabled={busy}>
+            <label>
+              <Upload className="size-4" aria-hidden="true" />
+              Last season&apos;s points allowed
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onPriorFile(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </Button>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Points allowed columns: nfl_team, position_group, points_allowed_per_game, games. This
+          season&apos;s own results are blended in, fully from eight games on.
+        </p>
+
         <div className="mt-3 divide-y divide-border">
           {(q.data?.batches ?? []).map((b) => (
             <div key={b.id} className="flex items-center justify-between gap-3 py-2">
