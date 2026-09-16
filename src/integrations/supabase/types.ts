@@ -229,6 +229,7 @@ export type Database = {
           last_confirmed_at: string | null
           last_sync_error: string | null
           last_synced_at: string | null
+          league_type: string
           name: string
           platform: string
           playoff_teams: number
@@ -242,8 +243,10 @@ export type Database = {
           season: number
           sync_paused: boolean
           team_count: number
+          type_source: string
           updated_at: string
           user_id: string
+          variant: string
           weekly_high_bonus: boolean
           weekly_high_label: string | null
         }
@@ -260,6 +263,7 @@ export type Database = {
           last_confirmed_at?: string | null
           last_sync_error?: string | null
           last_synced_at?: string | null
+          league_type?: string
           name: string
           platform?: string
           playoff_teams?: number
@@ -273,8 +277,10 @@ export type Database = {
           season?: number
           sync_paused?: boolean
           team_count?: number
+          type_source?: string
           updated_at?: string
           user_id: string
+          variant?: string
           weekly_high_bonus?: boolean
           weekly_high_label?: string | null
         }
@@ -291,6 +297,7 @@ export type Database = {
           last_confirmed_at?: string | null
           last_sync_error?: string | null
           last_synced_at?: string | null
+          league_type?: string
           name?: string
           platform?: string
           playoff_teams?: number
@@ -304,8 +311,10 @@ export type Database = {
           season?: number
           sync_paused?: boolean
           team_count?: number
+          type_source?: string
           updated_at?: string
           user_id?: string
+          variant?: string
           weekly_high_bonus?: boolean
           weekly_high_label?: string | null
         }
