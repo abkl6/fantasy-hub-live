@@ -1,0 +1,1 @@
+ALTER TABLE public.leagues ADD COLUMN IF NOT EXISTS eligible_positions jsonb NOT NULL DEFAULT '[]'::jsonb;
