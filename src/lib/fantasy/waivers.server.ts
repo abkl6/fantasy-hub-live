@@ -41,6 +41,18 @@ import {
 import { classifyTeam } from "./team-class";
 import { strategyFor, type StrategyMode } from "./strategy";
 import {
+  applyBidRules,
+  dropAllowed,
+  duplicateStreamer,
+  isHandcuff,
+  isStreamPosition,
+  playoffScheduleWeight,
+  replacementLevels,
+  ruleNote,
+  valueOverReplacement,
+} from "./rules";
+import { loadStrategyRules } from "./rules.server";
+import {
   bidRecommendation,
   isInjuredStatus,
   rankWaivers,
@@ -133,6 +145,7 @@ export async function buildWaiverBoard(
       fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
     ]);
 
+  const book = await loadStrategyRules(supabase);
   const slots = asSlots(league.roster_slots);
   const teams = teamRows ?? [];
   const spots = spotRows ?? [];
@@ -319,6 +332,21 @@ export async function buildWaiverBoard(
   // Hurt, out and suspended players are hidden unless they are asked for.
   const eligible = freeAgents.filter((p) => opts.showInjured || !isInjuredStatus(p.status));
 
+  // --- strategy layer ------------------------------------------------------
+  // Value over replacement is measured against the wire itself: the best free
+  // agent at the same position you could add instead of this one.
+  const wireLevels = replacementLevels(
+    eligible.map((p) => ({ id: p.id, position: p.position, proj: p.projSeason })),
+  );
+  const weekLevels = replacementLevels(
+    eligible.map((p) => ({ id: p.id, position: p.position, proj: p.projWeek })),
+  );
+  // The five best names on the wire set the bar a drop has to clear.
+  const topWireWeek = [...eligible]
+    .sort((a, b) => b.projWeek - a.projWeek)
+    .slice(0, 12)
+    .map((p) => p.projWeek);
+
   // --- championship impact for the strongest candidates --------------------
   const impacts = new Map<
     string,
@@ -427,11 +455,15 @@ export async function buildWaiverBoard(
     for (const fa of eligible.slice(0, SCORED_CANDIDATES)) {
       // Only ever suggest dropping someone the new player can actually cover:
       // same position, or a flex slot they both fit.
-      const droppable = byValue.filter(
-        (p) =>
-          p.position === fa.position ||
-          slots.some((s) => slotAccepts(s, p.position) && slotAccepts(s, fa.position)),
-      );
+      const droppable = byValue
+        .filter(
+          (p) =>
+            p.position === fa.position ||
+            slots.some((s) => slotAccepts(s, p.position) && slotAccepts(s, fa.position)),
+        )
+        // Never suggest cutting someone who would be a top-five add the moment
+        // he hits the wire.
+        .filter((p) => dropAllowed(book, p.proj, topWireWeek).allowed);
       const candidate: EnginePlayer = {
         id: fa.id,
         name: fa.name,
