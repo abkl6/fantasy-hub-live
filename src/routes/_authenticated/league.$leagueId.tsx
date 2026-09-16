@@ -220,6 +220,9 @@ function LeaguePage() {
             ))}
           </div>
           <p className="mt-2 text-sm text-muted-foreground">{data.classLine.reason}</p>
+          <Link to="/how-advice-works" className="mt-2 inline-block text-xs text-muted-foreground underline">
+            How advice works
+          </Link>
         </section>
       )}
 
