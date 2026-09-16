@@ -199,6 +199,10 @@ export function parseLeagueHome(html: string, leagueId: string) {
     /NFLScoreboardDiv[\s\S]*?upNFLSchedule[\s\S]*?Week(?:&nbsp;|\s)*(\d{1,2})/i,
   );
 
+  // Best ball leagues have no head-to-head record: their standings are a
+  // Team | Pts table and there is no weekly opponent anywhere on the page.
+  const isBestBall = /best\s*ball/i.test(text(infoMatch?.[2] ?? ""));
+
   const standings =
     findTable(html, "team", "pts") ??
     findTable(html, "team", "points") ??
@@ -208,6 +212,8 @@ export function parseLeagueHome(html: string, leagueId: string) {
   const teams: FfpcTeam[] = [];
   if (standings) {
     const usesVp = standings.headers.some((header) => /season\s*vp/i.test(header));
+    // A record table has its own W column; a points-only table does not.
+    const usesRecord = standings.headers.some((header) => /^w$/i.test(header.trim()));
     let division: string | null = null;
 
     for (let i = 0; i < standings.rows.length; i++) {
@@ -218,7 +224,8 @@ export function parseLeagueHome(html: string, leagueId: string) {
         division = first;
         continue;
       }
-      if (!first || /^#|^total/i.test(first) || row.length < 7) continue;
+      if (!first || /^#|^total/i.test(first)) continue;
+      if (row.length < (usesRecord ? 7 : 2)) continue;
       const seedMatch = first.match(/\s+#(\d+)\s*$/);
       const teamName = first.replace(/\s+#\d+\s*$/, "").trim();
       const externalId =
@@ -231,12 +238,12 @@ export function parseLeagueHome(html: string, leagueId: string) {
         name: teamName,
         ownerName: null,
         isMine: externalId === (infoMatch?.[3] ?? null),
-        wins: toNumber(row[1]),
-        losses: toNumber(row[2]),
-        ties: toNumber(row[3]),
-        pointsFor: toNumber(row[usesVp ? 5 : 4]),
-        pointsAgainst: toNumber(row[usesVp ? 6 : 5]),
-        vp: usesVp ? toNumber(row[4]) : 0,
+        wins: usesRecord ? toNumber(row[1]) : 0,
+        losses: usesRecord ? toNumber(row[2]) : 0,
+        ties: usesRecord ? toNumber(row[3]) : 0,
+        pointsFor: usesRecord ? toNumber(row[usesVp ? 5 : 4]) : toNumber(row[1]),
+        pointsAgainst: usesRecord ? toNumber(row[usesVp ? 6 : 5]) : 0,
+        vp: usesRecord && usesVp ? toNumber(row[4]) : 0,
         division,
         playoffSeed: seedMatch ? Number(seedMatch[1]) : null,
         faabRemaining: null,
