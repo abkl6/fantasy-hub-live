@@ -152,6 +152,35 @@ interface PlayerRow {
   position: string;
 }
 
+/**
+ * Keep Trade Cut carries an age for every ranked player, so it is our primary
+ * age source. Our own record is filled in from it wherever it is still blank;
+ * an age we already hold is left alone.
+ */
+async function backfillPlayerAges(
+  admin: DB,
+  players: KtcPlayerValue[],
+  byKey: Map<string, string>,
+) {
+  const ageById = new Map<string, number>();
+  for (const player of players) {
+    if (player.age == null || !Number.isFinite(player.age) || player.age <= 0) continue;
+    const id = byKey.get(`${normalizeName(player.name)}|${player.position}`);
+    if (id && !ageById.has(id)) ageById.set(id, player.age);
+  }
+  if (!ageById.size) return 0;
+
+  const { data: blank } = await admin.from("players").select("id").is("age", null);
+  const needed = (blank ?? []).map((r) => r.id as string).filter((id) => ageById.has(id));
+
+  let filled = 0;
+  for (const id of needed) {
+    const { error } = await admin.from("players").update({ age: ageById.get(id)! }).eq("id", id);
+    if (!error) filled += 1;
+  }
+  return filled;
+}
+
 /** Writes values to the database, matching players by normalized name + position. */
 export async function saveKtcValues(
   admin: DB,
