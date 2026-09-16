@@ -340,12 +340,55 @@ function MyProjectionsUpload() {
         <DialogHeader>
           <DialogTitle>Upload my own projections</DialogTitle>
           <DialogDescription>
-            A CSV of stats per player. Include a week column for week-by-week numbers, or leave it
-            out for season totals, which are spread across the weeks that player&apos;s team plays.
-            Only leagues set to &quot;My projections&quot; use these.
+            Download the template for the group you&apos;re projecting, fill in a season total per
+            player, and upload it. Week-by-week files work too — just keep the week column. Only
+            leagues set to &quot;My projections&quot; use these.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="proj-group">Group</Label>
+              <select
+                id="proj-group"
+                className="mt-1 h-9 w-full rounded-md bg-secondary px-3 text-sm"
+                value={group}
+                onChange={(e) => {
+                  setGroup(e.target.value as UploadGroup);
+                  run.reset();
+                }}
+              >
+                {GROUP_CHOICES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="proj-spread">Season totals split</Label>
+              <select
+                id="proj-spread"
+                className="mt-1 h-9 w-full rounded-md bg-secondary px-3 text-sm"
+                value={spread}
+                onChange={(e) => {
+                  setSpread(e.target.value as "even" | "sos");
+                  run.reset();
+                }}
+              >
+                <option value="even">Evenly across the season</option>
+                <option value="sos">Shaped by how tough each week is</option>
+              </select>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => download.mutate()}
+            disabled={download.isPending}
+          >
+            Download the {GROUP_CHOICES.find((c) => c.value === group)?.label.toLowerCase()} template
+          </Button>
           <Input
             type="file"
             accept=".csv,text/csv"
