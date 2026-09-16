@@ -229,6 +229,7 @@ const ESPN_STAT_IDS: Record<string, string> = {
 
 interface EspnPlayerEntry {
   player?: {
+    id?: number | string;
     fullName?: string;
     defaultPositionId?: number;
     proTeamId?: number;
