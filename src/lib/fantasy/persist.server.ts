@@ -113,7 +113,7 @@ export async function persistBundle(
       league_type: leagueType,
       variant,
       type_source: typeSource,
-      format: effectiveFormat(leagueType, variant),
+      format: effectiveFormat(leagueType, variant, bundle.format ?? null),
       last_synced_at: new Date().toISOString(),
     })
     .select()
