@@ -365,22 +365,12 @@ function MyProjectionsUpload() {
                 ))}
               </select>
             </div>
-            <div>
-              <Label htmlFor="proj-spread">Season totals split</Label>
-              <select
-                id="proj-spread"
-                className="mt-1 h-9 w-full rounded-md bg-secondary px-3 text-sm"
-                value={spread}
-                onChange={(e) => {
-                  setSpread(e.target.value as "even" | "sos");
-                  run.reset();
-                }}
-              >
-                <option value="even">Evenly across the season</option>
-                <option value="sos">Shaped by how tough each week is</option>
-              </select>
+            <div className="self-end text-xs text-muted-foreground">
+              Season totals are stored whole. Each league splits them into weeks itself — evenly, or
+              shaped by the schedule when that league has schedule adjustment on.
             </div>
           </div>
+
           <Button
             size="sm"
             variant="secondary"
