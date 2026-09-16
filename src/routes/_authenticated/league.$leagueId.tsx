@@ -23,6 +23,8 @@ import { useCachedQuery } from "@/hooks/useCachedQuery";
 import type { TeamBadge as TeamBadgeValue } from "@/lib/fantasy/team-class";
 import { TeamBadge } from "@/components/TeamBadge";
 import { TradeBuilder } from "@/components/TradeBuilder";
+import { TrajectoryChip } from "@/components/TrajectoryChip";
+import type { PlayerTrajectory } from "@/lib/fantasy/analysis.server";
 import { GameDayBoard } from "@/components/GameDayBoard";
 import { ManualUpkeep } from "@/components/ManualUpkeep";
 import { Badge } from "@/components/ui/badge";
