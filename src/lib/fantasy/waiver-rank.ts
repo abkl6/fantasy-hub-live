@@ -123,6 +123,9 @@ export function rankWaivers<T extends RankableRow>(rows: T[], opts: RankOptions)
 
 // --- bid ceilings ----------------------------------------------------------
 
+/** Points a week that marks a genuine starter, the yardstick for a full bid. */
+const STARTER_WEEK_POINTS = 14;
+
 export interface BidCeilingInput {
   /** League FAAB budget. */
   budget: number;
