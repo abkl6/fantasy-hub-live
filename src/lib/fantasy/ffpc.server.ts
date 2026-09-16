@@ -596,7 +596,8 @@ export async function ffpcLeagueBundle(
     } catch {
       /* fall through to per-team lineups */
     }
-    for (const team of home.teams) {
+    // Best ball has no lineups to set — FFPC scores the best roster itself.
+    for (const team of home.isBestBall ? [] : home.teams) {
       try {
         const html = await getPage("SetLineup.aspx", ltuid, {
           leagueID: leagueId,
