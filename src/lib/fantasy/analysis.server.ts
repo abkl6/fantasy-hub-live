@@ -866,12 +866,23 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       );
       const gain = s.player.proj - benchedProj;
       if (gain < 0.6) continue;
+      // Never promote a player priced from a weaker source than the one the
+      // player he would replace is priced from, and never one we cannot
+      // identify at all.
+      const upBasis = proj.basis(s.player.id, s.player.name);
+      if (upBasis === "unknown") continue;
+      const downBasis = proj.basis(benched.player_id, benched.player_name);
+      if (upBasis === "fallback" && downBasis === "source") continue;
+      const basisNote =
+        upBasis === "fallback"
+          ? ` No number for ${s.player.name} in ${proj.sourceLabel} — this is your platform's estimate.`
+          : "";
       const impact = whatIf(mine.roster);
       suggestions.push({
         id: `start-${s.player.name}`,
         kind: "start-sit",
         headline: `Start ${s.player.name} over ${benched.player_name}`,
-        detail: `${s.slot} slot. Projection goes from ${benchedProj.toFixed(1)} to ${s.player.proj.toFixed(1)} points this week.`,
+        detail: `${s.slot} slot. Projection goes from ${benchedProj.toFixed(1)} to ${s.player.proj.toFixed(1)} points this week.${basisNote}`,
         pointsDelta: Math.round(gain * 10) / 10,
         winDelta: Math.round(impact.winDelta * 100) / 100,
         titleDelta: impact.titleDelta,
@@ -890,6 +901,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const freeAgents = players
     .filter((p) => !rosteredNames.has(normalizeName(p.full_name)))
     .filter((p) => usablePosition(p.position.toUpperCase()))
+    .filter((p) => proj.basis(p.id, p.full_name) !== "unknown")
     .map<EnginePlayer>((p) => ({
       id: p.id,
       name: p.full_name,

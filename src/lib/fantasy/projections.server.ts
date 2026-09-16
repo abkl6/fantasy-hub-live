@@ -41,6 +41,16 @@ export interface ProjectionSet {
   /** This week's opponent from the projection database, when known. */
   opponent(playerId: string | null | undefined, name: string | null | undefined): string | null;
   hasOverride(playerId: string | null | undefined, name: string | null | undefined): boolean;
+  /**
+   * Where this player's number came from:
+   * "source"  - the league's chosen projection source,
+   * "fallback"- no number in that source, so the platform's own figure,
+   * "unknown" - the name matches no known NFL player at all.
+   */
+  basis(
+    playerId: string | null | undefined,
+    name: string | null | undefined,
+  ): "source" | "fallback" | "unknown";
   /** Where these numbers come from, e.g. "Sleeper projections". */
   sourceLabel: string;
   /** True when this league adjusts numbers for opponent strength. */
@@ -58,6 +68,7 @@ const EMPTY: ProjectionSet = {
   season: (_id, _name, _pos, base) => base,
   opponent: () => null,
   hasOverride: () => false,
+  basis: () => "source",
   sourceLabel: "App projections",
   sosOn: false,
   matchupRating: () => null,
@@ -253,9 +264,23 @@ export async function loadProjections(
     return strength.multiplier(position, line.opponent);
   };
 
+  /** See ProjectionSet.basis. */
+  const basisOf = (
+    playerId: string | null | undefined,
+    name: string | null | undefined,
+  ): "source" | "fallback" | "unknown" => {
+    if (find(playerId, name)) return "source";
+    if (playerId && weekStats.has(playerId)) return "source";
+    // For a platform-sourced league the number carried on the roster is the source.
+    if (source.setting === "platform") return "source";
+    return playerId ? "fallback" : "unknown";
+  };
+
   return {
     count: byId.size,
+    basis: basisOf,
     week: (playerId, name, position, base) => {
+      if (basisOf(playerId, name) === "unknown") return 0;
       const override = find(playerId, name);
       if (override) {
         const m = flat(playerId, position);

@@ -404,6 +404,24 @@ function MyProjectionsUpload() {
               {result.unmatched.length > 0 && (
                 <p className="text-muted-foreground">Not recognised: {result.unmatched.join(", ")}</p>
               )}
+              <p className="text-muted-foreground">
+                Columns read: {result.recognised.join(", ") || "none"}
+                {result.unrecognised.length > 0
+                  ? ` · ignored: ${result.unrecognised.join(", ")}`
+                  : ""}
+              </p>
+              {result.preview.length > 0 && (
+                <div className="text-muted-foreground">
+                  <p>Check these look right before saving:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {result.preview.map((row) => (
+                      <li key={`${row.name}-${row.points}`}>
+                        {row.name} ({row.position}) — {row.points.toFixed(1)} pts
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <Button onClick={() => run.mutate(true)} disabled={run.isPending || !result.matchedCount}>
                 Save {result.rowsWritten} {result.mode === "weekly" ? "weekly lines" : "season totals"}
               </Button>
