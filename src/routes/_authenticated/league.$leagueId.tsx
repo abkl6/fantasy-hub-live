@@ -852,9 +852,16 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
             variant={sort === s.id ? "secondary" : "ghost"}
             onClick={() => setSort(s.id)}
           >
-            {s.label}
+            {s.id === "impact" && data?.isSurvivalLeague ? "Survival impact" : s.label}
           </Button>
         ))}
+        <Button
+          size="sm"
+          variant={showInjured ? "secondary" : "ghost"}
+          onClick={() => setShowInjured((v) => !v)}
+        >
+          {showInjured ? "Hiding nobody" : "Show injured"}
+        </Button>
       </div>
 
       {data && (
@@ -865,6 +872,7 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
           {data.estimatedRosterSpots
             ? " Some rival rosters are estimated, so this list is approximate."
             : ""}
+          {` Projections: ${data.projectionLabel.toLowerCase()}.`}
         </p>
       )}
 
