@@ -522,6 +522,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         }),
         dynastyValue: dynastyValueById.get(r.id) ?? null,
         dynastyRank: dynastyRankById.get(r.id) ?? null,
+        unknownAgeCount: unknownAgeById.get(r.id) ?? 0,
         weeklyHighs: 0,
         vp: vpByTeam.get(r.id) ?? 0,
       };
