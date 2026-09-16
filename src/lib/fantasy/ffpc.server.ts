@@ -23,6 +23,7 @@ import {
   type FfpcPlayer,
   type HtmlTable,
 } from "./ffpc-parse";
+import { parseLeagueSettings, type FfpcLeagueSettings } from "./ffpc-settings";
 import { normalizeName } from "./names";
 
 const HOST = "https://myffpc.com";
@@ -148,6 +149,11 @@ export interface FfpcScoreboardTeam {
   yetToPlay: number;
 }
 
+export interface FfpcSettingsBundle extends FfpcLeagueSettings {
+  /** Tiebreaker and seeding wording from the league rules page. */
+  rulesText: string | null;
+}
+
 export interface FfpcLeagueBundle {
   externalId: string;
   name: string;
@@ -166,6 +172,10 @@ export interface FfpcLeagueBundle {
   rosterSlots: string[];
   contestFormat: "h2h" | "points" | "hybrid" | "vp";
   allPlayWeeks: number[];
+  /** Playoff / waiver / division settings read off the league home page. */
+  settings: FfpcSettingsBundle;
+  /** Non-fatal read problems, surfaced in the admin Errors tab. */
+  parseWarnings: string[];
   faabBudget: number;
   myTeamExternalId: string | null;
   teams: FfpcTeam[];
@@ -288,6 +298,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
   }
 
   const myRoster = parseRosterTable(findTable(html, "slot", "player", "pos", "bye"));
+  const settings = parseLeagueSettings(html);
 
   return {
     name: name || `FFPC league ${leagueId}`,
