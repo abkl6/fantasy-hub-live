@@ -234,8 +234,15 @@ export async function loadProjections(
         games && games.length
           ? games
           : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
+      // Once real games exist, the rest of the season runs on the blended
+      // per-game rate rather than the preseason total.
+      const blend = blendByPlayer.get(playerId);
+      const totals =
+        blend && blend.weight > 0
+          ? ratesToTotals(blend.perGame, play.length)
+          : ((entry.stats ?? {}) as Record<string, number>);
       const split = spreadSeasonTotals(
-        (entry.stats ?? {}) as Record<string, number>,
+        totals,
         play,
         meta?.position ?? null,
         sosOn ? (group, opponent) => strength.category(group, opponent) : undefined,
