@@ -7,7 +7,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis } from "./analysis.server";
+import { leagueAnalysis } from "./cache.server";
 import { buildWaiverBoard } from "./waivers.server";
+
 import { impactAddKey, impactScore, impactSwapKey, primaryImpactText } from "./impact";
 import { nextKickoff, nextWaiverRun } from "./gamewindow";
 import { manualFreshness } from "./manual-types";
@@ -45,9 +47,10 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
 
   const { data: leagueRows, error } = await supabase
     .from("leagues")
-    .select("id, name, platform, color, current_week, last_confirmed_at")
+    .select("id, name, platform, color, current_week, last_confirmed_at, user_id")
     .order("created_at");
   if (error) throw new Error(error.message);
+
 
   // How often each kind of advice has been right lately. Kinds that have been
   // landing get pushed up the list; kinds that have not drop down.
@@ -68,7 +71,9 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
   const leagues: ThisWeekLeague[] = [];
 
   for (const row of leagueRows ?? []) {
-    const analysis = await buildAnalysis(supabase, row.id);
+    // Reuse the league's stored analysis; only a cold cache rebuilds it here.
+    const analysis = await leagueAnalysis(supabase, row.user_id, row.id);
+
     if (!analysis.myTeam) continue;
     const week = row.current_week;
     const items: ThisWeekItem[] = [];

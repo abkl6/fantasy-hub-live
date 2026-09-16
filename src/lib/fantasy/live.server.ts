@@ -500,11 +500,15 @@ async function warmActiveLeagues(admin: DB): Promise<void> {
     .select("id, user_id, last_synced_at")
     .gte("last_synced_at", since)
     .limit(50);
-  const { warmLeagueCache } = await import("./cache.server");
+  const { enqueueLeagueJobs } = await import("./jobs.server");
+  const { runComputeJobs } = await import("./jobs.server");
   for (const row of data ?? []) {
-    await warmLeagueCache(admin, row.user_id, row.id);
+    await enqueueLeagueJobs(admin, row.user_id, row.id).catch(() => {});
   }
+  // Live windows poll every couple of minutes, so drain a slice right away.
+  await runComputeJobs(admin, { limit: 4 }).catch(() => {});
 }
+
 
 
 // ---------------------------------------------------------------- game day
@@ -557,7 +561,7 @@ function needLine(
 
 export async function buildGameDay(
   supabase: DB,
-  opts: { leagueId?: string; includeGames?: boolean } = {},
+  opts: { leagueId?: string; includeGames?: boolean; summariesOnly?: boolean } = {},
 ): Promise<GameDayPayload> {
   const { season, week } = await currentLiveWeek();
   // The live scoreboard is the source of truth for game status; stored rows can
@@ -1054,10 +1058,15 @@ export async function buildGameDay(
     season,
     week,
     updatedAt,
-    matchups,
+    // Summary mode ships the scoreboard only; player rows arrive when a card
+    // is opened, which keeps the cross-league payload small.
+    matchups: opts.summariesOnly
+      ? matchups.map((m) => ({ ...m, starters: [], bench: [], oppStarters: [], oppBench: [] }))
+      : matchups,
     events: events.slice(0, 120),
     games,
     nextKickoff: nextKickoffFrom(board),
   };
+
 
 }

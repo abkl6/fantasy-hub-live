@@ -148,9 +148,33 @@ function PointsRaceScore({ m, display }: { m: LiveMatchup; display: number }) {
   );
 }
 
-function MatchupCard({ m }: { m: LiveMatchup }) {
+function MatchupCard({ m: summary }: { m: LiveMatchup }) {
   const [expanded, setExpanded] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // The board arrives without player rows; they load the first time a card opens.
+  const [detail, setDetail] = useState<LiveMatchup | null>(null);
+  const loadDetail = useServerFn(getGameDayFn);
+  const m = detail ?? summary;
+  const needsDetail = expanded && !detail && summary.starters.length === 0;
+
+  useEffect(() => {
+    if (!needsDetail) return;
+    let cancelled = false;
+    loadDetail({ data: { leagueId: summary.leagueId } })
+      .then((res) => {
+        if (cancelled) return;
+        const found = res.matchups.find((x) => x.leagueId === summary.leagueId);
+        if (found) setDetail(found as LiveMatchup);
+      })
+      .catch(() => {
+        // Leaving the card empty is better than losing the whole board.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsDetail, summary.leagueId, loadDetail]);
+
+
   const odds = m.winProbability === null ? null : Math.round(m.winProbability * 100);
   const mine = useCountUp(m.myScore);
   const theirs = useCountUp(m.oppScore);
@@ -318,7 +342,9 @@ function MatchupCard({ m }: { m: LiveMatchup }) {
                 {m.starters.map((p) => (
                   <PlayerLine key={`${p.name}-${p.slot}`} p={p} />
                 ))}
+                {needsDetail && <p className="py-2 text-sm text-muted-foreground">Loading players…</p>}
               </div>
+
             </div>
             {!pointsOnly && (
               <div>
@@ -442,7 +468,16 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
   const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
     cacheKey: `gameday:${leagueId ?? "all"}`,
     queryKey: ["gameday", leagueId ?? "all"],
-    queryFn: () => fetchGameDay({ data: { ...(leagueId ? { leagueId } : {}), refresh: true } }),
+    queryFn: () =>
+      fetchGameDay({
+        data: {
+          ...(leagueId ? { leagueId } : {}),
+          refresh: true,
+          // Scoreboard first; a card fetches its own player rows when opened.
+          ...(leagueId ? {} : { summaries: true }),
+        },
+      }),
+
     refetchOnWindowFocus: true,
     refetchInterval: interval || false,
   });

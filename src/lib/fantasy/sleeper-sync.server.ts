@@ -186,9 +186,11 @@ export async function refreshSleeperLeague(
   const { syncLeagueRosters } = await import("./rosters.server");
   await syncLeagueRosters(supabase, userId, league.id);
 
-  // Fresh data means the stored page payloads are out of date; rebuild them.
-  const { warmLeagueCache } = await import("./cache.server");
-  await warmLeagueCache(supabase, userId, league.id).catch(() => {});
+  // Fresh data means the stored page payloads are out of date; the background
+  // worker rebuilds them so the next page load is a plain read.
+  const { enqueueLeagueJobs } = await import("./jobs.server");
+  await enqueueLeagueJobs(supabase, userId, league.id).catch(() => {});
+
 
   return { refreshed: true };
 

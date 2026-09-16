@@ -190,7 +190,13 @@ function LeaguePage() {
             <LeagueColorPicker leagueId={leagueId} current={(data.league as { color?: string | null }).color ?? null} />
           </div>
           <div className="mt-1">
-            <CacheStatus updating={updating} stale={stale} lastUpdated={lastUpdated} />
+            <CacheStatus
+              updating={updating}
+              stale={stale}
+              lastUpdated={lastUpdated}
+              computedAt={(data as { computedAt?: string | null }).computedAt ?? null}
+            />
+
           </div>
           {me && (
             <p className="mt-1 text-sm text-muted-foreground">

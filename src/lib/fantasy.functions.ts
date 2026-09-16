@@ -108,9 +108,9 @@ export const getAnalysis = createServerFn({ method: "POST" })
     // Refresh injury/status data in the background.
     await syncPlayerNews(context.supabase).catch(() => {});
 
-    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const { cachedWithMeta, leagueInputsHash } = await import("./fantasy/cache.server");
     const hash = await leagueInputsHash(context.supabase, data.leagueId);
-    return cached(
+    const result = await cachedWithMeta(
       context.supabase,
       {
         userId: context.userId,
@@ -121,6 +121,8 @@ export const getAnalysis = createServerFn({ method: "POST" })
       hash,
       () => buildAnalysis(context.supabase, data.leagueId),
     );
+    // The screen shows "updated N min ago" from this.
+    return { ...result.payload, computedAt: result.computedAt };
   });
 
 /** Clears a league's stored results so the next load recomputes from scratch. */
@@ -130,8 +132,15 @@ export const clearLeagueCache = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { clearCache } = await import("./fantasy/cache.server");
     await clearCache(context.supabase, context.userId, data.leagueId);
+    // Rebuild in the background so the next visit is a read again.
+    const { enqueueLeagueJobs } = await import("./fantasy/jobs.server");
+    await enqueueLeagueJobs(context.supabase, context.userId, data.leagueId, {
+      priority: 0,
+    }).catch(() => {});
+
     return { ok: true };
   });
+
 
 
 export const deleteLeague = createServerFn({ method: "POST" })
@@ -933,6 +942,21 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { buildWaiverBoard } = await import("./fantasy/waivers.server");
+    const plainView =
+      !data.search && !data.position && (!data.sort || data.sort === "impact") && !data.showInjured;
+
+    if (plainView) {
+      // The worker scores the wire after every sync, so the default board is a read.
+      const { readCached, componentHashes } = await import("./fantasy/cache.server");
+      const parts = await componentHashes(context.supabase, data.leagueId);
+      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(
+        context.supabase,
+        { userId: context.userId, leagueId: data.leagueId, kind: "impact", suffix: "waivers" },
+        parts.sim,
+      );
+      if (hit) return { ...hit.payload, computedAt: hit.computedAt };
+    }
+
     return buildWaiverBoard(context.supabase, data.leagueId, {
       ...(data.search ? { search: data.search } : {}),
       ...(data.position ? { position: data.position } : {}),
@@ -941,6 +965,7 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
       limit: 60,
     });
   });
+
 
 // ---------------------------------------------------------------- playoff + trends
 
@@ -1219,6 +1244,9 @@ export const getGameDayFn = createServerFn({ method: "POST" })
         leagueId: z.string().uuid().optional(),
         refresh: z.boolean().optional(),
         games: z.boolean().optional(),
+        /** Scoreboard only; player rows are fetched when a card is opened. */
+        summaries: z.boolean().optional(),
+
       })
       .parse(d ?? {}),
   )
@@ -1238,7 +1266,9 @@ export const getGameDayFn = createServerFn({ method: "POST" })
       buildGameDay(context.supabase, {
         ...(data.leagueId ? { leagueId: data.leagueId } : {}),
         ...(data.games ? { includeGames: true } : {}),
+        ...(data.summaries ? { summariesOnly: true } : {}),
       });
+
 
     // Only the per-league board is cached; the cross-league board and the
     // games view are cheap and want the freshest scoreboard.
@@ -1266,12 +1296,17 @@ export const getThisWeekFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildThisWeek } = await import("./fantasy/this-week.server");
-    const { cached, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
     const hash = await allLeaguesInputsHash(context.supabase);
-    return cached(context.supabase, { userId: context.userId, kind: "this-week" }, hash, () =>
-      buildThisWeek(context.supabase),
+    const result = await cachedWithMeta(
+      context.supabase,
+      { userId: context.userId, kind: "this-week" },
+      hash,
+      () => buildThisWeek(context.supabase),
     );
+    return { ...result.payload, computedAt: result.computedAt };
   });
+
 
 
 export const getLineupCheckFn = createServerFn({ method: "GET" })
@@ -1293,8 +1328,17 @@ export const getTradeFinderFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { buildTradeFinder } = await import("./fantasy/trade-finder.server");
+    const { readCached, componentHashes } = await import("./fantasy/cache.server");
+    const parts = await componentHashes(context.supabase, data.leagueId);
+    const hit = await readCached<Awaited<ReturnType<typeof buildTradeFinder>>>(
+      context.supabase,
+      { userId: context.userId, leagueId: data.leagueId, kind: "impact", suffix: "trades" },
+      parts.sim,
+    );
+    if (hit) return { ...hit.payload, computedAt: hit.computedAt };
     return buildTradeFinder(context.supabase, data.leagueId);
   });
+
 
 // ------------------------------------------------- recommendation tracking
 

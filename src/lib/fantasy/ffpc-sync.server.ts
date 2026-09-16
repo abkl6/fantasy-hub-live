@@ -429,6 +429,10 @@ export async function refreshFfpcLeague(
     // A link that worked for this league is pinned to it, so a later league's
     // link can never be used against it.
     await saveFfpcToken(supabase, userId, ltuid, league.external_id);
+    // Queue the rebuild rather than running it inside this request.
+    const { enqueueLeagueJobs } = await import("./jobs.server");
+    await enqueueLeagueJobs(supabase, userId, leagueId).catch(() => {});
+
     return { refreshed: true };
   } catch (error) {
     const reason = await recordFfpcFailure(supabase, userId, leagueId, error);
