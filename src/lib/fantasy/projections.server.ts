@@ -142,9 +142,11 @@ export async function loadProjections(
   }
 
   // Highest-priority source wins; the app database only fills the gaps.
+  // `shaped` marks a line that already had the matchup applied when it was
+  // split out of a season total, so it is never adjusted twice.
   const weekStats = new Map<
     string,
-    { stats: StatLine | null; opponent: string | null; rank: number }
+    { stats: StatLine | null; opponent: string | null; rank: number; shaped: boolean; weekly: boolean }
   >();
   for (const row of weekRows) {
     const order = rank.get(row.source) ?? 99;
@@ -154,8 +156,11 @@ export async function loadProjections(
       stats: asStats(row.stats),
       opponent: row.opponent,
       rank: order,
+      shaped: false,
+      weekly: WEEKLY_SOURCES.has(row.source),
     });
   }
+
 
   // Season totals are stored whole and split here, so a league can change its
   // mind about schedule adjustment without anyone re-uploading anything.
