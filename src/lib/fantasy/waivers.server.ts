@@ -166,11 +166,11 @@ export async function buildWaiverBoard(
   const cutNames = new Set(
     spots.filter((s) => cutTeamIds.has(s.team_id)).map((s) => key(s.player_name)),
   );
-  const eligible = asEligiblePositions(
+  const eligiblePos = asEligiblePositions(
     (league as { eligible_positions?: unknown }).eligible_positions,
     slots,
   );
-  const usablePosition = (position: string) => isEligiblePosition(position, eligible);
+  const usablePosition = (position: string) => isEligiblePosition(position, eligiblePos);
 
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
   const format = asFormat((league as { format?: string }).format);
