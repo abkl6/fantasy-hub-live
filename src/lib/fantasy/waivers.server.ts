@@ -116,6 +116,8 @@ export interface WaiverBoard {
   /** My roster has an unfilled kicker / defense slot. */
   needsKicker: boolean;
   needsDefense: boolean;
+  /** The strategy rules that shaped this board, for the explainer link. */
+  ruleNotes: string[];
 }
 
 export async function buildWaiverBoard(
@@ -338,9 +340,6 @@ export async function buildWaiverBoard(
   const wireLevels = replacementLevels(
     eligible.map((p) => ({ id: p.id, position: p.position, proj: p.projSeason })),
   );
-  const weekLevels = replacementLevels(
-    eligible.map((p) => ({ id: p.id, position: p.position, proj: p.projWeek })),
-  );
   // The five best names on the wire set the bar a drop has to clear.
   const topWireWeek = [...eligible]
     .sort((a, b) => b.projWeek - a.projWeek)
@@ -548,17 +547,48 @@ export async function buildWaiverBoard(
     bestAtPosition.set(p.position, Math.max(bestAtPosition.get(p.position) ?? 0, p.projWeek));
   }
 
+  // Contenders inside the last four weeks weight the weeks 15-17 run double.
+  const playoffWeight = playoffScheduleWeight(book, {
+    currentWeek: league.current_week ?? 1,
+    regularSeasonWeeks: league.regular_season_weeks ?? 17,
+    contender: strategy === "buy",
+  });
+
   const mapped: WaiverBoardRow[] = eligible
     .filter((p) => (wanted && wanted !== "ALL" ? p.position === wanted : true))
     .filter((p) => (search ? p.name.toLowerCase().includes(search) : true))
     .map((p) => {
       const impact = impacts.get(p.id) ?? null;
-      const bidRec = bidRecommendation({
+      const raw = bidRecommendation({
         budget: myFaabRemaining ?? faabBudget,
         perWeek: p.projWeek,
         bestAtPositionPerWeek: bestAtPosition.get(p.position) ?? p.projWeek,
         winningBids,
       });
+      // Rules can only ever lower a bid: streamers go at the minimum and the
+      // reserve is kept back for the injuries still to come.
+      const capped = applyBidRules(book, {
+        position: p.position,
+        bid: raw.recommended,
+        budget: faabBudget,
+        remaining: myFaabRemaining,
+        weeksLeft: weeksRemaining,
+      });
+      const bidRec: BidRecommendation = {
+        recommended: capped.bid,
+        passive: Math.max(0, Math.round(capped.bid * 0.7)),
+        aggressive: Math.min(
+          Math.round(capped.bid * 1.3),
+          isStreamPosition(p.position) && book.on("stream-k-def") ? capped.bid : raw.aggressive,
+        ),
+        ceiling: Math.min(raw.ceiling, Math.max(capped.bid, raw.ceiling)),
+      };
+
+      const handcuff = book.on("handcuff-top-rb") && isHandcuff(p, myRoster);
+      const duplicate = duplicateStreamer(book, p.position, myRoster.map((r) => r.position));
+      const ruleScore =
+        playoffWeight * (handcuff ? 1.5 : 1) * (duplicate ? 0.25 : 1);
+
       return {
         id: p.id,
         name: p.name,
@@ -574,6 +604,16 @@ export async function buildWaiverBoard(
         undervalued: p.undervalued,
         bid: bidRec.recommended,
         bidRec,
+        vor: book.on("value-over-replacement")
+          ? valueOverReplacement(p.projSeason, p.position, wireLevels)
+          : p.projSeason,
+        ruleScore,
+        ruleNote: ruleNote([
+          duplicate,
+          capped.note,
+          handcuff ? book.why("handcuff-top-rb") : null,
+          playoffWeight > 1 ? book.why("playoff-schedule") : null,
+        ]),
         lineupGain: impact ? impact.lineupGain : null,
         titleDelta: impact ? impact.titleDelta : null,
         playoffDelta: impact ? impact.playoffDelta : null,
@@ -622,5 +662,6 @@ export async function buildWaiverBoard(
     projectionFallback,
     needsKicker,
     needsDefense,
+    ruleNotes: [...new Set(rows.map((r) => r.ruleNote).filter((n): n is string => !!n))],
   };
 }
