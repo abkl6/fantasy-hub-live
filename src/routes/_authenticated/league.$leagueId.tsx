@@ -14,7 +14,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { CacheStatus } from "@/components/CacheStatus";
@@ -37,6 +37,7 @@ import {
   evaluateTradeFn,
   getAnalysis,
   getDraftRecapFn,
+  getLeagueMeta,
   getPlayoffPictureFn,
   getTrendsFn,
   getWaiverBoard,
@@ -175,10 +176,11 @@ function LeaguePage() {
             <Badge variant="outline" className="text-[10px]">
               {data.scoringLabel}
             </Badge>
-            <Badge variant="secondary" className="text-[10px]">
-              {LEAGUE_TYPE_LABELS[data.leagueType]}
-              {data.variant !== "none" ? ` · ${LEAGUE_VARIANT_LABELS[data.variant]}` : ""}
-            </Badge>
+            <LeagueTypeBadge
+              leagueId={leagueId}
+              leagueType={data.leagueType}
+              variant={data.variant}
+            />
             <ProjectionSourcePicker
               leagueId={leagueId}
               platform={data.league.platform}
@@ -1624,6 +1626,24 @@ function Stat({ label, before, after }: { label: string; before: string; after: 
 }
 
 /** Two selects for the league type and its variant, editable at any time. */
+function allowedVariants(type: LeagueType): LeagueVariant[] {
+  return LEAGUE_VARIANTS.filter((v) => {
+    if (v === "empire") return type === "dynasty";
+    if (v === "guillotine") return type === "redraft";
+    return true;
+  });
+}
+
+/** Meta query shared by the selects and the header badge — no full recompute. */
+function useLeagueMeta(leagueId: string) {
+  const fetchMeta = useServerFn(getLeagueMeta);
+  return useQuery({
+    queryKey: ["league-meta", leagueId],
+    queryFn: () => fetchMeta({ data: { leagueId } }),
+    staleTime: 30_000,
+  });
+}
+
 function LeagueTypeSelects({
   leagueId,
   leagueType,
@@ -1639,17 +1659,51 @@ function LeagueTypeSelects({
 }) {
   const save = useServerFn(updateLeagueSettings);
   const queryClient = useQueryClient();
+  const meta = useLeagueMeta(leagueId);
+  const [local, setLocal] = useState<{ leagueType: LeagueType; variant: LeagueVariant }>({
+    leagueType,
+    variant,
+  });
+  const [saving, setSaving] = useState(false);
+
+  // Take server values only once a refetch has settled and no save is in flight.
+  useEffect(() => {
+    if (saving || meta.isFetching || !meta.data) return;
+    setLocal({ leagueType: meta.data.leagueType, variant: meta.data.variant });
+  }, [saving, meta.isFetching, meta.data]);
+
+  const label = sourceLabel ?? meta.data?.typeSourceLabel;
+
   const mutation = useMutation({
-    mutationFn: (patch: { leagueType?: LeagueType; variant?: LeagueVariant }) =>
-      save({ data: { leagueId, ...patch } as never }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
-      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+    mutationFn: (next: { leagueType: LeagueType; variant: LeagueVariant }) =>
+      save({ data: { leagueId, ...next, typeSource: "user" } as never }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["league-meta", leagueId] }),
+        queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] }),
+        queryClient.invalidateQueries({ queryKey: ["gameday"] }),
+      ]);
+      setSaving(false);
       toast.success("League type updated");
       onSaved?.();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that"),
+    onError: (e, _next, ctx) => {
+      if (ctx) setLocal(ctx as { leagueType: LeagueType; variant: LeagueVariant });
+      setSaving(false);
+      toast.error(e instanceof Error ? e.message : "Could not save that");
+    },
   });
+
+  const apply = (next: { leagueType: LeagueType; variant: LeagueVariant }) => {
+    const previous = local;
+    const variantOk = allowedVariants(next.leagueType).includes(next.variant);
+    const resolved = variantOk ? next : { ...next, variant: "none" as LeagueVariant };
+    setLocal(resolved);
+    setSaving(true);
+    mutation.mutate(resolved, { onError: () => setLocal(previous) });
+  };
+
+  const variantChoices = allowedVariants(local.leagueType);
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -1658,9 +1712,8 @@ function LeagueTypeSelects({
       </label>
       <select
         id="league-type"
-        value={leagueType}
-        disabled={mutation.isPending}
-        onChange={(e) => mutation.mutate({ leagueType: e.target.value as LeagueType })}
+        value={local.leagueType}
+        onChange={(e) => apply({ leagueType: e.target.value as LeagueType, variant: local.variant })}
         className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
       >
         {LEAGUE_TYPES.map((key) => (
@@ -1674,19 +1727,40 @@ function LeagueTypeSelects({
       </label>
       <select
         id="league-variant"
-        value={variant}
-        disabled={mutation.isPending}
-        onChange={(e) => mutation.mutate({ variant: e.target.value as LeagueVariant })}
+        value={local.variant}
+        onChange={(e) => apply({ leagueType: local.leagueType, variant: e.target.value as LeagueVariant })}
         className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm"
       >
-        {LEAGUE_VARIANTS.map((key) => (
+        {variantChoices.map((key) => (
           <option key={key} value={key}>
             {LEAGUE_VARIANT_LABELS[key]}
           </option>
         ))}
       </select>
-      {sourceLabel && <span className="text-xs text-muted-foreground">{sourceLabel}</span>}
+      {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
+      {label && <span className="text-xs text-muted-foreground">{label}</span>}
     </div>
+  );
+}
+
+/** Header badge, fed by the light meta query so it updates instantly. */
+function LeagueTypeBadge({
+  leagueId,
+  leagueType,
+  variant,
+}: {
+  leagueId: string;
+  leagueType: LeagueType;
+  variant: LeagueVariant;
+}) {
+  const meta = useLeagueMeta(leagueId);
+  const type = meta.data?.leagueType ?? leagueType;
+  const v = meta.data?.variant ?? variant;
+  return (
+    <Badge variant="secondary" className="text-[10px]">
+      {LEAGUE_TYPE_LABELS[type]}
+      {v !== "none" ? ` · ${LEAGUE_VARIANT_LABELS[v]}` : ""}
+    </Badge>
   );
 }
 
