@@ -466,7 +466,16 @@ export function GameDayBoard({ leagueId }: { leagueId?: string }) {
   const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
     cacheKey: `gameday:${leagueId ?? "all"}`,
     queryKey: ["gameday", leagueId ?? "all"],
-    queryFn: () => fetchGameDay({ data: { ...(leagueId ? { leagueId } : {}), refresh: true } }),
+    queryFn: () =>
+      fetchGameDay({
+        data: {
+          ...(leagueId ? { leagueId } : {}),
+          refresh: true,
+          // Scoreboard first; a card fetches its own player rows when opened.
+          ...(leagueId ? {} : { summaries: true }),
+        },
+      }),
+
     refetchOnWindowFocus: true,
     refetchInterval: interval || false,
   });
