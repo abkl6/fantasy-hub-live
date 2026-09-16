@@ -206,8 +206,17 @@ export function parseFfpcUrl(input: string): { leagueId: string | null; ltuid: s
 
 /** Reads the league id out of a league page's own links when the URL omitted it. */
 export function discoverLeagueId(html: string): string | null {
-  const m = html.match(/league(?:id|no)=([0-9]+)/i);
-  return m?.[1] ?? null;
+  const candidates = [
+    /league(?:id|no)=([0-9]+)/i,
+    /league\s*id\s*:\s*([0-9]+)/i,
+    /teamRoster_([0-9]+)_[0-9]+/i,
+    /LogosUploaded\/L([0-9]+)T[0-9]+/i,
+  ];
+  for (const pattern of candidates) {
+    const match = html.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+  return null;
 }
 
 

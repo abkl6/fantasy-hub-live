@@ -507,12 +507,18 @@ export async function ffpcLeagueBundle(
   const { discoverLeagueId } = await import("./ffpc-parse");
   const leagueId = leagueIdInput ?? discoverLeagueId(firstHtml);
   if (!leagueId) {
-    throw new FfpcParseError("LeagueHome.aspx", "FFPC's league page could not be read.");
+    throw new FfpcParseError(
+      "LeagueHome.aspx",
+      "FFPC answered, but its league number could not be identified from the page.",
+    );
   }
   const homeHtml = firstHtml;
   const home = parseLeagueHome(homeHtml, leagueId);
   if (!home.teams.length) {
-    throw new FfpcParseError("LeagueHome.aspx", "FFPC's league page could not be read.");
+    throw new FfpcParseError(
+      "LeagueHome.aspx",
+      "FFPC answered, but its standings could not be read from the page.",
+    );
   }
 
 
