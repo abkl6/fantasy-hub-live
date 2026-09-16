@@ -44,9 +44,20 @@ export const BASELINE_RULES: ScoringRules = {
   pa_21_27: 0,
   pa_28_34: -1,
   pa_35p: -4,
+  // yards allowed bands (0 unless a league scores them)
+  ya_0_199: 0,
+  ya_200_249: 0,
+  ya_250_299: 0,
+  ya_300_349: 0,
+  ya_350_399: 0,
+  ya_400_449: 0,
+  ya_450_499: 0,
+  ya_500p: 0,
   // individual defensive players
   idp_solo: 1,
   idp_ast: 0.5,
+  /** Total tackles: 0 by default so solo + assist are not double counted. */
+  idp_tkl: 0,
   idp_sack: 2,
   idp_int: 3,
   idp_fr: 3,
