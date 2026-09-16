@@ -185,6 +185,9 @@ export interface YahooLeagueBundle {
   scoringType: string;
   rosterSlots: string[];
   contestFormat?: "h2h" | "points" | "hybrid";
+  leagueType?: LeagueType;
+  variant?: LeagueVariant;
+  typeSource?: "detected" | "inferred";
   teams: YahooTeam[];
   schedule: {
     week: number;
@@ -306,7 +309,14 @@ export async function yahooLeagueBundle(
     }
   }
 
+  // Yahoo marks a carried-over league with renew / renewed keys.
+  const detected = detectLeagueType({
+    yahooRenew: (leagueMeta["renew"] ?? leagueMeta["renewed"]) as string | null,
+    typeDescription: String(leagueMeta["name"] ?? ""),
+  });
+
   return {
+    ...detected,
     externalId: leagueKey,
     name: String(leagueMeta["name"] ?? "Yahoo League"),
     season: num(leagueMeta["season"], new Date().getFullYear()),
