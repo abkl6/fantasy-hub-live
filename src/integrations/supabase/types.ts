@@ -795,6 +795,50 @@ export type Database = {
         }
         Relationships: []
       }
+      player_blend_rates: {
+        Row: {
+          blend_weight: number
+          created_at: string
+          games_played: number
+          id: string
+          per_game: Json
+          player_id: string
+          season: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          blend_weight?: number
+          created_at?: string
+          games_played?: number
+          id?: string
+          per_game?: Json
+          player_id: string
+          season: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          blend_weight?: number
+          created_at?: string
+          games_played?: number
+          id?: string
+          per_game?: Json
+          player_id?: string
+          season?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_blend_rates_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_news: {
         Row: {
           created_at: string
@@ -1038,9 +1082,11 @@ export type Database = {
           age: number | null
           bye_week: number | null
           created_at: string
+          espn_id: string | null
           full_name: string
           id: string
           ir_since: string | null
+          ktc_slug: string | null
           nfl_team: string | null
           position: string
           proj_points_season: number
@@ -1051,15 +1097,18 @@ export type Database = {
           status: string
           updated_at: string
           volatility: number
+          yahoo_id: string | null
           years_exp: number | null
         }
         Insert: {
           age?: number | null
           bye_week?: number | null
           created_at?: string
+          espn_id?: string | null
           full_name: string
           id?: string
           ir_since?: string | null
+          ktc_slug?: string | null
           nfl_team?: string | null
           position: string
           proj_points_season?: number
@@ -1070,15 +1119,18 @@ export type Database = {
           status?: string
           updated_at?: string
           volatility?: number
+          yahoo_id?: string | null
           years_exp?: number | null
         }
         Update: {
           age?: number | null
           bye_week?: number | null
           created_at?: string
+          espn_id?: string | null
           full_name?: string
           id?: string
           ir_since?: string | null
+          ktc_slug?: string | null
           nfl_team?: string | null
           position?: string
           proj_points_season?: number
@@ -1089,6 +1141,7 @@ export type Database = {
           status?: string
           updated_at?: string
           volatility?: number
+          yahoo_id?: string | null
           years_exp?: number | null
         }
         Relationships: []
@@ -1421,6 +1474,69 @@ export type Database = {
           },
         ]
       }
+      score_reconciliation: {
+        Row: {
+          computed: number
+          created_at: string
+          diff: number
+          id: string
+          league_id: string
+          reported: number
+          season: number
+          team_id: string | null
+          top_player_diff: number
+          top_player_name: string | null
+          updated_at: string
+          user_id: string
+          week: number
+        }
+        Insert: {
+          computed?: number
+          created_at?: string
+          diff?: number
+          id?: string
+          league_id: string
+          reported?: number
+          season: number
+          team_id?: string | null
+          top_player_diff?: number
+          top_player_name?: string | null
+          updated_at?: string
+          user_id: string
+          week: number
+        }
+        Update: {
+          computed?: number
+          created_at?: string
+          diff?: number
+          id?: string
+          league_id?: string
+          reported?: number
+          season?: number
+          team_id?: string | null
+          top_player_diff?: number
+          top_player_name?: string | null
+          updated_at?: string
+          user_id?: string
+          week?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "score_reconciliation_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "score_reconciliation_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scoring_events: {
         Row: {
           created_at: string
@@ -1537,6 +1653,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_implied_totals: {
+        Row: {
+          created_at: string
+          id: string
+          implied: number
+          nfl_team: string
+          season: number
+          source: string
+          updated_at: string
+          week: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          implied: number
+          nfl_team: string
+          season: number
+          source?: string
+          updated_at?: string
+          week: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          implied?: number
+          nfl_team?: string
+          season?: number
+          source?: string
+          updated_at?: string
+          week?: number
+        }
+        Relationships: []
       }
       team_position_strength: {
         Row: {
