@@ -8,6 +8,7 @@ import {
   parseFfpcUrl,
   parsePlayerCell,
 } from "./ffpc-parse";
+import { parseLeagueSettings } from "./ffpc-settings";
 import { parseAllRosters, parseLeagueHome } from "./ffpc.server";
 import { normalizeName } from "./names";
 
