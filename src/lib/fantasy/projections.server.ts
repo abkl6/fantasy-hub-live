@@ -43,6 +43,13 @@ export interface ProjectionSet {
   hasOverride(playerId: string | null | undefined, name: string | null | undefined): boolean;
   /** Where these numbers come from, e.g. "Sleeper projections". */
   sourceLabel: string;
+  /** True when this league adjusts numbers for opponent strength. */
+  sosOn: boolean;
+  /** "easy" | "neutral" | "tough" for this week's matchup, or null. */
+  matchupRating(
+    playerId: string | null | undefined,
+    position: string,
+  ): "easy" | "neutral" | "tough" | null;
 }
 
 const EMPTY: ProjectionSet = {
@@ -52,6 +59,8 @@ const EMPTY: ProjectionSet = {
   opponent: () => null,
   hasOverride: () => false,
   sourceLabel: "App projections",
+  sosOn: false,
+  matchupRating: () => null,
 };
 
 export function emptyProjections(): ProjectionSet {
@@ -76,6 +85,8 @@ export interface ProjectionOptions {
   season?: number;
   /** Where the league reads projections from. */
   source?: ResolvedProjectionSource;
+  /** Adjust weekly numbers for how tough each opponent is. */
+  sos?: boolean | null | undefined;
 }
 
 export async function loadProjections(
@@ -133,6 +144,14 @@ export async function loadProjections(
     });
   }
 
+  // Opponent strength: only when this league has asked for it.
+  const { loadStrengthBook, neutralStrength } = await import("./sos.server");
+  const strength = opts.sos ? await loadStrengthBook(supabase, season) : neutralStrength();
+  const matchup = (playerId: string | null | undefined, position: string) => {
+    if (!strength.covered || !playerId) return 1;
+    return strength.multiplier(position, weekStats.get(playerId)?.opponent ?? null);
+  };
+
   const find = (playerId?: string | null, name?: string | null) => {
     if (playerId) {
       const hit = byId.get(playerId);
@@ -147,12 +166,15 @@ export async function loadProjections(
   return {
     count: byId.size,
     week: (playerId, name, position, base) => {
+      const m = matchup(playerId, position);
       const override = find(playerId, name);
-      if (override) return scoring ? scoring.scale(position, override.week) : override.week;
+      if (override) {
+        return round((scoring ? scoring.scale(position, override.week) : override.week) * m);
+      }
       const line = playerId ? weekStats.get(playerId) : undefined;
-      if (scoring && line?.stats) return round(scoring.score(position, line.stats));
+      if (scoring && line?.stats) return round(scoring.score(position, line.stats) * m);
       if (line && !line.stats) return 0; // bye week or no projected usage
-      return scoring ? scoring.scale(position, base) : base;
+      return round((scoring ? scoring.scale(position, base) : base) * m);
     },
     season: (playerId, name, position, base, stats) => {
       const override = find(playerId, name);
@@ -164,5 +186,12 @@ export async function loadProjections(
     opponent: (playerId) => (playerId ? (weekStats.get(playerId)?.opponent ?? null) : null),
     hasOverride: (playerId, name) => !!find(playerId, name),
     sourceLabel: source.label,
+    sosOn: !!opts.sos && strength.covered,
+    matchupRating: (playerId, position) => {
+      if (!strength.covered || !playerId) return null;
+      const opponent = weekStats.get(playerId)?.opponent ?? null;
+      if (!opponent) return null;
+      return strength.rating(position, opponent);
+    },
   };
 }

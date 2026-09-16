@@ -358,19 +358,23 @@ async function espnCreds(context: { supabase: any; userId: string }) {
 }
 
 /**
- * "My projections" upload. Accepts the weekly stat template (a `week` column
- * plus stat columns) or season totals, which are split evenly across the
- * weeks that player's NFL team actually plays. Stored privately under the
- * member's own source key, and only used by leagues set to "My projections".
+ * "My projections" upload. Accepts any of the four templates (offence, team
+ * defence, individual defenders, kickers), either week by week (a `week`
+ * column) or as season totals, which are split across the weeks that player's
+ * NFL team actually plays — evenly, or shaped by how tough each opponent is.
+ * Stored privately under the member's own source key, and only used by leagues
+ * set to "My projections".
  */
 export const uploadMyProjections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
-        csv: z.string().min(1).max(2_000_000),
+        csv: z.string().min(1).max(8_000_000),
         season: z.number().int().min(2020).max(2100).optional(),
         apply: z.boolean().optional(),
+        group: z.enum(["offense", "dst", "idp", "k"]).optional(),
+        spread: z.enum(["even", "sos"]).optional(),
       })
       .parse(d),
   )
@@ -378,19 +382,46 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const { BASELINE_RULES, scoreStats } = await import("@/lib/fantasy/scoring");
     const season = data.season ?? new Date().getFullYear();
 
+    const { detectGroup, mapHeaders, GROUP_LABEL } = await import(
+      "@/lib/fantasy/projection-templates"
+    );
+    const { loadStrengthBook, neutralStrength } = await import("@/lib/fantasy/sos.server");
+    const { spreadSeasonTotals } = await import("@/lib/fantasy/sos");
+
     const rows = parseCsv(data.csv);
     if (rows.length < 2) throw new Error("That file has no rows under the header.");
-    const header = rows[0]!.map((h) => h.trim().toLowerCase());
+    const rawHeader = rows[0]!.map((h) => h.trim());
+    const header = rawHeader.map((h) => h.toLowerCase());
     const iName = headerIndex(header, HEADERS.name);
     const iPos = headerIndex(header, HEADERS.position);
     const iWeek = header.findIndex((h) => h === "week");
-    if (iName < 0) throw new Error('The file needs a "player" column.');
+    if (iName < 0) throw new Error('The file needs a "name" or "player" column.');
 
-    const statCols = header
-      .map((h, i) => ({ key: h.replace(/\s+/g, "_"), i }))
-      .filter((c) => c.key in BASELINE_RULES);
+    const detected = detectGroup(rawHeader);
+    const group = data.group ?? detected;
+    if (!group) {
+      throw new Error(
+        "The columns in this file were not recognised. Download a template and use its headings.",
+      );
+    }
+    if (data.group && detected && detected !== data.group) {
+      throw new Error(
+        `That file looks like the ${GROUP_LABEL[detected]} template, not ${GROUP_LABEL[data.group]}.`,
+      );
+    }
+
+    // Template columns first, then anything else that is already a scoring key.
+    const mapped = mapHeaders(group, rawHeader);
+    const statCols = [
+      ...mapped.map((m) => ({ key: m.key, i: m.index })),
+      ...header
+        .map((h, i) => ({ key: h.replace(/\s+/g, "_"), i }))
+        .filter((c) => c.key in BASELINE_RULES && !mapped.some((m) => m.index === c.i)),
+    ];
     if (!statCols.length) {
-      throw new Error("No stat columns were recognised. Use the weekly stats template.");
+      throw new Error(
+        `No stat columns were recognised for ${GROUP_LABEL[group]}. Download that template and use its headings.`,
+      );
     }
 
     const { data: players } = await context.supabase
@@ -409,6 +440,14 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       const list = weeksByTeam.get(key) ?? [];
       list.push({ week: row.week, opponent: row.opponent });
       weeksByTeam.set(key, list);
+    }
+
+    const useSos = data.spread === "sos";
+    const strength = useSos ? await loadStrengthBook(context.supabase, season) : neutralStrength();
+    if (useSos && !strength.covered) {
+      throw new Error(
+        "Schedule strength has not been worked out for this season yet. Upload with an even split, or ask an admin to refresh schedule strength.",
+      );
     }
 
     const source = `user:${context.userId}`;
@@ -446,14 +485,18 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
         push(week, stats, games.find((g) => g.week === week)?.opponent ?? null);
       } else {
-        // Season totals: spread them across the weeks this team actually plays.
+        // Season totals: spread them across the weeks this team actually plays,
+        // evenly or shaped by how tough each week's opponent is.
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
-        const play = games.length ? games : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
-        for (const g of play) {
-          const per: Record<string, number> = {};
-          for (const [k, v] of Object.entries(stats)) per[k] = Math.round((v / play.length) * 1000) / 1000;
-          push(g.week, per, g.opponent);
-        }
+        const play = games.length
+          ? games
+          : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
+        const split = spreadSeasonTotals(
+          stats,
+          play,
+          useSos ? (opponent) => strength.multiplier(hit.position, opponent) : undefined,
+        );
+        for (const week of split) push(week.week, week.stats, week.opponent);
       }
     }
 
@@ -469,12 +512,123 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     return {
       applied: !!data.apply,
       season,
+      group,
+      groupLabel: GROUP_LABEL[group],
+      spread: useSos ? ("sos" as const) : ("even" as const),
       mode: iWeek >= 0 ? ("weekly" as const) : ("season" as const),
       matchedCount,
       rowsWritten: out.length,
       unmatched: unmatched.slice(0, 100),
       unmatchedCount: unmatched.length,
     };
+  });
+
+// ------------------------------------------------- templates & schedule strength
+
+/**
+ * A ready-to-fill spreadsheet for one group: every current player with their
+ * name, position, team and bye already in place, and blank stat columns for
+ * the season total.
+ */
+export const projectionTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ group: z.enum(["offense", "dst", "idp", "k"]) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { templateColumns, templateHeaderRow, GROUP_POSITIONS, GROUP_LABEL } = await import(
+      "@/lib/fantasy/projection-templates"
+    );
+    const positions = GROUP_POSITIONS[data.group];
+    const { data: players, error } = await context.supabase
+      .from("players")
+      .select("full_name, position, nfl_team, bye_week, proj_points_season")
+      .in("position", positions)
+      .order("proj_points_season", { ascending: false });
+    if (error) throw new Error(error.message);
+
+    const blanks = templateColumns(data.group).length - 5;
+    const lines = [templateHeaderRow(data.group)];
+    for (const p of players ?? []) {
+      const team = (p.nfl_team ?? "").toUpperCase();
+      const name = p.full_name.includes(",") ? `"${p.full_name}"` : p.full_name;
+      lines.push(
+        [
+          `${p.full_name.replace(/,/g, "")}|${team}`,
+          name,
+          p.position.toUpperCase(),
+          team,
+          p.bye_week ?? "",
+          ...Array(blanks).fill(""),
+        ].join(","),
+      );
+    }
+    return {
+      group: data.group,
+      label: GROUP_LABEL[data.group],
+      filename: `${data.group}_season_projections.csv`,
+      csv: lines.join("\n"),
+      players: (players ?? []).length,
+    };
+  });
+
+/** The printable column reference, straight from the template definitions. */
+export const templateReference = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { TEMPLATE_GROUPS, GROUP_LABEL, templateColumns } = await import(
+      "@/lib/fantasy/projection-templates"
+    );
+    return {
+      groups: TEMPLATE_GROUPS.map((g) => ({
+        group: g,
+        label: GROUP_LABEL[g],
+        columns: templateColumns(g),
+      })),
+    };
+  });
+
+/** How tough every NFL team is to face, per position group. */
+export const listScheduleStrength = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ season: z.number().int().min(2020).max(2100).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const season = data.season ?? new Date().getFullYear();
+    const { data: rows, error } = await context.supabase
+      .from("team_position_strength")
+      .select("nfl_team, position_group, multiplier, source, updated_at")
+      .eq("season", season)
+      .order("nfl_team");
+    if (error) throw new Error(error.message);
+    return {
+      season,
+      rows: (rows ?? []).map((r) => ({
+        team: r.nfl_team,
+        group: r.position_group,
+        multiplier: Number(r.multiplier),
+        source: r.source,
+        updatedAt: r.updated_at,
+      })),
+      admin: await callerIsAdmin(context),
+    };
+  });
+
+/** Admin: recompute schedule strength from the current projection database. */
+export const refreshScheduleStrength = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ season: z.number().int().min(2020).max(2100).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    if (!(await callerIsAdmin(context))) {
+      throw new Error("Only an admin can refresh schedule strength.");
+    }
+    const { refreshTeamStrength } = await import("@/lib/fantasy/sos.server");
+    const season = data.season ?? new Date().getFullYear();
+    const res = await refreshTeamStrength(context.supabase, season, ["app", `user:${context.userId}`]);
+    return { season, ...res };
   });
 
 /** Removes every projection this member has uploaded. */

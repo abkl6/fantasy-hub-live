@@ -29,6 +29,7 @@ import {
   setBatchPublished,
   uploadProjectionBatch,
 } from "@/lib/admin.functions";
+import { refreshScheduleStrength } from "@/lib/projections.functions";
 
 const TITLE = "Admin — Gridiron Edge";
 const DESCRIPTION = "Internal console for members, league sync health, the projection database, alerts and errors.";
@@ -238,6 +239,7 @@ function DataTab() {
   const upload = useServerFn(uploadProjectionBatch);
   const publish = useServerFn(setBatchPublished);
   const recompute = useServerFn(recomputeProjections);
+  const refreshStrength = useServerFn(refreshScheduleStrength);
   const saveSchedule = useServerFn(saveScheduleRow);
   const saveDefense = useServerFn(saveDefenseRank);
   const qc = useQueryClient();
@@ -329,6 +331,21 @@ function DataTab() {
           >
             <RefreshCw className="size-4" aria-hidden="true" />
             Recompute
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              try {
+                const r = await refreshStrength({ data: {} });
+                toast.success(`Schedule strength worked out — ${r.rows} team ratings saved`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Could not work that out");
+              }
+            }}
+          >
+            <RefreshCw className="size-4" aria-hidden="true" />
+            Schedule strength
           </Button>
         </div>
         <div className="mt-3 divide-y divide-border">

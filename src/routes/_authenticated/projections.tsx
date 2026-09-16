@@ -4,7 +4,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Search, Upload } from "lucide-react";
 import { useState } from "react";
@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   bulkUpsertBaseline,
   uploadMyProjections,
+  projectionTemplate,
   clearMyProjections,
   importPlatformProjections,
   clearAllOverrides,
@@ -274,15 +275,41 @@ function BaselineEditor({ row, onDone }: { row: BaselineRow; onDone: () => void 
 }
 
 /** A member's own weekly stat projections, used by leagues set to "My projections". */
+type UploadGroup = "offense" | "dst" | "idp" | "k";
+
+const GROUP_CHOICES: { value: UploadGroup; label: string }[] = [
+  { value: "offense", label: "Offence (QB, RB, WR, TE)" },
+  { value: "dst", label: "Team defence" },
+  { value: "idp", label: "Individual defenders" },
+  { value: "k", label: "Kickers" },
+];
+
 function MyProjectionsUpload() {
   const upload = useServerFn(uploadMyProjections);
   const clear = useServerFn(clearMyProjections);
+  const template = useServerFn(projectionTemplate);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [csv, setCsv] = useState("");
+  const [group, setGroup] = useState<UploadGroup>("offense");
+  const [spread, setSpread] = useState<"even" | "sos">("even");
+
+  const download = useMutation({
+    mutationFn: () => template({ data: { group } }),
+    onSuccess: (file) => {
+      const url = URL.createObjectURL(new Blob([file.csv], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${file.label} template with ${file.players} players downloaded.`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build that template."),
+  });
 
   const run = useMutation({
-    mutationFn: (apply: boolean) => upload({ data: { csv, apply } }),
+    mutationFn: (apply: boolean) => upload({ data: { csv, apply, group, spread } }),
     onSuccess: (result) => {
       if (result.applied) {
         toast.success(`Saved projections for ${result.matchedCount} players.`);
@@ -313,12 +340,55 @@ function MyProjectionsUpload() {
         <DialogHeader>
           <DialogTitle>Upload my own projections</DialogTitle>
           <DialogDescription>
-            A CSV of stats per player. Include a week column for week-by-week numbers, or leave it
-            out for season totals, which are spread across the weeks that player&apos;s team plays.
-            Only leagues set to &quot;My projections&quot; use these.
+            Download the template for the group you&apos;re projecting, fill in a season total per
+            player, and upload it. Week-by-week files work too — just keep the week column. Only
+            leagues set to &quot;My projections&quot; use these.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="proj-group">Group</Label>
+              <select
+                id="proj-group"
+                className="mt-1 h-9 w-full rounded-md bg-secondary px-3 text-sm"
+                value={group}
+                onChange={(e) => {
+                  setGroup(e.target.value as UploadGroup);
+                  run.reset();
+                }}
+              >
+                {GROUP_CHOICES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="proj-spread">Season totals split</Label>
+              <select
+                id="proj-spread"
+                className="mt-1 h-9 w-full rounded-md bg-secondary px-3 text-sm"
+                value={spread}
+                onChange={(e) => {
+                  setSpread(e.target.value as "even" | "sos");
+                  run.reset();
+                }}
+              >
+                <option value="even">Evenly across the season</option>
+                <option value="sos">Shaped by how tough each week is</option>
+              </select>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => download.mutate()}
+            disabled={download.isPending}
+          >
+            Download the {GROUP_CHOICES.find((c) => c.value === group)?.label.toLowerCase()} template
+          </Button>
           <Input
             type="file"
             accept=".csv,text/csv"
@@ -337,7 +407,13 @@ function MyProjectionsUpload() {
           {result && (
             <div className="space-y-3 text-sm">
               <p>
-                {result.matchedCount} players matched ({result.mode === "weekly" ? "week by week" : "season totals"})
+                {result.matchedCount} {result.groupLabel.toLowerCase()} players matched (
+                {result.mode === "weekly"
+                  ? "week by week"
+                  : result.spread === "sos"
+                    ? "season totals, shaped by schedule"
+                    : "season totals, split evenly"}
+                )
                 {result.unmatchedCount > 0 ? `, ${result.unmatchedCount} names not recognised` : ""}.
               </p>
               {result.unmatched.length > 0 && (
@@ -348,9 +424,18 @@ function MyProjectionsUpload() {
               </Button>
             </div>
           )}
-          <Button size="sm" variant="ghost" onClick={() => wipe.mutate()} disabled={wipe.isPending}>
-            Remove my uploaded projections
-          </Button>
+          <div className="flex items-center justify-between">
+            <Button size="sm" variant="ghost" onClick={() => wipe.mutate()} disabled={wipe.isPending}>
+              Remove my uploaded projections
+            </Button>
+            <Link
+              to="/projection-guide"
+              target="_blank"
+              className="text-xs text-muted-foreground underline"
+            >
+              Printable column guide
+            </Link>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -105,6 +105,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
       scoring,
       week: league.current_week ?? 1,
       source: resolveProjectionSource(league),
+      sos: (league as { sos_adjust?: boolean }).sos_adjust,
     });
 
     // The top-120 projected players in this league's scoring.

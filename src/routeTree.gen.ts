@@ -18,6 +18,7 @@ import { Route as AuthenticatedGamedayRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
 import { Route as AuthenticatedLineupCheckRouteImport } from './routes/_authenticated/lineup-check'
 import { Route as AuthenticatedManagerHubRouteImport } from './routes/_authenticated/manager-hub'
+import { Route as AuthenticatedProjectionGuideRouteImport } from './routes/_authenticated/projection-guide'
 import { Route as AuthenticatedProjectionsRouteImport } from './routes/_authenticated/projections'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedThisWeekRouteImport } from './routes/_authenticated/this-week'
@@ -78,6 +79,12 @@ const AuthenticatedManagerHubRoute = AuthenticatedManagerHubRouteImport.update({
   path: '/manager-hub',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProjectionGuideRoute =
+  AuthenticatedProjectionGuideRouteImport.update({
+    id: '/projection-guide',
+    path: '/projection-guide',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProjectionsRoute =
   AuthenticatedProjectionsRouteImport.update({
     id: '/projections',
@@ -163,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/games': typeof AuthenticatedGamesRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
+  '/projection-guide': typeof AuthenticatedProjectionGuideRoute
   '/projections': typeof AuthenticatedProjectionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/this-week': typeof AuthenticatedThisWeekRoute
@@ -187,6 +195,7 @@ export interface FileRoutesByTo {
   '/games': typeof AuthenticatedGamesRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
+  '/projection-guide': typeof AuthenticatedProjectionGuideRoute
   '/projections': typeof AuthenticatedProjectionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/this-week': typeof AuthenticatedThisWeekRoute
@@ -213,6 +222,7 @@ export interface FileRoutesById {
   '/_authenticated/games': typeof AuthenticatedGamesRoute
   '/_authenticated/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/_authenticated/manager-hub': typeof AuthenticatedManagerHubRoute
+  '/_authenticated/projection-guide': typeof AuthenticatedProjectionGuideRoute
   '/_authenticated/projections': typeof AuthenticatedProjectionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/this-week': typeof AuthenticatedThisWeekRoute
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/games'
     | '/lineup-check'
     | '/manager-hub'
+    | '/projection-guide'
     | '/projections'
     | '/settings'
     | '/this-week'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/games'
     | '/lineup-check'
     | '/manager-hub'
+    | '/projection-guide'
     | '/projections'
     | '/settings'
     | '/this-week'
@@ -288,6 +300,7 @@ export interface FileRouteTypes {
     | '/_authenticated/games'
     | '/_authenticated/lineup-check'
     | '/_authenticated/manager-hub'
+    | '/_authenticated/projection-guide'
     | '/_authenticated/projections'
     | '/_authenticated/settings'
     | '/_authenticated/this-week'
@@ -379,6 +392,13 @@ declare module '@tanstack/react-router' {
       path: '/manager-hub'
       fullPath: '/manager-hub'
       preLoaderRoute: typeof AuthenticatedManagerHubRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projection-guide': {
+      id: '/_authenticated/projection-guide'
+      path: '/projection-guide'
+      fullPath: '/projection-guide'
+      preLoaderRoute: typeof AuthenticatedProjectionGuideRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/projections': {
@@ -489,6 +509,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
   AuthenticatedLineupCheckRoute: typeof AuthenticatedLineupCheckRoute
   AuthenticatedManagerHubRoute: typeof AuthenticatedManagerHubRoute
+  AuthenticatedProjectionGuideRoute: typeof AuthenticatedProjectionGuideRoute
   AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedThisWeekRoute: typeof AuthenticatedThisWeekRoute
@@ -506,6 +527,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGamesRoute: AuthenticatedGamesRoute,
   AuthenticatedLineupCheckRoute: AuthenticatedLineupCheckRoute,
   AuthenticatedManagerHubRoute: AuthenticatedManagerHubRoute,
+  AuthenticatedProjectionGuideRoute: AuthenticatedProjectionGuideRoute,
   AuthenticatedProjectionsRoute: AuthenticatedProjectionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedThisWeekRoute: AuthenticatedThisWeekRoute,

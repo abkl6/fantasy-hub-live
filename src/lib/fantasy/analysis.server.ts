@@ -262,6 +262,10 @@ export interface AnalysisPayload {
   scoringLabel: string;
   /** Where the projections on this page come from. */
   projectionLabel: string;
+  /** True when this league adjusts numbers for opponent strength. */
+  sosAdjust: boolean;
+  /** True when the adjustment is on and schedule strength numbers exist. */
+  sosActive: boolean;
   /** Guillotine only: weekly survival odds instead of playoff/title odds. */
   survival: SurvivalResult[] | null;
   mySurvival: SurvivalResult | null;
@@ -339,6 +343,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     scoring,
     week: league.current_week ?? 1,
     source: resolveProjectionSource(league),
+    sos: (league as { sos_adjust?: boolean }).sos_adjust,
   });
   const format = asFormat((league as { format?: string }).format);
   const leagueType = asLeagueType((league as { league_type?: string }).league_type);
@@ -709,6 +714,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     weeklyHighLabel,
     scoringLabel: scoring.label,
     projectionLabel: proj.sourceLabel,
+    sosAdjust: !!(league as { sos_adjust?: boolean }).sos_adjust,
+    sosActive: proj.sosOn,
     survival,
   };
 
@@ -1417,6 +1424,7 @@ export async function evaluateTrade(
     scoring: tradeScoring,
     week: analysis.league.current_week ?? 1,
     source: resolveProjectionSource(analysis.league as never),
+    sos: (analysis.league as { sos_adjust?: boolean }).sos_adjust,
   });
 
   const roster: EnginePlayer[] = (spots ?? []).map((s) => ({

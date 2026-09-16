@@ -162,7 +162,7 @@ export async function leagueWaiverWire(
 ): Promise<WaiverPlayer[]> {
   const { data: league } = await supabase
     .from("leagues")
-    .select("roster_slots, scoring_type, scoring_rules, current_week, platform, projection_source, user_id")
+    .select("roster_slots, scoring_type, scoring_rules, current_week, platform, projection_source, user_id, sos_adjust")
     .eq("id", leagueId)
     .maybeSingle();
   const slots = asSlots(league?.roster_slots);
@@ -183,6 +183,7 @@ export async function leagueWaiverWire(
     scoring,
     week: league?.current_week ?? 1,
     source: resolveProjectionSource(league ?? {}),
+    sos: (league as { sos_adjust?: boolean } | null)?.sos_adjust,
   });
 
   const taken = new Set((spots ?? []).map((s) => key(s.player_name)));

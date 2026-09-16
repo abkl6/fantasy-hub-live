@@ -148,6 +148,7 @@ export async function loadLeague(supabase: DB, leagueId: string): Promise<Loaded
     scoring,
     week: league.current_week ?? 1,
     source: resolveProjectionSource(league),
+    sos: (league as { sos_adjust?: boolean }).sos_adjust,
   });
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
 
