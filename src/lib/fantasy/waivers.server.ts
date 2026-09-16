@@ -448,6 +448,16 @@ export async function buildWaiverBoard(
       for (const d of droppable.slice(0, 8)) {
         options.push({ roster: myRoster.map((p) => (p.name === d.name ? candidate : p)), drop: d });
       }
+      // A full roster with nobody comparable to cut: fall back to the weakest
+      // bench player so the add is still priced rather than skipped.
+      if (!options.length) {
+        const weakest = [...myRoster].sort((a, b) => a.proj - b.proj)[0];
+        if (!weakest) continue;
+        options.push({
+          roster: myRoster.map((p) => (p.name === weakest.name ? candidate : p)),
+          drop: weakest,
+        });
+      }
 
       let best = options[0]!;
       let bestTotal = -Infinity;
