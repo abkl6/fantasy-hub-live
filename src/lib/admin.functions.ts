@@ -99,6 +99,15 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       notifications24h: (notifications ?? []).length,
       platforms: [...byPlatform.values()].sort((a, b) => b.leagues - a.leagues),
       newUsers7d: (profiles ?? []).filter((p) => p.created_at >= since).length,
+      queue: await (async () => {
+        const { queueStats } = await import("./fantasy/jobs.server");
+        return queueStats(supabaseAdmin).catch(() => ({
+          queued: 0,
+          running: 0,
+          failed: 0,
+          lastRunAt: null as string | null,
+        }));
+      })(),
       computeTimes: [...byKind.values()]
         .map((e) => ({
           kind: e.kind,
@@ -109,6 +118,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
         }))
         .sort((a, b) => b.medianMs - a.medianMs),
     };
+
 
   });
 
