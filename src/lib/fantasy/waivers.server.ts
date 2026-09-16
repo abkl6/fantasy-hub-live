@@ -406,10 +406,17 @@ export async function buildWaiverBoard(
     strategyNote = `${badge.label} — ${posture.rationale}`;
 
     const beforeLineup = optimalLineup(myRoster, slots).total;
-    const droppable = [...myRoster].sort((a, b) => a.proj - b.proj);
+    const byValue = [...myRoster].sort((a, b) => a.proj - b.proj);
     const rosterCap = slots.length + 6;
 
-    for (const fa of freeAgents.slice(0, SCORED_CANDIDATES)) {
+    for (const fa of eligible.slice(0, SCORED_CANDIDATES)) {
+      // Only ever suggest dropping someone the new player can actually cover:
+      // same position, or a flex slot they both fit.
+      const droppable = byValue.filter(
+        (p) =>
+          p.position === fa.position ||
+          slots.some((s) => slotAccepts(s, p.position) && slotAccepts(s, fa.position)),
+      );
       const candidate: EnginePlayer = {
         id: fa.id,
         name: fa.name,
