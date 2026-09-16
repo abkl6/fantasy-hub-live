@@ -3,6 +3,13 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { LEAGUE_FORMATS } from "@/lib/fantasy/format";
+import {
+  asLeagueType,
+  asVariant,
+  effectiveFormat,
+  LEAGUE_TYPES,
+  LEAGUE_VARIANTS,
+} from "@/lib/fantasy/league-type";
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
@@ -521,6 +528,8 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         rosterSlots: z.array(z.string()).optional(),
         scoringType: z.string().max(20).optional(),
         format: z.enum(LEAGUE_FORMATS).optional(),
+        leagueType: z.enum(LEAGUE_TYPES).optional(),
+        variant: z.enum(LEAGUE_VARIANTS).optional(),
         color: z.string().max(20).optional(),
         projectionSource: z.enum(["platform", "app", "user"]).optional(),
         contestFormat: z.enum(["h2h", "points", "hybrid"]).optional(),
@@ -547,6 +556,22 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.format !== undefined) patch["format"] = data.format;
     if (data.color !== undefined) patch["color"] = data.color;
     if (data.projectionSource !== undefined) patch["projection_source"] = data.projectionSource;
+
+    // Any hand-set league type is final: later syncs must not overwrite it.
+    if (data.leagueType !== undefined || data.variant !== undefined) {
+      const { data: current } = await context.supabase
+        .from("leagues")
+        .select("league_type, variant, format")
+        .eq("id", data.leagueId)
+        .maybeSingle();
+      const leagueType = asLeagueType(data.leagueType ?? current?.league_type);
+      const variant = asVariant(data.variant ?? current?.variant);
+      patch["league_type"] = leagueType;
+      patch["variant"] = variant;
+      patch["type_source"] = "user";
+      patch["format"] = effectiveFormat(leagueType, variant, current?.format);
+    }
+
     const { error } = await context.supabase
       .from("leagues")
       .update(patch as never)
