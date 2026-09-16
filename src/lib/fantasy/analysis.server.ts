@@ -387,6 +387,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
 
+  const vpByTeam = new Map(teams.map((t) => [t.id, Number((t as { vp?: number }).vp ?? 0)]));
   const simInputs = engineTeams.map((t) => {
     const dist = t.roster.length
       ? distributionOf(t.roster)
@@ -407,7 +408,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       pointsFor: t.pointsFor,
       mean: dist.mean,
       sd: dist.sd,
-      vp: Number((t as { vp?: number }).vp ?? 0),
+      vp: vpByTeam.get(t.id) ?? 0,
     };
   });
 
@@ -475,7 +476,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         dynastyValue: dynastyValueById.get(r.id) ?? null,
         dynastyRank: dynastyRankById.get(r.id) ?? null,
         weeklyHighs: 0,
-        vp: Number((row as { vp?: number } | undefined)?.vp ?? 0),
+        vp: vpByTeam.get(r.id) ?? 0,
       };
     });
 
