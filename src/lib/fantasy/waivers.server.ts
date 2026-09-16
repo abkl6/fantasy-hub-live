@@ -42,6 +42,7 @@ import { classifyTeam } from "./team-class";
 import { strategyFor, type StrategyMode } from "./strategy";
 import {
   bidRecommendation,
+  isInjuredStatus,
   rankWaivers,
   type BidRecommendation,
   type RankableRow,
