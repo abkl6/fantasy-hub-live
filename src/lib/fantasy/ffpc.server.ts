@@ -154,6 +154,8 @@ export interface FfpcLeagueBundle {
   leagueType: string;
   /** FFPC shows an Empire Details panel on empire leagues. */
   hasEmpirePanel: boolean;
+  /** Best ball: no opponents, no lineups to set, ranked on total points. */
+  isBestBall: boolean;
   season: number;
   currentWeek: number;
   teamCount: number;
