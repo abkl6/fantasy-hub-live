@@ -12,6 +12,11 @@ import {
   LEAGUE_VARIANTS,
   typeSourceLabel,
 } from "@/lib/fantasy/league-type";
+import {
+  asSettingsSource,
+  markUserSettings,
+  type DetectableSetting,
+} from "@/lib/fantasy/league-settings";
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
