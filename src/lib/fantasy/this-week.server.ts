@@ -7,7 +7,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis } from "./analysis.server";
+import { leagueAnalysis } from "./cache.server";
 import { buildWaiverBoard } from "./waivers.server";
+
 import { impactAddKey, impactScore, impactSwapKey, primaryImpactText } from "./impact";
 import { nextKickoff, nextWaiverRun } from "./gamewindow";
 import { manualFreshness } from "./manual-types";
