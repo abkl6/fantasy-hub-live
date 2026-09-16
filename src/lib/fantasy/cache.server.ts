@@ -341,3 +341,20 @@ export async function warmLeagueCache(supabase: DB, userId: string, leagueId: st
     // A cold cache just means the next page load computes normally.
   }
 }
+
+/**
+ * The league analysis every screen leans on, taken from the store when it is
+ * there. Cross-league views call this once per league instead of rebuilding.
+ */
+export async function leagueAnalysis(
+  supabase: DB,
+  userId: string,
+  leagueId: string,
+): Promise<Awaited<ReturnType<typeof import("./analysis.server").buildAnalysis>>> {
+  const hash = await leagueInputsHash(supabase, leagueId);
+  const { buildAnalysis } = await import("./analysis.server");
+  return cached(supabase, { userId, leagueId, kind: "analysis" }, hash, () =>
+    buildAnalysis(supabase, leagueId),
+  );
+}
+
