@@ -10,6 +10,7 @@ import {
   effectiveFormat,
   LEAGUE_TYPES,
   LEAGUE_VARIANTS,
+  typeSourceLabel,
 } from "@/lib/fantasy/league-type";
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
