@@ -118,6 +118,11 @@ export const importFfpcLeague = createServerFn({ method: "POST" })
           scoringRules: bundle.scoringRules,
           rosterSlots: bundle.rosterSlots,
           contestFormat: bundle.contestFormat,
+          ...detectLeagueType({
+            typeDescription: `${bundle.leagueType} ${bundle.name}`,
+            hasEmpirePanel: bundle.hasEmpirePanel,
+            hasFuturePicks: bundle.futurePicks.length > 0,
+          }),
           teams: bundle.teams,
           schedule: bundle.schedule,
         },
