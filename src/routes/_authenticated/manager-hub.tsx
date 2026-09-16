@@ -205,7 +205,7 @@ function StandingsRow({ team, index, isDynasty, valuesPending, bubble }: { team:
       <td className="whitespace-nowrap py-2 pr-2 text-right tabular-nums">{(team.playoffOdds * 100).toFixed(0)}%</td>
       {isDynasty && (
         <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">
-          {team.dynastyValue === null ? "—" : <>{team.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {team.dynastyRank}{ordinal(team.dynastyRank)}</span></>}
+          {valuesPending ? <span className="text-xs text-muted-foreground">Loading market values…</span> : team.dynastyValue === null ? "—" : <>{team.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {team.dynastyRank}{ordinal(team.dynastyRank)}</span></>}
         </td>
       )}
     </tr>
@@ -256,7 +256,7 @@ function StandingsCard({ league }: { league: HubStandings }) {
           <span className="shrink-0 text-right tabular-nums">{(myTeam.playoffOdds * 100).toFixed(0)}% <span className="text-muted-foreground">playoffs</span></span>
           {league.isDynasty && (
             <span className="shrink-0 text-right tabular-nums">
-              {myTeam.dynastyValue === null ? "—" : <>{myTeam.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {myTeam.dynastyRank}{ordinal(myTeam.dynastyRank)}</span></>}
+              {league.valuesPending ? <span className="text-xs text-muted-foreground">Loading…</span> : myTeam.dynastyValue === null ? "—" : <>{myTeam.dynastyValue.toLocaleString()} <span className="text-muted-foreground">· {myTeam.dynastyRank}{ordinal(myTeam.dynastyRank)}</span></>}
             </span>
           )}
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
@@ -276,7 +276,7 @@ function StandingsCard({ league }: { league: HubStandings }) {
           </thead>
           <tbody>
             {league.teams.map((team, index) => (
-              <StandingsRow key={team.id} team={team} index={index} isDynasty={league.isDynasty} bubble={bubbleOf(team)} />
+              <StandingsRow key={team.id} team={team} index={index} isDynasty={league.isDynasty} valuesPending={league.valuesPending} bubble={bubbleOf(team)} />
             ))}
           </tbody>
         </table>
