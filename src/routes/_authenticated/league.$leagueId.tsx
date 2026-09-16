@@ -314,7 +314,7 @@ function LeaguePage() {
             <div className="space-y-6">
               <TradeBuilder leagueId={leagueId} />
               <TradePanel leagueId={leagueId} />
-              <DraftPicksPanel leagueId={leagueId} />
+              {data.showPickValues && <DraftPicksPanel leagueId={leagueId} />}
             </div>
           </Section>
         </TabsContent>
@@ -410,8 +410,42 @@ function LeaguePage() {
               pointsPlayoff={data.pointsPlayoff}
               weeklyHighBonus={data.weeklyHighBonus}
               weeklyHighLabel={data.weeklyHighLabel}
+              leagueType={data.leagueType}
+              variant={data.variant}
+              typeSourceLabel={data.typeSourceLabel}
             />
           </Section>
+
+          {data.showPickValues && !!data.dynasty?.length && (
+            <Section title="Long-term value">
+              <div className="rounded-xl bg-card p-5">
+                <p className="text-xs text-muted-foreground">
+                  Age curve and future value for everyone on your roster.
+                </p>
+                <ul className="mt-3 space-y-1">
+                  {data.dynasty.map((row) => (
+                    <li
+                      key={`${row.name}-${row.position}`}
+                      className="flex items-center justify-between border-t border-border py-2 text-sm"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="eyebrow text-muted-foreground">{row.position}</span>
+                        <span className="font-medium">{row.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {row.age ? `${row.age} yrs` : "age unknown"}
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Future <span className="stat-num text-foreground">{row.longTermValue}</span>{" "}
+                        · Overall{" "}
+                        <span className="stat-num text-foreground">{row.blendedValue}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Section>
+          )}
 
           <Section title="Position grades">
             <div className="space-y-3">
