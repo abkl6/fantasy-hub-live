@@ -581,6 +581,12 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
       .update(patch as never)
       .eq("id", data.leagueId);
     if (error) throw new Error(error.message);
+
+    // Fallback path: a dynasty/keeper switch needs market values too.
+    if (data.leagueType !== undefined || data.variant !== undefined) {
+      const { ensureTradeValuesInBackground } = await import("./fantasy/ktc.server");
+      ensureTradeValuesInBackground({ scope: data.leagueId, userId: context.userId });
+    }
     return { ok: true };
   });
 
