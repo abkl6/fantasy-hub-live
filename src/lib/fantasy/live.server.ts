@@ -634,6 +634,7 @@ export async function buildGameDay(
       scoring,
       week: league.current_week ?? liveWeek,
       source: resolveProjectionSource(league),
+      sos: (league as { sos_adjust?: boolean }).sos_adjust,
     });
 
     const toRow = (s: SpotRow): LivePlayerRow => {

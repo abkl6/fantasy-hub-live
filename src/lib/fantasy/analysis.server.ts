@@ -339,6 +339,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     scoring,
     week: league.current_week ?? 1,
     source: resolveProjectionSource(league),
+    sos: (league as { sos_adjust?: boolean }).sos_adjust,
   });
   const format = asFormat((league as { format?: string }).format);
   const leagueType = asLeagueType((league as { league_type?: string }).league_type);
@@ -1417,6 +1418,7 @@ export async function evaluateTrade(
     scoring: tradeScoring,
     week: analysis.league.current_week ?? 1,
     source: resolveProjectionSource(analysis.league as never),
+    sos: (analysis.league as { sos_adjust?: boolean }).sos_adjust,
   });
 
   const roster: EnginePlayer[] = (spots ?? []).map((s) => ({

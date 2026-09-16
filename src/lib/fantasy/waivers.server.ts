@@ -151,6 +151,7 @@ export async function buildWaiverBoard(
     scoring,
     week: league.current_week ?? 1,
     source: resolveProjectionSource(league),
+    sos: (league as { sos_adjust?: boolean }).sos_adjust,
   });
   // Dynasty market prices, matched by the same normalized names as everywhere else.
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));

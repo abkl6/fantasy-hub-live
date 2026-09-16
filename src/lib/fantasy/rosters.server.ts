@@ -183,6 +183,7 @@ export async function leagueWaiverWire(
     scoring,
     week: league?.current_week ?? 1,
     source: resolveProjectionSource(league ?? {}),
+    sos: (league as { sos_adjust?: boolean } | null)?.sos_adjust,
   });
 
   const taken = new Set((spots ?? []).map((s) => key(s.player_name)));
