@@ -100,16 +100,39 @@ export function optimalLineup(roster: EnginePlayer[], slots: Slot[]): LineupResu
   return { starters, bench, total };
 }
 
+/**
+ * How wildly a position swings week to week when nothing more specific is
+ * known. Quarterbacks are the steadiest; kickers and defences are coin flips.
+ */
+export const DEFAULT_VOLATILITY: Record<string, number> = {
+  QB: 0.25,
+  RB: 0.35,
+  WR: 0.4,
+  TE: 0.45,
+  K: 0.5,
+  PK: 0.5,
+  DEF: 0.45,
+  DST: 0.45,
+};
+
+export function volatilityOf(player: EnginePlayer): number {
+  if (typeof player.volatility === "number" && Number.isFinite(player.volatility)) {
+    return player.volatility;
+  }
+  return DEFAULT_VOLATILITY[player.position.toUpperCase()] ?? 0.4;
+}
+
 /** Weekly scoring distribution for a team, derived from its optimal lineup. */
 export function teamDistribution(roster: EnginePlayer[], slots: Slot[]) {
   const { starters, total } = optimalLineup(roster, slots);
   const variance = starters.reduce((sum, s) => {
     if (!s.player) return sum + 25;
-    const sd = s.player.proj * (s.player.volatility ?? 0.35);
+    const sd = s.player.proj * volatilityOf(s.player);
     return sum + sd * sd;
   }, 0);
   return { mean: total, sd: Math.max(Math.sqrt(variance), 8) };
 }
+
 
 // --- random helpers -------------------------------------------------------
 
@@ -168,6 +191,41 @@ export interface ScheduleGame {
   awayTeamId: string;
 }
 
+/**
+ * Orders a finished season into playoff seeds. With divisions, every division
+ * winner is seeded ahead of the rest of the league; inside each group the sort
+ * is the league's own — victory points or wins first, then total points.
+ */
+export function seedOrder(
+  teamIds: string[],
+  standing: { wins: number; points: number; vp: number }[],
+  opts: { victoryPoints?: boolean; divisions?: Record<string, string> } = {},
+): number[] {
+  const useVp = opts.victoryPoints === true;
+  const better = (a: number, b: number) =>
+    useVp
+      ? (standing[b]!.vp ?? 0) - (standing[a]!.vp ?? 0) ||
+        (standing[b]!.points ?? 0) - (standing[a]!.points ?? 0)
+      : (standing[b]!.wins ?? 0) - (standing[a]!.wins ?? 0) ||
+        (standing[b]!.points ?? 0) - (standing[a]!.points ?? 0);
+
+  const all = teamIds.map((_, i) => i).sort(better);
+  const divisions = opts.divisions;
+  if (!divisions) return all;
+
+  const seen = new Set<string>();
+  const winners: number[] = [];
+  for (const i of all) {
+    const division = divisions[teamIds[i]!];
+    if (!division || seen.has(division)) continue;
+    seen.add(division);
+    winners.push(i);
+  }
+  if (winners.length < 2) return all;
+  const taken = new Set(winners);
+  return [...winners.sort(better), ...all.filter((i) => !taken.has(i))];
+}
+
 export function simulateSeason(
   teams: SimTeamInput[],
   config: {
@@ -180,9 +238,11 @@ export function simulateSeason(
     allPlayWeeks?: number[];
     /** Top seeds that skip the first playoff round. */
     byes?: number;
+    /** Team id -> division name. Division winners seed ahead of everyone else. */
+    divisions?: Record<string, string>;
   },
   schedule: ScheduleGame[] = [],
-  iterations = 2000,
+  iterations?: number,
   seed = 12345,
 ): SimTeamResult[] {
   const n = teams.length;
@@ -203,11 +263,15 @@ export function simulateSeason(
 
   const rand = mulberry32(seed);
   const index = new Map(teams.map((t, i) => [t.id, i]));
+  const teamIds = teams.map((t) => t.id);
   const weeksLeft = Math.max(0, config.regularSeasonWeeks - (config.currentWeek - 1));
+  // A short run left means fewer branches: spend the extra runs on precision.
+  const runs = iterations ?? (weeksLeft <= 10 ? 5000 : 2000);
   const playoffTeams = Math.min(
     Math.max(2, config.playoffTeams),
     2 ** Math.floor(Math.log2(Math.max(2, Math.min(n, config.playoffTeams)))) * 2,
   );
+
   const bracketSize = Math.min(n, Math.max(2, playoffTeams));
 
   const useVp = config.victoryPoints === true;
@@ -226,12 +290,18 @@ export function simulateSeason(
     byWeek.set(g.week, list);
   }
 
-  const draw = (i: number) => Math.max(0, teams[i]!.mean + gaussian(rand) * teams[i]!.sd);
+  // Season drift: each simulated season assumes a slightly different team than
+  // the projections say, held steady for that whole run.
+  let drift = new Array(n).fill(0) as number[];
+  const draw = (i: number) =>
+    Math.max(0, teams[i]!.mean + (drift[i] ?? 0) + gaussian(rand) * teams[i]!.sd);
 
-  for (let it = 0; it < iterations; it++) {
+  for (let it = 0; it < runs; it++) {
+    drift = teams.map((t) => gaussian(rand) * Math.abs(t.mean) * 0.05);
     const wins = teams.map((t) => t.wins + t.ties * 0.5);
     const points = teams.map((t) => t.pointsFor);
     const vp = teams.map((t) => t.vp ?? 0);
+
 
     for (let w = 0; w < weeksLeft; w++) {
       const week = config.currentWeek + w;
@@ -304,14 +374,15 @@ export function simulateSeason(
       totalVp[i] += vp[i];
     }
 
-    const seeds = teams
-      .map((_, i) => i)
-      .sort((a, b) =>
-        useVp
-          ? (vp[b] ?? 0) - (vp[a] ?? 0) || (points[b] ?? 0) - (points[a] ?? 0)
-          : (wins[b] ?? 0) - (wins[a] ?? 0) || (points[b] ?? 0) - (points[a] ?? 0),
-      )
-      .slice(0, bracketSize);
+    const seeds = seedOrder(
+      teamIds,
+      teams.map((_, i) => ({ wins: wins[i] ?? 0, points: points[i] ?? 0, vp: vp[i] ?? 0 })),
+      {
+        ...(useVp ? { victoryPoints: true } : {}),
+        ...(config.divisions ? { divisions: config.divisions } : {}),
+      },
+    ).slice(0, bracketSize);
+
     for (const i of seeds) madePlayoffs[i] += 1;
 
     let field = [...seeds];
@@ -349,16 +420,16 @@ export function simulateSeason(
     id: t.id,
     name: t.name,
     isMine: t.isMine,
-    playoffOdds: madePlayoffs[i] / iterations,
-    titleOdds: wonTitle[i] / iterations,
-    projWins: Math.round(((totalWins[i] ?? 0) / iterations) * 10) / 10,
+    playoffOdds: madePlayoffs[i] / runs,
+    titleOdds: wonTitle[i] / runs,
+    projWins: Math.round(((totalWins[i] ?? 0) / runs) * 10) / 10,
     projLosses:
       Math.round(
-        (t.wins + t.losses + t.ties + weeksLeft - (totalWins[i] ?? 0) / iterations) * 10,
+        (t.wins + t.losses + t.ties + weeksLeft - (totalWins[i] ?? 0) / runs) * 10,
       ) / 10,
     projPointsPerWeek: Math.round(t.mean * 10) / 10,
     powerRank: 0,
-    ...(useVp ? { projVp: Math.round(((totalVp[i] ?? 0) / iterations) * 10) / 10 } : {}),
+    ...(useVp ? { projVp: Math.round(((totalVp[i] ?? 0) / runs) * 10) / 10 } : {}),
   }));
 
   [...results]
