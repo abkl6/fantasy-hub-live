@@ -154,7 +154,10 @@ export function parseAcquisitions(html: string): {
   runTimes: string[];
 } {
   const flat = text(html);
-  const line = flat.match(/Acquisitions:\s*([^|]{0,120}?)(?:\s{2,}|$|Commissioner|Teams:)/i)?.[1] ?? "";
+  const line =
+    flat.match(/Acquisitions:\s*([^(]{0,80}\([^)]*\))/i)?.[1] ??
+    flat.match(/Acquisitions:\s*([^.]{0,80})/i)?.[1] ??
+    "";
   if (!line) return { waiverType: null, runTimes: [] };
   const waiverType = /auction|bidding|faab|blind bid/i.test(line)
     ? "faab"
