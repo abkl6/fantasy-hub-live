@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { playerIndex } from "./names";
+import { writeBackPlatformIds } from "./player-ids.server";
 import { fetchAllRows } from "./paginate";
 import { BASELINE_RULES, scoreStats, type StatLine } from "./scoring";
 
@@ -77,8 +78,13 @@ async function playerLookup(supabase: DB) {
     full_name: string;
     position: string;
     sleeper_id: string | null;
+    espn_id: string | null;
   }>((from, to) =>
-    supabase.from("players").select("id, full_name, position, sleeper_id").order("id").range(from, to),
+    supabase
+      .from("players")
+      .select("id, full_name, position, sleeper_id, espn_id")
+      .order("id")
+      .range(from, to),
   );
   const bySleeper = new Map<string, (typeof rows)[number]>();
   for (const row of rows) if (row.sleeper_id) bySleeper.set(row.sleeper_id, row);
@@ -155,17 +161,22 @@ export async function importSleeperProjections(
   const rows: StatRow[] = [];
   const unmatched: string[] = [];
   const seen = new Set<string>();
+  const learntIds = new Map<string, string>();
 
   for (const entry of raw ?? []) {
     const name =
       entry.player?.full_name ??
       [entry.player?.first_name, entry.player?.last_name].filter(Boolean).join(" ");
     const position = entry.player?.position ?? "";
-    const hit =
-      (entry.player_id ? bySleeper.get(entry.player_id) : undefined) ?? index.find(name, position);
+    const found = index.findWithId("sleeper_id", entry.player_id, name, position);
+    const hit = found.row;
     if (!hit) {
       if (name) unmatched.push(name);
       continue;
+    }
+    // Matched on the name this time; remember the id so we never have to again.
+    if (!found.matchedById && entry.player_id && !hit.sleeper_id) {
+      learntIds.set(hit.id, entry.player_id);
     }
     if (seen.has(hit.id)) continue;
     const stats = cleanStats(entry.stats ?? {});
@@ -184,6 +195,7 @@ export async function importSleeperProjections(
   }
 
   await writeRows(supabase, rows);
+  await writeBackPlatformIds(supabase, "sleeper_id", learntIds);
   return { source: "sleeper", week, matched: rows.length, unmatched: unmatched.slice(0, 50) };
 }
 
@@ -276,16 +288,20 @@ export async function importEspnProjections(
   const rows: StatRow[] = [];
   const unmatched: string[] = [];
   const seen = new Set<string>();
+  const learntIds = new Map<string, string>();
 
   for (const entry of body.players ?? []) {
     const p = entry.player;
     if (!p?.fullName) continue;
     const position = ESPN_POSITION[p.defaultPositionId ?? 0] ?? "";
-    const hit = index.find(p.fullName, position);
+    const espnId = p.id === undefined || p.id === null ? null : String(p.id);
+    const found = index.findWithId("espn_id", espnId, p.fullName, position);
+    const hit = found.row;
     if (!hit) {
       unmatched.push(p.fullName);
       continue;
     }
+    if (!found.matchedById && espnId && !hit.espn_id) learntIds.set(hit.id, espnId);
     if (seen.has(hit.id)) continue;
     // statSourceId 1 = projected, statSplitTypeId 1 = single week
     const line = (p.stats ?? []).find(
@@ -313,5 +329,6 @@ export async function importEspnProjections(
   }
 
   await writeRows(supabase, rows);
+  await writeBackPlatformIds(supabase, "espn_id", learntIds);
   return { source: "espn", week, matched: rows.length, unmatched: unmatched.slice(0, 50) };
 }
