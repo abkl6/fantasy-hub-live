@@ -14,6 +14,9 @@ const row = (p: Partial<RankableRow> & { id: string; position: string; projSeaso
   survivalDelta: null,
   fromCutTeam: false,
   longTermValue: null,
+  vor: 0,
+  ruleScore: 1,
+  ruleNote: null,
   ...p,
 });
 
