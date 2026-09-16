@@ -151,7 +151,7 @@ async function currentAllowed(supabase: DB, season: number): Promise<Allowed> {
   const meta = new Map((players ?? []).map((p) => [p.id, p.position]));
 
   for (const row of rows) {
-    if (row.game_state !== "final") continue;
+    if (row.game_state !== "post") continue;
     const team = (row.opponent ?? "").toUpperCase().replace(/^@/, "");
     if (!team || team === "BYE") continue;
     const group = groupOf(meta.get(row.player_id));
