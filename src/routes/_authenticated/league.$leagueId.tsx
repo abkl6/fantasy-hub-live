@@ -1634,15 +1634,11 @@ function allowedVariants(type: LeagueType): LeagueVariant[] {
 }
 
 /** Meta query shared by the selects and the header badge — no full recompute. */
-function useLeagueMeta(
-  leagueId: string,
-  initial?: { leagueType: LeagueType; variant: LeagueVariant; typeSource: string; typeSourceLabel: string },
-) {
+function useLeagueMeta(leagueId: string) {
   const fetchMeta = useServerFn(getLeagueMeta);
   return useQuery({
     queryKey: ["league-meta", leagueId],
     queryFn: () => fetchMeta({ data: { leagueId } }),
-    ...(initial ? { initialData: { ...initial, typeSource: initial.typeSource as "detected" | "inferred" | "user", format: "" } } : {}),
     staleTime: 30_000,
   });
 }
