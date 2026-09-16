@@ -62,36 +62,18 @@ function asSlots(value: unknown): string[] {
 
 const key = (name: string) => normalizeName(name);
 
-export interface WaiverBoardRow {
-  id: string;
+export interface WaiverBoardRow extends RankableRow {
   name: string;
-  position: string;
   nflTeam: string | null;
   byeWeek: number | null;
-  status: string;
-  projWeek: number;
-  projSeason: number;
-  /** Season points above the replacement-level starter at this position. */
-  tradeValue: number;
-  /** Keep Trade Cut dynasty market price; null when the market has not loaded. */
-  ktcValue: number | null;
-  /** What our projections imply this player should be worth on the market. */
-  projValue: number;
-  /** True when our projections price this player well above the market. */
-  undervalued: boolean;
-  /** Suggested bid as a percentage of a $100 FAAB budget. */
-  bid: number;
-  /** Guillotine only: aggressive / optimal / passive dollar bids. */
-  bids: BidLadder | null;
+  /** One recommended dollar bid, with the passive and aggressive brackets. */
+  bidRec: BidRecommendation;
   /** Points your best starting lineup gains this week, if scored. */
   lineupGain: number | null;
-  titleDelta: number | null;
   playoffDelta: number | null;
   winDelta: number | null;
   suggestedDrop: string | null;
   scored: boolean;
-  /** 0-100 keep-forever value; only set in dynasty and keeper leagues. */
-  longTermValue: number | null;
 }
 
 export interface WaiverBoard {
@@ -109,17 +91,30 @@ export interface WaiverBoard {
   /** My team's posture: rebuilding boards lead with keepers, not weekly bumps. */
   strategy: StrategyMode | null;
   strategyNote: string | null;
-  /** True in guillotine leagues, where the three-tier bid ladder is shown. */
+  /** True in guillotine leagues, where survival drives the board. */
   isSurvivalLeague: boolean;
   faabBudget: number;
   myFaabRemaining: number | null;
   myTeamId: string | null;
+  /** Where the numbers came from, e.g. "App projections (fallback)". */
+  projectionLabel: string;
+  /** True when the league's own source had nothing and we used the app's. */
+  projectionFallback: boolean;
+  /** My roster has an unfilled kicker / defense slot. */
+  needsKicker: boolean;
+  needsDefense: boolean;
 }
 
 export async function buildWaiverBoard(
   supabase: DB,
   leagueId: string,
-  opts: { search?: string; position?: string; limit?: number } = {},
+  opts: {
+    search?: string;
+    position?: string;
+    limit?: number;
+    sort?: WaiverSort;
+    showInjured?: boolean;
+  } = {},
 ): Promise<WaiverBoard> {
   const { data: league, error } = await supabase
     .from("leagues")
