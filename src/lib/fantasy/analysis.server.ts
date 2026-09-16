@@ -418,18 +418,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       unknownAgeById.set(row.teamId, row.unknownAgeCount);
     }
   }
-  const ageByPlayer = new Map(
-    players.map((p) => [
-      normalizeName(p.full_name),
-      {
-        age: (p as { age?: number | null }).age ?? null,
-        yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
-      },
-    ]),
-  );
   const laneOf = (p: EnginePlayer) => {
-    const meta = ageByPlayer.get(normalizeName(p.name));
-    return ageLane(p.position, meta?.age ?? null, meta?.yearsExp ?? null);
+    const meta = ownAgeByName.get(normalizeName(p.name));
+    const age = values.age(p.id, p.name, p.position) ?? meta?.age ?? null;
+    return ageLane(p.position, age, meta?.yearsExp ?? null);
   };
 
   const distributionOf = (roster: EnginePlayer[]) =>
