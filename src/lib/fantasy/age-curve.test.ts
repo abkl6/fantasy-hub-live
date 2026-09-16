@@ -51,7 +51,8 @@ describe("trajectories", () => {
   it("calls a young riser rising and a peaked player peak", () => {
     const wr = handCurve("WR");
     expect(trajectoryFor({ position: "WR", age: 22, value: 5000, tier: "elite", curve: wr }).classification).toBe("rising");
-    expect(trajectoryFor({ position: "WR", age: 26, value: 5000, tier: "elite", curve: wr }).classification).toBe("peak");
+    const qb = handCurve("QB");
+    expect(trajectoryFor({ position: "QB", age: 29, value: 5000, tier: "elite", curve: qb }).classification).toBe("peak");
   });
 
   it("ages elite production more slowly than replacement production", () => {
