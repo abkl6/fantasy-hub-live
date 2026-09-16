@@ -662,6 +662,8 @@ export async function buildGameDay(
         gameState: state,
         gameClock: game?.clock ?? snap?.clock ?? null,
         opponent: game?.opponent ?? snap?.opponent ?? null,
+        matchup: projections.matchupRating(s.player_id, s.position.toUpperCase()),
+
 
       };
     };

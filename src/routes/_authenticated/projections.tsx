@@ -292,7 +292,7 @@ function MyProjectionsUpload() {
   const [open, setOpen] = useState(false);
   const [csv, setCsv] = useState("");
   const [group, setGroup] = useState<UploadGroup>("offense");
-  const [spread, setSpread] = useState<"even" | "sos">("even");
+
 
   const download = useMutation({
     mutationFn: () => template({ data: { group } }),
@@ -309,7 +309,7 @@ function MyProjectionsUpload() {
   });
 
   const run = useMutation({
-    mutationFn: (apply: boolean) => upload({ data: { csv, apply, group, spread } }),
+    mutationFn: (apply: boolean) => upload({ data: { csv, apply, group } }),
     onSuccess: (result) => {
       if (result.applied) {
         toast.success(`Saved projections for ${result.matchedCount} players.`);
@@ -365,22 +365,12 @@ function MyProjectionsUpload() {
                 ))}
               </select>
             </div>
-            <div>
-              <Label htmlFor="proj-spread">Season totals split</Label>
-              <select
-                id="proj-spread"
-                className="mt-1 h-9 w-full rounded-md bg-secondary px-3 text-sm"
-                value={spread}
-                onChange={(e) => {
-                  setSpread(e.target.value as "even" | "sos");
-                  run.reset();
-                }}
-              >
-                <option value="even">Evenly across the season</option>
-                <option value="sos">Shaped by how tough each week is</option>
-              </select>
+            <div className="self-end text-xs text-muted-foreground">
+              Season totals are stored whole. Each league splits them into weeks itself — evenly, or
+              shaped by the schedule when that league has schedule adjustment on.
             </div>
           </div>
+
           <Button
             size="sm"
             variant="secondary"
@@ -408,20 +398,16 @@ function MyProjectionsUpload() {
             <div className="space-y-3 text-sm">
               <p>
                 {result.matchedCount} {result.groupLabel.toLowerCase()} players matched (
-                {result.mode === "weekly"
-                  ? "week by week"
-                  : result.spread === "sos"
-                    ? "season totals, shaped by schedule"
-                    : "season totals, split evenly"}
-                )
+                {result.mode === "weekly" ? "week by week" : "season totals"})
                 {result.unmatchedCount > 0 ? `, ${result.unmatchedCount} names not recognised` : ""}.
               </p>
               {result.unmatched.length > 0 && (
                 <p className="text-muted-foreground">Not recognised: {result.unmatched.join(", ")}</p>
               )}
               <Button onClick={() => run.mutate(true)} disabled={run.isPending || !result.matchedCount}>
-                Save {result.rowsWritten} weekly lines
+                Save {result.rowsWritten} {result.mode === "weekly" ? "weekly lines" : "season totals"}
               </Button>
+
             </div>
           )}
           <div className="flex items-center justify-between">

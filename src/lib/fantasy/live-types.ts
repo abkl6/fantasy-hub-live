@@ -12,7 +12,10 @@ export interface LivePlayerRow {
   gameState: "pre" | "in" | "post";
   gameClock: string | null;
   opponent: string | null;
+  /** How this week's NFL opponent rates for this position, when adjusted. */
+  matchup?: "easy" | "neutral" | "tough" | null;
 }
+
 
 export interface LiveEventRow {
   id: string;

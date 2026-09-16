@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { detectGroup, mapHeaders, templateColumns, templateHeaderRow } from "./projection-templates";
-import { clampMultiplier, multipliersFromMeasure, ratingOf, spreadSeasonTotals } from "./sos";
+import {
+  blendMeasure,
+  blendWeight,
+  categoryGroupFor,
+  clampMultiplier,
+  multipliersFromMeasure,
+  ratingOf,
+  spreadSeasonTotals,
+} from "./sos";
+
 
 describe("projection templates", () => {
   it("tells the four layouts apart from their headings", () => {
@@ -43,25 +52,39 @@ describe("season totals split", () => {
   });
 
   it("shapes weeks by opponent strength without changing the season total", () => {
-    const multiplier = (opp: string | null) => (opp === "CAR" ? 1.15 : opp === "KC" ? 0.85 : 1);
-    const split = spreadSeasonTotals({ pass_yd: 300 }, weeks, multiplier);
+    const multiplier = (_group: unknown, opp: string | null) =>
+      opp === "CAR" ? 1.1 : opp === "KC" ? 0.9 : 1;
+    const split = spreadSeasonTotals({ pass_yd: 300 }, weeks, "QB", multiplier);
     const total = split.reduce((sum, w) => sum + (w.stats["pass_yd"] ?? 0), 0);
     expect(total).toBeCloseTo(300, 1);
     const easy = split.find((w) => w.opponent === "CAR")!.stats["pass_yd"]!;
     const tough = split.find((w) => w.opponent === "KC")!.stats["pass_yd"]!;
     expect(easy).toBeGreaterThan(tough);
   });
+
+  it("shapes each stat by its own category", () => {
+    // Soft against the run, hard against the pass.
+    const multiplier = (group: unknown, opp: string | null) =>
+      opp !== "KC" ? 1 : group === "RB" ? 1.1 : group === "QB" ? 0.9 : 1;
+    const split = spreadSeasonTotals({ pass_yd: 300, rush_yd: 300 }, weeks, "RB", multiplier);
+    const kc = split.find((w) => w.opponent === "KC")!;
+    expect(kc.stats["rush_yd"]!).toBeGreaterThan(kc.stats["pass_yd"]!);
+    for (const key of ["pass_yd", "rush_yd"]) {
+      const total = split.reduce((sum, w) => sum + (w.stats[key] ?? 0), 0);
+      expect(total).toBeCloseTo(300, 1);
+    }
+  });
 });
 
 describe("schedule strength maths", () => {
   it("keeps multipliers inside the allowed band", () => {
-    expect(clampMultiplier(2)).toBeLessThanOrEqual(1.15);
-    expect(clampMultiplier(0)).toBeGreaterThanOrEqual(0.85);
+    expect(clampMultiplier(2)).toBeLessThanOrEqual(1.1);
+    expect(clampMultiplier(0)).toBeGreaterThanOrEqual(0.9);
   });
 
   it("calls a low multiplier tough and a high one easy", () => {
-    expect(ratingOf(0.9)).toBe("tough");
-    expect(ratingOf(1.1)).toBe("easy");
+    expect(ratingOf(0.95)).toBe("tough");
+    expect(ratingOf(1.05)).toBe("easy");
     expect(ratingOf(1)).toBe("neutral");
   });
 
@@ -71,4 +94,25 @@ describe("schedule strength maths", () => {
     expect(Math.max(...values)).toBeGreaterThan(1);
     expect(Math.min(...values)).toBeLessThan(1);
   });
+
+  it("maps each stat to the position that governs it", () => {
+    expect(categoryGroupFor("pass_yd", "QB")).toBe("QB");
+    expect(categoryGroupFor("rush_td", "QB")).toBe("RB");
+    expect(categoryGroupFor("rec_yd", "WR")).toBe("WR");
+    expect(categoryGroupFor("rec_yd", "TE")).toBe("TE");
+    expect(categoryGroupFor("fg_made", "K")).toBe("K");
+    expect(categoryGroupFor("fum_lost", "RB")).toBeNull();
+  });
+
+  it("leans on last season until this season has eight games", () => {
+    expect(blendWeight(0)).toBe(0);
+    expect(blendWeight(4)).toBeCloseTo(0.5, 5);
+    expect(blendWeight(12)).toBe(1);
+    expect(blendMeasure(20, 10, 0)).toBe(20);
+    expect(blendMeasure(20, 10, 4)).toBeCloseTo(15, 5);
+    expect(blendMeasure(20, 10, 8)).toBeCloseTo(10, 5);
+    expect(blendMeasure(null, 10, 2)).toBe(10);
+    expect(blendMeasure(null, null, 2)).toBeNull();
+  });
 });
+

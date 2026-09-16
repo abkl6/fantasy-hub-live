@@ -82,9 +82,15 @@ function PlayerLine({ p, dim }: { p: LivePlayerRow; dim?: boolean }) {
           <p className="truncate font-medium">{p.name}</p>
           <p className="text-[11px] text-muted-foreground">
             {p.position}
-            {p.nflTeam ? ` · ${p.nflTeam}` : ""} ·{" "}
+            {p.nflTeam ? ` · ${p.nflTeam}` : ""}
+            {p.opponent ? ` vs ${p.opponent}` : ""}
+            {p.opponent && p.matchup && p.matchup !== "neutral"
+              ? ` (${p.matchup === "easy" ? "easy" : "tough"})`
+              : ""}{" "}
+            ·{" "}
             {p.gameState === "in" && p.gameClock ? `In progress · ${p.gameClock}` : stateLabel[p.gameState]}
           </p>
+
         </div>
       </div>
       <div className="text-right">

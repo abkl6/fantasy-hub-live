@@ -360,10 +360,10 @@ async function espnCreds(context: { supabase: any; userId: string }) {
 /**
  * "My projections" upload. Accepts any of the four templates (offence, team
  * defence, individual defenders, kickers), either week by week (a `week`
- * column) or as season totals, which are split across the weeks that player's
- * NFL team actually plays — evenly, or shaped by how tough each opponent is.
- * Stored privately under the member's own source key, and only used by leagues
- * set to "My projections".
+ * column) or as season totals. Season totals are stored whole; each league
+ * splits them into weeks when it reads them, so turning schedule adjustment on
+ * or off never needs a re-upload. Stored privately under the member's own
+ * source key, and only used by leagues set to "My projections".
  */
 export const uploadMyProjections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -374,10 +374,10 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         season: z.number().int().min(2020).max(2100).optional(),
         apply: z.boolean().optional(),
         group: z.enum(["offense", "dst", "idp", "k"]).optional(),
-        spread: z.enum(["even", "sos"]).optional(),
       })
       .parse(d),
   )
+
   .handler(async ({ data, context }) => {
     const { BASELINE_RULES, scoreStats } = await import("@/lib/fantasy/scoring");
     const season = data.season ?? new Date().getFullYear();
@@ -385,8 +385,6 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const { detectGroup, mapHeaders, GROUP_LABEL } = await import(
       "@/lib/fantasy/projection-templates"
     );
-    const { loadStrengthBook, neutralStrength } = await import("@/lib/fantasy/sos.server");
-    const { spreadSeasonTotals } = await import("@/lib/fantasy/sos");
 
     const rows = parseCsv(data.csv);
     if (rows.length < 2) throw new Error("That file has no rows under the header.");
@@ -442,16 +440,9 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       weeksByTeam.set(key, list);
     }
 
-    const useSos = data.spread === "sos";
-    const strength = useSos ? await loadStrengthBook(context.supabase, season) : neutralStrength();
-    if (useSos && !strength.covered) {
-      throw new Error(
-        "Schedule strength has not been worked out for this season yet. Upload with an even split, or ask an admin to refresh schedule strength.",
-      );
-    }
-
     const source = `user:${context.userId}`;
-    const out: Record<string, unknown>[] = [];
+    const weekOut: Record<string, unknown>[] = [];
+    const seasonOut: Record<string, unknown>[] = [];
     const unmatched: string[] = [];
     let matchedCount = 0;
 
@@ -467,44 +458,43 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         if (Number.isFinite(n) && n !== 0) stats[col.key] = n;
       }
       matchedCount++;
-
-      const push = (week: number, line: Record<string, number>, opponent: string | null) =>
-        out.push({
-          player_id: hit.id,
-          season,
-          week,
-          opponent,
-          stats: line,
-          src_points: Math.round(scoreStats(line, BASELINE_RULES, hit.position) * 100) / 100,
-          source,
-        });
+      const points = Math.round(scoreStats(stats, BASELINE_RULES, hit.position) * 100) / 100;
 
       if (iWeek >= 0) {
         const week = Number(raw[iWeek]);
         if (!Number.isFinite(week) || week < 1 || week > 18) continue;
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
-        push(week, stats, games.find((g) => g.week === week)?.opponent ?? null);
-      } else {
-        // Season totals: spread them across the weeks this team actually plays,
-        // evenly or shaped by how tough each week's opponent is.
-        const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
-        const play = games.length
-          ? games
-          : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
-        const split = spreadSeasonTotals(
+        weekOut.push({
+          player_id: hit.id,
+          season,
+          week,
+          opponent: games.find((g) => g.week === week)?.opponent ?? null,
           stats,
-          play,
-          useSos ? (opponent) => strength.multiplier(hit.position, opponent) : undefined,
-        );
-        for (const week of split) push(week.week, week.stats, week.opponent);
+          src_points: points,
+          source,
+        });
+      } else {
+        // Season totals are kept whole. Each league splits them at read time,
+        // evenly or shaped by its own schedule setting.
+        seasonOut.push({ player_id: hit.id, season, stats, src_points: points, source });
       }
     }
 
-    if (data.apply && out.length) {
-      for (let i = 0; i < out.length; i += 500) {
+    if (data.apply) {
+      for (let i = 0; i < weekOut.length; i += 500) {
         const { error } = await context.supabase
           .from("player_week_stats")
-          .upsert(out.slice(i, i + 500) as never, { onConflict: "player_id,season,week,source" });
+          .upsert(weekOut.slice(i, i + 500) as never, {
+            onConflict: "player_id,season,week,source",
+          });
+        if (error) throw new Error(error.message);
+      }
+      for (let i = 0; i < seasonOut.length; i += 500) {
+        const { error } = await context.supabase
+          .from("player_season_projections")
+          .upsert(seasonOut.slice(i, i + 500) as never, {
+            onConflict: "player_id,season,source",
+          });
         if (error) throw new Error(error.message);
       }
     }
@@ -514,14 +504,14 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       season,
       group,
       groupLabel: GROUP_LABEL[group],
-      spread: useSos ? ("sos" as const) : ("even" as const),
       mode: iWeek >= 0 ? ("weekly" as const) : ("season" as const),
       matchedCount,
-      rowsWritten: out.length,
+      rowsWritten: weekOut.length + seasonOut.length,
       unmatched: unmatched.slice(0, 100),
       unmatchedCount: unmatched.length,
     };
   });
+
 
 // ------------------------------------------------- templates & schedule strength
 
@@ -631,14 +621,82 @@ export const refreshScheduleStrength = createServerFn({ method: "POST" })
     return { season, ...res };
   });
 
+/**
+ * Admin: seed last season's fantasy points allowed per game. CSV columns:
+ * `nfl_team, position_group, points_allowed_per_game, games`.
+ */
+export const uploadPriorStrength = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        csv: z.string().min(1).max(2_000_000),
+        season: z.number().int().min(2020).max(2100).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (!(await callerIsAdmin(context))) {
+      throw new Error("Only an admin can upload last season's points allowed.");
+    }
+    const { savePriorStrength } = await import("@/lib/fantasy/sos.server");
+    const { POSITION_GROUPS } = await import("@/lib/fantasy/sos");
+    const season = data.season ?? new Date().getFullYear();
+
+    const rows = parseCsv(data.csv);
+    if (rows.length < 2) throw new Error("That file has no rows under the header.");
+    const header = rows[0]!.map((h) => h.trim().toLowerCase());
+    const iTeam = header.findIndex((h) => h === "nfl_team" || h === "team");
+    const iGroup = header.findIndex((h) => h === "position_group" || h === "pos" || h === "position");
+    const iPer = header.findIndex(
+      (h) => h === "points_allowed_per_game" || h === "pts_allowed_per_game" || h === "per_game",
+    );
+    const iGames = header.findIndex((h) => h === "games");
+    if (iTeam < 0 || iGroup < 0 || iPer < 0) {
+      throw new Error(
+        "That file needs nfl_team, position_group and points_allowed_per_game columns.",
+      );
+    }
+
+    const valid = new Set<string>(POSITION_GROUPS);
+    const parsed: { team: string; group: (typeof POSITION_GROUPS)[number]; perGame: number; games?: number }[] = [];
+    const skipped: string[] = [];
+    for (const raw of rows.slice(1)) {
+      const team = (raw[iTeam] ?? "").trim().toUpperCase();
+      const group = (raw[iGroup] ?? "").trim().toUpperCase();
+      const perGame = Number(raw[iPer]);
+      if (!team || !valid.has(group) || !Number.isFinite(perGame) || perGame <= 0) {
+        if (team || group) skipped.push(`${team} ${group}`.trim());
+        continue;
+      }
+      const games = iGames >= 0 ? Number(raw[iGames]) : NaN;
+      parsed.push({
+        team,
+        group: group as (typeof POSITION_GROUPS)[number],
+        perGame,
+        ...(Number.isFinite(games) && games > 0 ? { games } : {}),
+      });
+    }
+
+    const res = await savePriorStrength(context.supabase, season, parsed);
+    return { season, ...res, skipped: skipped.slice(0, 20), skippedCount: skipped.length };
+  });
+
 /** Removes every projection this member has uploaded. */
 export const clearMyProjections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const source = `user:${context.userId}`;
     const { error } = await context.supabase
       .from("player_week_stats")
       .delete()
-      .eq("source", `user:${context.userId}`);
+      .eq("source", source);
     if (error) throw new Error(error.message);
+    const { error: seasonError } = await context.supabase
+      .from("player_season_projections")
+      .delete()
+      .eq("source", source);
+    if (seasonError) throw new Error(seasonError.message);
+
     return { ok: true };
   });
