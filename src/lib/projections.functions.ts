@@ -10,7 +10,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeName, playerIndex } from "@/lib/fantasy/names";
 import { tierFromRank, trajectoryFor, type Trajectory } from "@/lib/fantasy/age-curve";
-import { loadAgeCurves } from "@/lib/fantasy/age-curve.server";
 import { loadTradeValues } from "@/lib/fantasy/trade-value";
 
 export interface BaselineRow {
@@ -97,6 +96,7 @@ export const listProjections = createServerFn({ method: "POST" })
       });
 
     // Market value trajectory for the rows we are about to show.
+    const { loadAgeCurves } = await import("@/lib/fantasy/age-curve.server");
     const [values, curves] = await Promise.all([
       loadTradeValues(context.supabase, "sf"),
       loadAgeCurves(context.supabase, "sf"),
