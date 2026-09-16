@@ -134,6 +134,9 @@ function LeagueCard({
                       {issue.impactLabel}
                     </p>
                   ) : null}
+                  {issue.ruleNote ? (
+                    <p className="truncate text-[11px] text-muted-foreground">Rule: {issue.ruleNote}</p>
+                  ) : null}
                 </div>
                 <Badge variant={issue.severity === "red" ? "destructive" : "secondary"}>
                   {issue.severity === "red" ? "Fix" : "Check"}

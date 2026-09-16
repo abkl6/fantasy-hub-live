@@ -68,6 +68,9 @@ function PlayerCard({ player }: { player: WaiverHubPlayer }) {
                   {entry.impactLabel}
                 </p>
               ) : null}
+              {entry.ruleNote ? (
+                <p className="truncate text-[11px] text-muted-foreground">Rule: {entry.ruleNote}</p>
+              ) : null}
             </div>
             <div className="shrink-0 text-right">
               <p className="text-sm font-semibold tabular-nums">${entry.suggestedBid}</p>
