@@ -730,6 +730,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       ...formatMeta,
       mySurvival: null,
       dynasty: null,
+      dynastyOutlook: null,
+      showTrajectories: isMultiYear(format) || variant === "empire",
       myBadge: null,
       myStrategy: null,
     };
