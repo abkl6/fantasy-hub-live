@@ -41,6 +41,8 @@ export interface TradeFinderIdea {
   /** The one line shown on the card, e.g. "+1.8% title". */
   impactLabel: string;
   impactRank: number;
+  /** One line naming the strategy rule that shaped this idea. */
+  ruleNote?: string | null;
 }
 
 export interface TradeFinderPayload {

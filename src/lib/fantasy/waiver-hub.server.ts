@@ -85,6 +85,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
     supabase.from("players").select("*").order("id").range(from, to),
   );
 
+  const book = await loadStrategyRules(supabase);
   const byKey = new Map<string, WaiverHubPlayer>();
   const leagueSummaries: WaiverHubPayload["leagues"] = [];
   let week = 1;
