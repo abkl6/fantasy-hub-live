@@ -144,6 +144,8 @@ export interface SimTeamInput {
   pointsFor: number;
   mean: number;
   sd: number;
+  /** Victory points already banked (FFPC-style leagues only). */
+  vp?: number;
 }
 
 export interface SimTeamResult {
@@ -156,6 +158,8 @@ export interface SimTeamResult {
   projLosses: number;
   projPointsPerWeek: number;
   powerRank: number;
+  /** Projected end-of-season victory points, when the league uses them. */
+  projVp?: number;
 }
 
 export interface ScheduleGame {
@@ -166,7 +170,15 @@ export interface ScheduleGame {
 
 export function simulateSeason(
   teams: SimTeamInput[],
-  config: { playoffTeams: number; regularSeasonWeeks: number; currentWeek: number },
+  config: {
+    playoffTeams: number;
+    regularSeasonWeeks: number;
+    currentWeek: number;
+    /** FFPC victory points: seeding runs on VP, then total points. */
+    victoryPoints?: boolean;
+    /** Weeks where the top half of scorers all win, regardless of opponent. */
+    allPlayWeeks?: number[];
+  },
   schedule: ScheduleGame[] = [],
   iterations = 2000,
   seed = 12345,
@@ -183,6 +195,7 @@ export function simulateSeason(
       projLosses: t.losses,
       projPointsPerWeek: t.mean,
       powerRank: i + 1,
+      ...(config.victoryPoints ? { projVp: t.vp ?? 0 } : {}),
     }));
   }
 
@@ -194,6 +207,10 @@ export function simulateSeason(
     2 ** Math.floor(Math.log2(Math.max(2, Math.min(n, config.playoffTeams)))) * 2,
   );
   const bracketSize = Math.min(n, Math.max(2, playoffTeams));
+
+  const useVp = config.victoryPoints === true;
+  const allPlay = new Set(config.allPlayWeeks ?? []);
+  const totalVp = new Array(n).fill(0);
 
   const madePlayoffs = new Array(n).fill(0);
   const wonTitle = new Array(n).fill(0);
@@ -212,11 +229,42 @@ export function simulateSeason(
   for (let it = 0; it < iterations; it++) {
     const wins = teams.map((t) => t.wins + t.ties * 0.5);
     const points = teams.map((t) => t.pointsFor);
+    const vp = teams.map((t) => t.vp ?? 0);
 
     for (let w = 0; w < weeksLeft; w++) {
       const week = config.currentWeek + w;
       const scores = teams.map((_, i) => draw(i));
       for (let i = 0; i < n; i++) points[i] = (points[i] ?? 0) + (scores[i] ?? 0);
+
+      // Weekly scoring rank drives both all-play weeks and score VP.
+      const weekOrder = teams
+        .map((_, i) => i)
+        .sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0));
+      const scoreRank = new Array(n).fill(n);
+      weekOrder.forEach((teamIndex, place) => {
+        scoreRank[teamIndex] = place + 1;
+      });
+
+      if (allPlay.has(week)) {
+        // Top half beats the bottom half; there is no opponent this week.
+        const half = Math.floor(n / 2);
+        for (let place = 0; place < half; place++) wins[weekOrder[place]!] = (wins[weekOrder[place]!] ?? 0) + 1;
+        if (useVp) {
+          for (let i = 0; i < n; i++) {
+            vp[i] =
+              (vp[i] ?? 0) +
+              (scoreRank[i]! <= half ? 2 : 0) +
+              (scoreRank[i]! <= 4 ? 2 : scoreRank[i]! <= 8 ? 1 : 0);
+          }
+        }
+        continue;
+      }
+
+      if (useVp) {
+        for (let i = 0; i < n; i++) {
+          vp[i] = (vp[i] ?? 0) + (scoreRank[i]! <= 4 ? 2 : scoreRank[i]! <= 8 ? 1 : 0);
+        }
+      }
 
       const games = byWeek.get(week);
       if (games && games.length) {
@@ -224,8 +272,12 @@ export function simulateSeason(
           const a = index.get(g.homeTeamId);
           const b = index.get(g.awayTeamId);
           if (a === undefined || b === undefined) continue;
-          if ((scores[a] ?? 0) >= (scores[b] ?? 0)) wins[a] = (wins[a] ?? 0) + 1;
+          const aWins = (scores[a] ?? 0) >= (scores[b] ?? 0);
+          if (aWins) wins[a] = (wins[a] ?? 0) + 1;
           else wins[b] = (wins[b] ?? 0) + 1;
+          if (useVp) {
+            vp[aWins ? a : b] = (vp[aWins ? a : b] ?? 0) + 2;
+          }
         }
       } else {
         // No stored schedule: random pairings keep the win distribution honest.
@@ -237,17 +289,26 @@ export function simulateSeason(
         for (let i = 0; i + 1 < order.length; i += 2) {
           const a = order[i]!;
           const b = order[i + 1]!;
-          if ((scores[a] ?? 0) >= (scores[b] ?? 0)) wins[a] = (wins[a] ?? 0) + 1;
+          const aWins = (scores[a] ?? 0) >= (scores[b] ?? 0);
+          if (aWins) wins[a] = (wins[a] ?? 0) + 1;
           else wins[b] = (wins[b] ?? 0) + 1;
+          if (useVp) vp[aWins ? a : b] = (vp[aWins ? a : b] ?? 0) + 2;
         }
       }
     }
 
-    for (let i = 0; i < n; i++) totalWins[i] += wins[i];
+    for (let i = 0; i < n; i++) {
+      totalWins[i] += wins[i];
+      totalVp[i] += vp[i];
+    }
 
     const seeds = teams
       .map((_, i) => i)
-      .sort((a, b) => (wins[b] ?? 0) - (wins[a] ?? 0) || (points[b] ?? 0) - (points[a] ?? 0))
+      .sort((a, b) =>
+        useVp
+          ? (vp[b] ?? 0) - (vp[a] ?? 0) || (points[b] ?? 0) - (points[a] ?? 0)
+          : (wins[b] ?? 0) - (wins[a] ?? 0) || (points[b] ?? 0) - (points[a] ?? 0),
+      )
       .slice(0, bracketSize);
     for (const i of seeds) madePlayoffs[i] += 1;
 
@@ -279,6 +340,7 @@ export function simulateSeason(
       ) / 10,
     projPointsPerWeek: Math.round(t.mean * 10) / 10,
     powerRank: 0,
+    ...(useVp ? { projVp: Math.round(((totalVp[i] ?? 0) / iterations) * 10) / 10 } : {}),
   }));
 
   [...results]
