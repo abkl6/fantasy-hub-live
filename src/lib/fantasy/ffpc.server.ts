@@ -235,7 +235,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
   const teams: FfpcTeam[] = [];
   if (isChop && chopAlive) {
     const weeksPlayed = Math.max(1, (weekMatch ? Number(weekMatch[1]) : 1) - 1);
-    const readChopRows = (table: typeof chopAlive, eliminated: boolean) => {
+    const readChopRows = (table: HtmlTable | null, eliminated: boolean) => {
       if (!table) return;
       const cAvg = columnIndex(table, "avg points");
       const cFaab = columnIndex(table, "remaining faab");
@@ -312,6 +312,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
         division,
         playoffSeed: seedMatch ? Number(seedMatch[1]) : null,
         faabRemaining: null,
+        eliminatedWeek: null,
         roster: [],
       });
     }
