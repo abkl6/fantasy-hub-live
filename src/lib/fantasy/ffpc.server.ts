@@ -548,11 +548,20 @@ export async function ffpcLeagueBundle(
     leagueIdInput ? { leagueID: leagueIdInput } : {},
   );
   const { discoverLeagueId } = await import("./ffpc-parse");
-  const leagueId = leagueIdInput ?? discoverLeagueId(firstHtml);
+  const discovered = discoverLeagueId(firstHtml);
+  const leagueId = leagueIdInput ?? discovered;
   if (!leagueId) {
     throw new FfpcParseError(
       "LeagueHome.aspx",
       "FFPC answered, but its league number could not be identified from the page.",
+    );
+  }
+  // FFPC issues one link per league. A saved link that opens a different league
+  // must never overwrite this one's data.
+  if (leagueIdInput && discovered && discovered !== leagueIdInput) {
+    throw new FfpcParseError(
+      "LeagueHome.aspx",
+      "The saved FFPC link opens a different league. Paste this league's own address again.",
     );
   }
   const homeHtml = firstHtml;
