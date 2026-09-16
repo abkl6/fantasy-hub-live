@@ -39,6 +39,12 @@ export interface RankableRow {
   ktcValue: number | null;
   projValue: number;
   undervalued: boolean;
+  /** Projection minus the best available free agent at the same position. */
+  vor: number;
+  /** Strategy-rule multiplier applied to value over replacement. */
+  ruleScore: number;
+  /** One line explaining a rule that changed or suppressed this row. */
+  ruleNote: string | null;
   bid: number;
   titleDelta: number | null;
   /** Guillotine only: change in this week's survival probability. */
@@ -108,6 +114,10 @@ export function rankWaivers<T extends RankableRow>(rows: T[], opts: RankOptions)
     }
     const impact = primary(b, opts) - primary(a, opts);
     if (Math.abs(impact) > 1e-6) return impact;
+    // Value over replacement is the house ranking rule: what a player is worth
+    // is what he gives you over the best free agent you could have instead.
+    const vor = b.vor * (b.ruleScore || 1) - a.vor * (a.ruleScore || 1);
+    if (Math.abs(vor) > 1e-6) return vor;
     // Nothing separates them on the simulation, so fall back to what they are
     // projected to be worth for the rest of the season. Players from a cut
     // roster break exact ties, since they are usually the better body.
