@@ -69,9 +69,10 @@ function fakeSupabase() {
 const OPTS = { userId: "u1", leagueId: "l1", kind: "analysis" as const };
 
 const SIM_TEAMS = [
-  { id: "a", name: "A", isMine: true, mean: 100, sd: 20 },
-  { id: "b", name: "B", isMine: false, mean: 95, sd: 20 },
+  { id: "a", name: "A", isMine: true, mean: 100, sd: 20, wins: 7, losses: 5, ties: 0, pointsFor: 1200 },
+  { id: "b", name: "B", isMine: false, mean: 95, sd: 20, wins: 5, losses: 7, ties: 0, pointsFor: 1100 },
 ];
+
 const SIM_CONFIG = { playoffTeams: 1, regularSeasonWeeks: 14, currentWeek: 13 };
 
 describe("analysis cache", () => {
