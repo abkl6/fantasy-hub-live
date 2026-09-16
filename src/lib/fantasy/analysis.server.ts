@@ -264,8 +264,8 @@ export interface AnalysisPayload {
   projectionLabel: string;
   /** True when this league adjusts numbers for opponent strength. */
   sosAdjust: boolean;
-  /** True when schedule strength has been worked out for this season. */
-  sosAvailable: boolean;
+  /** True when the adjustment is on and schedule strength numbers exist. */
+  sosActive: boolean;
   /** Guillotine only: weekly survival odds instead of playoff/title odds. */
   survival: SurvivalResult[] | null;
   mySurvival: SurvivalResult | null;
@@ -715,7 +715,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     scoringLabel: scoring.label,
     projectionLabel: proj.sourceLabel,
     sosAdjust: !!(league as { sos_adjust?: boolean }).sos_adjust,
-    sosAvailable: proj.sosOn || !(league as { sos_adjust?: boolean }).sos_adjust,
+    sosActive: proj.sosOn,
     survival,
   };
 
