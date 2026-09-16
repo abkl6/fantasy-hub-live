@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { TradeFinderAsset, TradeFinderIdea } from "@/lib/fantasy/trade-finder-types";
 import { getTradeFinderFn } from "@/lib/fantasy.functions";
+import { TrajectoryChip } from "@/components/TrajectoryChip";
 
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}`;
 
@@ -21,7 +22,8 @@ function AssetList({ label, assets }: { label: string; assets: TradeFinderAsset[
             {a.name}{" "}
             <span className="text-xs font-normal text-muted-foreground">
               {a.position} · {a.proj.toFixed(1)} proj
-            </span>
+            </span>{" "}
+            <TrajectoryChip trajectory={a.trajectory} playerName={a.name} />
           </li>
         ))}
       </ul>
