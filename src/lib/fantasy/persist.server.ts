@@ -37,7 +37,7 @@ export interface NormalizedBundle {
   scoringRules?: Record<string, number>;
   rosterSlots: string[];
   /** How the platform says the league is won, when it exposes it. */
-  contestFormat?: "h2h" | "points" | "hybrid";
+  contestFormat?: "h2h" | "points" | "hybrid" | "vp";
   teams: NormalizedTeam[];
   schedule: {
     week: number;

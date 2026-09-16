@@ -17,7 +17,14 @@ import {
   type SimTeamResult,
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
-import { asContestFormat, CONTEST_LABELS, hasPointsRace, type ContestFormat } from "./contest";
+import {
+  asAllPlayWeeks,
+  asContestFormat,
+  CONTEST_LABELS,
+  hasPointsRace,
+  usesVictoryPoints,
+  type ContestFormat,
+} from "./contest";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { fetchAllRows } from "./paginate";
@@ -92,6 +99,9 @@ export interface LeagueRow {
   last_synced_at: string | null;
   format: string;
   projection_source: string;
+  /** True when a platform read failed and the stored copy is being kept. */
+  sync_paused?: boolean;
+  last_sync_error?: string | null;
 }
 
 export interface DynastyRow {
@@ -189,6 +199,8 @@ export interface AnalysisPayload {
     dynastyRank: number | null;
     /** Weeks this team was the league's top scorer. */
     weeklyHighs: number;
+    /** Victory points banked; victory-point leagues only. */
+    vp: number;
   })[];
   grades: PositionGrade[];
   lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
@@ -378,6 +390,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
 
+  const vpByTeam = new Map(teams.map((t) => [t.id, Number((t as { vp?: number }).vp ?? 0)]));
   const simInputs = engineTeams.map((t) => {
     const dist = t.roster.length
       ? distributionOf(t.roster)
@@ -398,6 +411,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       pointsFor: t.pointsFor,
       mean: dist.mean,
       sd: dist.sd,
+      vp: vpByTeam.get(t.id) ?? 0,
     };
   });
 
@@ -405,10 +419,18 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     .filter((m) => m.home_team_id && m.away_team_id)
     .map((m) => ({ week: m.week, homeTeamId: m.home_team_id!, awayTeamId: m.away_team_id! }));
 
+  // FFPC-style leagues are seeded on victory points, and some weeks are
+  // all-play (top half wins), so the simulation needs both up front.
+  const contestFormat = asContestFormat((league as { contest_format?: string }).contest_format);
+  const allPlayWeeks = asAllPlayWeeks((league as { all_play_weeks?: unknown }).all_play_weeks);
+  const usesVp = usesVictoryPoints(contestFormat);
+
   const simConfig = {
     playoffTeams: league.playoff_teams,
     regularSeasonWeeks: league.regular_season_weeks,
     currentWeek: league.current_week,
+    victoryPoints: usesVp,
+    allPlayWeeks,
   };
 
   const baseline = simulateSeason(simInputs, simConfig, schedule, 2500, 7);
@@ -430,7 +452,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const teamById = new Map(teams.map((t) => [t.id, t]));
 
   const standings = [...baseline]
-    .sort((a, b) => b.titleOdds - a.titleOdds || b.projWins - a.projWins)
+    .sort((a, b) =>
+      usesVp
+        ? (vpByTeam.get(b.id) ?? 0) - (vpByTeam.get(a.id) ?? 0) ||
+          Number(teamById.get(b.id)?.points_for ?? 0) - Number(teamById.get(a.id)?.points_for ?? 0)
+        : b.titleOdds - a.titleOdds || b.projWins - a.projWins,
+    )
     .map((r, index) => {
       const row = teamById.get(r.id);
       return {
@@ -457,6 +484,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         dynastyValue: dynastyValueById.get(r.id) ?? null,
         dynastyRank: dynastyRankById.get(r.id) ?? null,
         weeklyHighs: 0,
+        vp: vpByTeam.get(r.id) ?? 0,
       };
     });
 
@@ -478,7 +506,6 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
 
   // --- season-long total points race ---------------------------------------
-  const contestFormat = asContestFormat((league as { contest_format?: string }).contest_format);
   const pointsPlayoff = {
     teams: (league as { points_playoff_teams?: number | null }).points_playoff_teams ?? null,
     afterWeek: (league as { points_playoff_week?: number | null }).points_playoff_week ?? null,

@@ -217,6 +217,7 @@ export type Database = {
       }
       leagues: {
         Row: {
+          all_play_weeks: Json
           color: string | null
           contest_format: string
           created_at: string
@@ -239,6 +240,7 @@ export type Database = {
           scoring_rules: Json
           scoring_type: string
           season: number
+          sync_paused: boolean
           team_count: number
           updated_at: string
           user_id: string
@@ -246,6 +248,7 @@ export type Database = {
           weekly_high_label: string | null
         }
         Insert: {
+          all_play_weeks?: Json
           color?: string | null
           contest_format?: string
           created_at?: string
@@ -268,6 +271,7 @@ export type Database = {
           scoring_rules?: Json
           scoring_type?: string
           season?: number
+          sync_paused?: boolean
           team_count?: number
           updated_at?: string
           user_id: string
@@ -275,6 +279,7 @@ export type Database = {
           weekly_high_label?: string | null
         }
         Update: {
+          all_play_weeks?: Json
           color?: string | null
           contest_format?: string
           created_at?: string
@@ -297,6 +302,7 @@ export type Database = {
           scoring_rules?: Json
           scoring_type?: string
           season?: number
+          sync_paused?: boolean
           team_count?: number
           updated_at?: string
           user_id?: string
@@ -1325,6 +1331,7 @@ export type Database = {
           ties: number
           updated_at: string
           user_id: string
+          vp: number
           wins: number
         }
         Insert: {
@@ -1343,6 +1350,7 @@ export type Database = {
           ties?: number
           updated_at?: string
           user_id: string
+          vp?: number
           wins?: number
         }
         Update: {
@@ -1361,6 +1369,7 @@ export type Database = {
           ties?: number
           updated_at?: string
           user_id?: string
+          vp?: number
           wins?: number
         }
         Relationships: [

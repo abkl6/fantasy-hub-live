@@ -48,7 +48,12 @@ import {
 } from "@/lib/fantasy.functions";
 import { logTrade } from "@/lib/platforms.functions";
 import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
-import { CONTEST_DESCRIPTIONS, CONTEST_FORMATS, CONTEST_LABELS } from "@/lib/fantasy/contest";
+import {
+  CONTEST_DESCRIPTIONS,
+  CONTEST_FORMATS,
+  CONTEST_LABELS,
+  type ContestFormat,
+} from "@/lib/fantasy/contest";
 
 const statusTone: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   Active: "default",
@@ -200,6 +205,19 @@ function LeaguePage() {
         </div>
       )}
 
+      {data.league.sync_paused && (
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-l-4 border-border border-l-destructive bg-card p-4">
+          <AlertTriangle className="mt-0.5 size-4 text-destructive" />
+          <div>
+            <p className="text-sm font-medium">Sync paused — update manually</p>
+            <p className="text-xs text-muted-foreground">
+              We couldn't read this league from the platform, so what you see is the last good copy.
+              {data.league.last_sync_error ? ` (${data.league.last_sync_error})` : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
       {!!data.alerts?.length && (
         <section className="mt-6 space-y-2">
           <div className="flex items-center gap-2">
@@ -317,6 +335,7 @@ function LeaguePage() {
                   leagueId={leagueId}
                   standings={data.standings}
                   showWeeklyHighs={data.weeklyHighBonus}
+                  showVictoryPoints={data.contestFormat === "vp"}
                 />
               </div>
             </Section>
@@ -1015,9 +1034,11 @@ function StandingsTable({
   leagueId,
   standings,
   showWeeklyHighs,
+  showVictoryPoints,
 }: {
   leagueId: string;
   showWeeklyHighs?: boolean;
+  showVictoryPoints?: boolean;
   standings: {
     id: string;
     name: string;
@@ -1027,6 +1048,7 @@ function StandingsTable({
     playoffOdds: number;
     titleOdds: number;
     weeklyHighs?: number;
+    vp?: number;
     badge?: TeamBadgeValue;
   }[];
 }) {
@@ -1046,6 +1068,7 @@ function StandingsTable({
           <th className="py-2">Team</th>
           <th className="py-2">Record</th>
           <th className="py-2">Points</th>
+          {showVictoryPoints && <th className="py-2">VP</th>}
           {showWeeklyHighs && <th className="py-2">Weekly highs</th>}
           <th className="py-2">Playoffs</th>
           <th className="py-2">Title</th>
@@ -1068,6 +1091,7 @@ function StandingsTable({
               </td>
               <td className="stat-num py-3">{t.record}</td>
               <td className="stat-num py-3">{t.pointsFor.toFixed(1)}</td>
+              {showVictoryPoints && <td className="stat-num py-3">{(t.vp ?? 0).toFixed(0)}</td>}
               {showWeeklyHighs && <td className="stat-num py-3">{t.weeklyHighs ?? 0}</td>}
               <td className="stat-num py-3">{pct(t.playoffOdds)}</td>
               <td className="stat-num py-3 text-primary">{pct(t.titleOdds)}</td>
@@ -1532,7 +1556,7 @@ function ContestSettings({
   weeklyHighLabel,
 }: {
   leagueId: string;
-  contestFormat: "h2h" | "points" | "hybrid";
+  contestFormat: ContestFormat;
   pointsPlayoff: { teams: number | null; afterWeek: number | null };
   weeklyHighBonus: boolean;
   weeklyHighLabel: string | null;
