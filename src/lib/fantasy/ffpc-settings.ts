@@ -124,7 +124,9 @@ function parseConsolation(html: string): FfpcConsolationBracket[] {
     );
     const weeks = weeksFromHeaders(fragment);
     const labels = headerCells
-      .map((cell) => cell.replace(/^Week\s*\d{1,2}\s*/i, "").trim())
+      // Week numbers are filled in by the page's own script, so a header can
+      // read "Week 17 Playoff for #1 Pick" or just "Week Playoff for #1 Pick".
+      .map((cell) => cell.replace(/^Week\s*\d{0,2}\s*/i, "").trim())
       .filter((cell) => cell && !/^Team$/i.test(cell));
     const label = labels.find((l) => /playoff|consolation|toilet|pick/i.test(l)) ?? "Consolation";
     const prize = labels[labels.length - 1] ?? null;
