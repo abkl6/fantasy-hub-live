@@ -290,6 +290,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
   return {
     name: name || `FFPC league ${leagueId}`,
     leagueType: text(infoMatch?.[2] ?? "") || "FFPC",
+    isBestBall,
     hasEmpirePanel: /empire\s*details/i.test(html),
     season: selectedSeason ? Number(selectedSeason[1]) : new Date().getFullYear(),
     currentWeek: weekMatch ? Number(weekMatch[1]) : 1,
