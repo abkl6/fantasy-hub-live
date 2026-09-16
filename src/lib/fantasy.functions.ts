@@ -1318,3 +1318,38 @@ export const logRecommendationActionFn = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/**
+ * Does our maths agree with the platform's scoreboard for this league? A
+ * standing gap usually means a scoring rule we do not know about.
+ */
+export const getScoringGapFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows } = await context.supabase
+      .from("score_reconciliation")
+      .select("week, diff, top_player_name, top_player_diff")
+      .eq("league_id", data.leagueId)
+      .order("week", { ascending: false })
+      .limit(60);
+
+    const { reconciliationBanner } = await import("@/lib/fantasy/reconcile");
+    const banner = reconciliationBanner(
+      (rows ?? []).map((r) => ({ week: r.week, diff: Number(r.diff) })),
+    );
+    if (!banner) return { banner: null };
+
+    const worst = (rows ?? [])
+      .filter((r) => r.week === banner.week)
+      .sort((a, b) => Number(b.top_player_diff) - Number(a.top_player_diff))[0];
+    return {
+      banner: {
+        text: banner.text,
+        detail:
+          worst?.top_player_name && Number(worst.top_player_diff) > 0
+            ? `Biggest single difference: ${worst.top_player_name}, ${Math.round(Number(worst.top_player_diff) * 10) / 10} pts of production we are not scoring.`
+            : null,
+      },
+    };
+  });

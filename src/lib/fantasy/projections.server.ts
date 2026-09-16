@@ -60,6 +60,12 @@ export interface ProjectionSet {
     playerId: string | null | undefined,
     position: string,
   ): "easy" | "neutral" | "tough" | null;
+  /** Games played and their share of the blend, when real games are in. */
+  blendNote(
+    playerId: string | null | undefined,
+  ): { games: number; weight: number } | null;
+  /** How much this week's betting line moves this player, 1 when none. */
+  impliedMultiplier(playerId: string | null | undefined): number;
 }
 
 const EMPTY: ProjectionSet = {
@@ -72,6 +78,8 @@ const EMPTY: ProjectionSet = {
   sourceLabel: "App projections",
   sosOn: false,
   matchupRating: () => null,
+  blendNote: () => null,
+  impliedMultiplier: () => 1,
 };
 
 export function emptyProjections(): ProjectionSet {
@@ -193,12 +201,36 @@ export async function loadProjections(
   ]);
   const sosOn = wantsSos && strength.covered;
 
+  // Betting lines for the week: a team expected to score heavily carries its
+  // players a little further. Applied after the schedule split.
+  const { loadImpliedBook } = await import("./implied.server");
+  const implied = await loadImpliedBook(supabase, season);
+
+  const { data: teamRows } = await supabase.from("players").select("id, position, nfl_team");
+  const teamOf = new Map((teamRows ?? []).map((p) => [p.id, p]));
+
+  // What each player has actually been doing this season, mixed into the
+  // preseason projection. Rebuilt after every week's results load.
+  const { data: blendRows } = await supabase
+    .from("player_blend_rates")
+    .select("player_id, per_game, blend_weight, games_played")
+    .eq("season", season);
+  const blendByPlayer = new Map(
+    (blendRows ?? []).map((row) => [
+      row.player_id,
+      {
+        perGame: (row.per_game ?? {}) as Record<string, number>,
+        weight: Number(row.blend_weight) || 0,
+        games: row.games_played ?? 0,
+      },
+    ]),
+  );
+
   // Where a player has no week row, fall back to their season total split
   // across the weeks their team plays.
   if (seasonTotals.size) {
     const { spreadSeasonTotals } = await import("./sos");
-    const { data: teamRows } = await supabase.from("players").select("id, position, nfl_team");
-    const teamOf = new Map((teamRows ?? []).map((p) => [p.id, p]));
+    const { ratesToTotals } = await import("./blend");
     for (const [playerId, entry] of seasonTotals) {
       const held = weekStats.get(playerId);
       if (held && held.rank <= entry.rank) continue;
@@ -210,8 +242,15 @@ export async function loadProjections(
         games && games.length
           ? games
           : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
+      // Once real games exist, the rest of the season runs on the blended
+      // per-game rate rather than the preseason total.
+      const blend = blendByPlayer.get(playerId);
+      const totals =
+        blend && blend.weight > 0
+          ? ratesToTotals(blend.perGame, play.length)
+          : ((entry.stats ?? {}) as Record<string, number>);
       const split = spreadSeasonTotals(
-        (entry.stats ?? {}) as Record<string, number>,
+        totals,
         play,
         meta?.position ?? null,
         sosOn ? (group, opponent) => strength.category(group, opponent) : undefined,
@@ -256,12 +295,21 @@ export async function loadProjections(
     return { ...line, stats: shaped as StatLine };
   };
 
+  /** How much this week's betting line moves a player, 1 when there is none. */
+  const impliedOf = (playerId: string | null | undefined) => {
+    if (!playerId || !implied.covered) return 1;
+    const team = teamOf.get(playerId)?.nfl_team ?? null;
+    return implied.multiplier(team, week);
+  };
+
   /** Whole-player multiplier, for numbers that have no stat line behind them. */
   const flat = (playerId: string | null | undefined, position: string) => {
-    if (!sosOn || !playerId) return 1;
-    const line = weekStats.get(playerId);
-    if (!line || line.shaped || line.weekly) return 1;
-    return strength.multiplier(position, line.opponent);
+    const line = playerId ? weekStats.get(playerId) : undefined;
+    const sos =
+      sosOn && line && !line.shaped && !line.weekly
+        ? strength.multiplier(position, line.opponent)
+        : 1;
+    return sos * impliedOf(playerId);
   };
 
   /** See ProjectionSet.basis. */
@@ -287,7 +335,9 @@ export async function loadProjections(
         return round((scoring ? scoring.scale(position, override.week) : override.week) * m);
       }
       const line = lineFor(playerId, position);
-      if (scoring && line?.stats) return round(scoring.score(position, line.stats));
+      if (scoring && line?.stats) {
+        return round(scoring.score(position, line.stats) * impliedOf(playerId));
+      }
       if (line && !line.stats) return 0; // bye week or no projected usage
       const m = flat(playerId, position);
       return round((scoring ? scoring.scale(position, base) : base) * m);
@@ -310,6 +360,12 @@ export async function loadProjections(
       if (!line?.opponent || line.weekly) return null;
       return strength.rating(position, line.opponent);
     },
+    blendNote: (playerId) => {
+      const blend = playerId ? blendByPlayer.get(playerId) : undefined;
+      if (!blend || blend.weight <= 0) return null;
+      return { games: blend.games, weight: blend.weight };
+    },
+    impliedMultiplier: (playerId) => impliedOf(playerId),
   };
 
 }

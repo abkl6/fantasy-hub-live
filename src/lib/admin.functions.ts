@@ -595,3 +595,142 @@ export const getAdminErrors = createServerFn({ method: "POST" })
       ),
     };
   });
+
+// ------------------------------------------------------- data quality tools
+
+/**
+ * How complete the player database is: how many players carry each platform's
+ * own identifier, which leagues have a scoring gap, and this week's Vegas
+ * totals.
+ */
+export const getDataQuality = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ season: z.number().int().min(2000).max(2100).optional(), week: z.number().int().min(1).max(22).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const season = data.season ?? new Date().getUTCFullYear();
+
+    // Counted in the database: the player pool is larger than one page of rows.
+    const idCount = async (field: "sleeper_id" | "espn_id" | "yahoo_id" | "ktc_slug") => {
+      const { count } = await context.supabase
+        .from("players")
+        .select("id", { count: "exact", head: true })
+        .not(field, "is", null);
+      return count ?? 0;
+    };
+    const [total, sleeperIds, espnIds, yahooIds, ktcIds] = await Promise.all([
+      context.supabase
+        .from("players")
+        .select("id", { count: "exact", head: true })
+        .then((r) => r.count ?? 0),
+      idCount("sleeper_id"),
+      idCount("espn_id"),
+      idCount("yahoo_id"),
+      idCount("ktc_slug"),
+    ]);
+
+    const [{ data: recon }, { data: implied }, { data: blend }] =
+      await Promise.all([
+        context.supabase
+          .from("score_reconciliation")
+          .select("league_id, week, diff, top_player_name, top_player_diff, leagues(name)")
+          .eq("season", season)
+          .order("week", { ascending: false })
+          .limit(500),
+        context.supabase
+          .from("team_implied_totals")
+          .select("week, nfl_team, implied, source")
+          .eq("season", season)
+          .order("week", { ascending: false })
+          .limit(200),
+        context.supabase
+          .from("player_blend_rates")
+          .select("blend_weight, games_played")
+          .eq("season", season),
+      ]);
+
+    const gaps = (recon ?? [])
+      .filter((r) => Math.abs(Number(r.diff)) > 0.5)
+      .map((r) => ({
+        leagueId: r.league_id,
+        leagueName: (r as { leagues?: { name?: string } }).leagues?.name ?? "League",
+        week: r.week,
+        diff: Number(r.diff),
+        topPlayerName: r.top_player_name,
+        topPlayerDiff: Number(r.top_player_diff),
+      }));
+
+    const blended = blend ?? [];
+    return {
+      season,
+      players: total,
+      coverage: { sleeper: sleeperIds, espn: espnIds, yahoo: yahooIds, ktc: ktcIds },
+      gaps: gaps.slice(0, 50),
+      implied: implied ?? [],
+      blend: {
+        players: blended.length,
+        averageGames: blended.length
+          ? Math.round(
+              (blended.reduce((sum, b) => sum + (b.games_played ?? 0), 0) / blended.length) * 10,
+            ) / 10
+          : 0,
+      },
+    };
+  });
+
+/** Pull this week's and next week's betting lines. */
+export const refreshImpliedTotals = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ season: z.number().int().min(2000).max(2100), weeks: z.array(z.number().int().min(1).max(22)).max(4) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { refreshImpliedTotals: run } = await import("@/lib/fantasy/implied.server");
+    return run(supabaseAdmin, data.season, data.weeks);
+  });
+
+/** Hand-set one team's expected points; hand-set rows survive the odds pull. */
+export const saveImpliedTotal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        season: z.number().int().min(2000).max(2100),
+        week: z.number().int().min(1).max(22),
+        nflTeam: z.string().min(2).max(5),
+        implied: z.number().min(0).max(80),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase.from("team_implied_totals").upsert(
+      {
+        season: data.season,
+        week: data.week,
+        nfl_team: data.nflTeam.toUpperCase(),
+        implied: data.implied,
+        source: "user",
+      } as never,
+      { onConflict: "season,week,nfl_team" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Re-run the end-of-week jobs by hand. */
+export const runWeeklyResults = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ season: z.number().int().min(2000).max(2100), week: z.number().int().min(1).max(22) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { runWeeklyResultsJob } = await import("@/lib/fantasy/weekly-jobs.server");
+    return runWeeklyResultsJob(supabaseAdmin, data.season, data.week);
+  });

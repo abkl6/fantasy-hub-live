@@ -28,10 +28,13 @@ import { Route as AuthenticatedTvRouteImport } from './routes/_authenticated/tv'
 import { Route as AuthenticatedWaiversRouteImport } from './routes/_authenticated/waivers'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
 import { Route as ApiPublicCronFfpcRouteImport } from './routes/api/public/cron/ffpc'
+import { Route as ApiPublicCronImpliedTotalsRouteImport } from './routes/api/public/cron/implied-totals'
 import { Route as ApiPublicCronInactivesRouteImport } from './routes/api/public/cron/inactives'
+import { Route as ApiPublicCronInjuriesRouteImport } from './routes/api/public/cron/injuries'
 import { Route as ApiPublicCronLiveScoringRouteImport } from './routes/api/public/cron/live-scoring'
 import { Route as ApiPublicCronTradeValuesRouteImport } from './routes/api/public/cron/trade-values'
 import { Route as ApiPublicCronTradeValuesIrRouteImport } from './routes/api/public/cron/trade-values-ir'
+import { Route as ApiPublicCronWeeklyResultsRouteImport } from './routes/api/public/cron/weekly-results'
 import { Route as ApiPublicYahooCallbackRouteImport } from './routes/api/public/yahoo/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -132,9 +135,20 @@ const ApiPublicCronFfpcRoute = ApiPublicCronFfpcRouteImport.update({
   path: '/api/public/cron/ffpc',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronImpliedTotalsRoute =
+  ApiPublicCronImpliedTotalsRouteImport.update({
+    id: '/api/public/cron/implied-totals',
+    path: '/api/public/cron/implied-totals',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronInactivesRoute = ApiPublicCronInactivesRouteImport.update({
   id: '/api/public/cron/inactives',
   path: '/api/public/cron/inactives',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCronInjuriesRoute = ApiPublicCronInjuriesRouteImport.update({
+  id: '/api/public/cron/injuries',
+  path: '/api/public/cron/injuries',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicCronLiveScoringRoute =
@@ -153,6 +167,12 @@ const ApiPublicCronTradeValuesIrRoute =
   ApiPublicCronTradeValuesIrRouteImport.update({
     id: '/api/public/cron/trade-values-ir',
     path: '/api/public/cron/trade-values-ir',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCronWeeklyResultsRoute =
+  ApiPublicCronWeeklyResultsRouteImport.update({
+    id: '/api/public/cron/weekly-results',
+    path: '/api/public/cron/weekly-results',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicYahooCallbackRoute = ApiPublicYahooCallbackRouteImport.update({
@@ -180,10 +200,13 @@ export interface FileRoutesByFullPath {
   '/waivers': typeof AuthenticatedWaiversRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/ffpc': typeof ApiPublicCronFfpcRoute
+  '/api/public/cron/implied-totals': typeof ApiPublicCronImpliedTotalsRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
+  '/api/public/cron/injuries': typeof ApiPublicCronInjuriesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/cron/trade-values': typeof ApiPublicCronTradeValuesRoute
   '/api/public/cron/trade-values-ir': typeof ApiPublicCronTradeValuesIrRoute
+  '/api/public/cron/weekly-results': typeof ApiPublicCronWeeklyResultsRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -205,10 +228,13 @@ export interface FileRoutesByTo {
   '/waivers': typeof AuthenticatedWaiversRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/ffpc': typeof ApiPublicCronFfpcRoute
+  '/api/public/cron/implied-totals': typeof ApiPublicCronImpliedTotalsRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
+  '/api/public/cron/injuries': typeof ApiPublicCronInjuriesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/cron/trade-values': typeof ApiPublicCronTradeValuesRoute
   '/api/public/cron/trade-values-ir': typeof ApiPublicCronTradeValuesIrRoute
+  '/api/public/cron/weekly-results': typeof ApiPublicCronWeeklyResultsRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRoutesById {
@@ -232,10 +258,13 @@ export interface FileRoutesById {
   '/_authenticated/waivers': typeof AuthenticatedWaiversRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
   '/api/public/cron/ffpc': typeof ApiPublicCronFfpcRoute
+  '/api/public/cron/implied-totals': typeof ApiPublicCronImpliedTotalsRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
+  '/api/public/cron/injuries': typeof ApiPublicCronInjuriesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
   '/api/public/cron/trade-values': typeof ApiPublicCronTradeValuesRoute
   '/api/public/cron/trade-values-ir': typeof ApiPublicCronTradeValuesIrRoute
+  '/api/public/cron/weekly-results': typeof ApiPublicCronWeeklyResultsRoute
   '/api/public/yahoo/callback': typeof ApiPublicYahooCallbackRoute
 }
 export interface FileRouteTypes {
@@ -259,10 +288,13 @@ export interface FileRouteTypes {
     | '/waivers'
     | '/league/$leagueId'
     | '/api/public/cron/ffpc'
+    | '/api/public/cron/implied-totals'
     | '/api/public/cron/inactives'
+    | '/api/public/cron/injuries'
     | '/api/public/cron/live-scoring'
     | '/api/public/cron/trade-values'
     | '/api/public/cron/trade-values-ir'
+    | '/api/public/cron/weekly-results'
     | '/api/public/yahoo/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -284,10 +316,13 @@ export interface FileRouteTypes {
     | '/waivers'
     | '/league/$leagueId'
     | '/api/public/cron/ffpc'
+    | '/api/public/cron/implied-totals'
     | '/api/public/cron/inactives'
+    | '/api/public/cron/injuries'
     | '/api/public/cron/live-scoring'
     | '/api/public/cron/trade-values'
     | '/api/public/cron/trade-values-ir'
+    | '/api/public/cron/weekly-results'
     | '/api/public/yahoo/callback'
   id:
     | '__root__'
@@ -310,10 +345,13 @@ export interface FileRouteTypes {
     | '/_authenticated/waivers'
     | '/_authenticated/league/$leagueId'
     | '/api/public/cron/ffpc'
+    | '/api/public/cron/implied-totals'
     | '/api/public/cron/inactives'
+    | '/api/public/cron/injuries'
     | '/api/public/cron/live-scoring'
     | '/api/public/cron/trade-values'
     | '/api/public/cron/trade-values-ir'
+    | '/api/public/cron/weekly-results'
     | '/api/public/yahoo/callback'
   fileRoutesById: FileRoutesById
 }
@@ -322,10 +360,13 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicCronFfpcRoute: typeof ApiPublicCronFfpcRoute
+  ApiPublicCronImpliedTotalsRoute: typeof ApiPublicCronImpliedTotalsRoute
   ApiPublicCronInactivesRoute: typeof ApiPublicCronInactivesRoute
+  ApiPublicCronInjuriesRoute: typeof ApiPublicCronInjuriesRoute
   ApiPublicCronLiveScoringRoute: typeof ApiPublicCronLiveScoringRoute
   ApiPublicCronTradeValuesRoute: typeof ApiPublicCronTradeValuesRoute
   ApiPublicCronTradeValuesIrRoute: typeof ApiPublicCronTradeValuesIrRoute
+  ApiPublicCronWeeklyResultsRoute: typeof ApiPublicCronWeeklyResultsRoute
   ApiPublicYahooCallbackRoute: typeof ApiPublicYahooCallbackRoute
 }
 
@@ -464,11 +505,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronFfpcRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/implied-totals': {
+      id: '/api/public/cron/implied-totals'
+      path: '/api/public/cron/implied-totals'
+      fullPath: '/api/public/cron/implied-totals'
+      preLoaderRoute: typeof ApiPublicCronImpliedTotalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/inactives': {
       id: '/api/public/cron/inactives'
       path: '/api/public/cron/inactives'
       fullPath: '/api/public/cron/inactives'
       preLoaderRoute: typeof ApiPublicCronInactivesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/injuries': {
+      id: '/api/public/cron/injuries'
+      path: '/api/public/cron/injuries'
+      fullPath: '/api/public/cron/injuries'
+      preLoaderRoute: typeof ApiPublicCronInjuriesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/live-scoring': {
@@ -490,6 +545,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/cron/trade-values-ir'
       fullPath: '/api/public/cron/trade-values-ir'
       preLoaderRoute: typeof ApiPublicCronTradeValuesIrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/weekly-results': {
+      id: '/api/public/cron/weekly-results'
+      path: '/api/public/cron/weekly-results'
+      fullPath: '/api/public/cron/weekly-results'
+      preLoaderRoute: typeof ApiPublicCronWeeklyResultsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/yahoo/callback': {
@@ -546,10 +608,13 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicCronFfpcRoute: ApiPublicCronFfpcRoute,
+  ApiPublicCronImpliedTotalsRoute: ApiPublicCronImpliedTotalsRoute,
   ApiPublicCronInactivesRoute: ApiPublicCronInactivesRoute,
+  ApiPublicCronInjuriesRoute: ApiPublicCronInjuriesRoute,
   ApiPublicCronLiveScoringRoute: ApiPublicCronLiveScoringRoute,
   ApiPublicCronTradeValuesRoute: ApiPublicCronTradeValuesRoute,
   ApiPublicCronTradeValuesIrRoute: ApiPublicCronTradeValuesIrRoute,
+  ApiPublicCronWeeklyResultsRoute: ApiPublicCronWeeklyResultsRoute,
   ApiPublicYahooCallbackRoute: ApiPublicYahooCallbackRoute,
 }
 export const routeTree = rootRouteImport

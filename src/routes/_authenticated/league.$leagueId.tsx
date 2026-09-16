@@ -41,6 +41,7 @@ import {
   getDraftRecapFn,
   getLeagueMeta,
   getPlayoffPictureFn,
+  getScoringGapFn,
   getTrendsFn,
   getWaiverBoard,
   importSleeperDraftFn,
@@ -204,6 +205,8 @@ function LeaguePage() {
           Refresh
         </Button>
       </div>
+
+      <ScoringGapBanner leagueId={leagueId} />
 
       {data.classLine && (
         <section className="mt-6 rounded-xl bg-card p-5">
@@ -2436,5 +2439,24 @@ function LeagueColorPicker({ leagueId, current }: { leagueId: string; current: s
         </div>
       )}
     </div>
+  );
+}
+
+/** Warns when our maths and the platform's scoreboard disagree. */
+function ScoringGapBanner({ leagueId }: { leagueId: string }) {
+  const fetchGap = useServerFn(getScoringGapFn);
+  const { data } = useQuery({
+    queryKey: ["scoring-gap", leagueId],
+    queryFn: () => fetchGap({ data: { leagueId } }),
+    staleTime: 10 * 60 * 1000,
+  });
+  if (!data?.banner) return null;
+  return (
+    <section className="mt-6 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+      <p className="text-sm font-medium">{data.banner.text}</p>
+      {data.banner.detail && (
+        <p className="mt-1 text-sm text-muted-foreground">{data.banner.detail}</p>
+      )}
+    </section>
   );
 }

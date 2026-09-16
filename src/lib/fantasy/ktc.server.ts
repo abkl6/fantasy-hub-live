@@ -13,6 +13,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+import { writeBackPlatformIds } from "./player-ids.server";
 import { normalizeName } from "./names";
 
 type DB = SupabaseClient<Database>;
@@ -230,6 +231,17 @@ export async function saveKtcValues(
       });
     }
   }
+
+  // Remember each matched player's Keep Trade Cut handle so later refreshes
+  // line up by identifier rather than by name.
+  const learntSlugs = new Map<string, string>();
+  for (const player of data.players) {
+    const id = byKey.get(`${normalizeName(player.name)}|${player.position}`);
+    if (id && !learntSlugs.has(id)) {
+      learntSlugs.set(id, normalizeName(player.name).replace(/ /g, "-"));
+    }
+  }
+  await writeBackPlatformIds(admin, "ktc_slug", learntSlugs);
 
   for (let i = 0; i < rows.length; i += 500) {
     const { error } = await admin
