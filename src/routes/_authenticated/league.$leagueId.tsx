@@ -53,6 +53,7 @@ import {
 } from "@/lib/fantasy.functions";
 import { logTrade } from "@/lib/platforms.functions";
 import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
+import { rankWaivers } from "@/lib/fantasy/waiver-rank";
 import {
   CONTEST_DESCRIPTIONS,
   CONTEST_FORMATS,
@@ -762,12 +763,12 @@ function FaabBudgetStrip({
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"];
 
 const SORTS = [
-  { id: "impact", label: "Title impact" },
+  { id: "impact", label: "Impact" },
   { id: "points", label: "Points" },
-  { id: "bid", label: "Bid" },
   { id: "value", label: "Trade value" },
   { id: "ktc", label: "Market value" },
   { id: "gems", label: "Undervalued" },
+  { id: "bid", label: "Bid" },
 ] as const;
 
 function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => void }) {
@@ -777,10 +778,11 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("ALL");
   const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("impact");
+  const [showInjured, setShowInjured] = useState(false);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["waivers", leagueId, search, position],
-    queryFn: () => load({ data: { leagueId, search, position } }),
+    queryKey: ["waivers", leagueId, search, position, sort, showInjured],
+    queryFn: () => load({ data: { leagueId, search, position, sort, showInjured } }),
     refetchOnWindowFocus: false,
   });
 
@@ -796,23 +798,13 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not add player."),
   });
 
-  const rows = [...(data?.rows ?? [])].sort((a, b) => {
-    if (sort === "points") return b.projWeek - a.projWeek;
-    if (sort === "bid") return b.bid - a.bid;
-    if (sort === "value") return b.tradeValue - a.tradeValue;
-    if (sort === "ktc") return (b.ktcValue ?? -1) - (a.ktcValue ?? -1);
-    if (sort === "gems")
-      return (
-        Number(b.undervalued) - Number(a.undervalued) ||
-        b.projValue - (b.ktcValue ?? b.projValue) - (a.projValue - (a.ktcValue ?? a.projValue))
-      );
-    // Rebuilding teams care about who is worth keeping, not this week's bump.
-    if (data?.strategy === "sell")
-      return (
-        (b.longTermValue ?? 0) - (a.longTermValue ?? 0) ||
-        (b.ktcValue ?? b.projValue) - (a.ktcValue ?? a.projValue)
-      );
-    return (b.titleDelta ?? -1) - (a.titleDelta ?? -1) || b.tradeValue - a.tradeValue;
+  const rows = rankWaivers(data?.rows ?? [], {
+    sort,
+    survival: !!data?.isSurvivalLeague,
+    showInjured: true,
+    needsKicker: !!data?.needsKicker,
+    needsDefense: !!data?.needsDefense,
+    strategy: data?.strategy ?? null,
   });
 
   const rosterFull = !!data && data.rosterSize >= data.rosterLimit;
@@ -860,9 +852,16 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
             variant={sort === s.id ? "secondary" : "ghost"}
             onClick={() => setSort(s.id)}
           >
-            {s.label}
+            {s.id === "impact" && data?.isSurvivalLeague ? "Survival impact" : s.label}
           </Button>
         ))}
+        <Button
+          size="sm"
+          variant={showInjured ? "secondary" : "ghost"}
+          onClick={() => setShowInjured((v) => !v)}
+        >
+          {showInjured ? "Hiding nobody" : "Show injured"}
+        </Button>
       </div>
 
       {data && (
@@ -873,6 +872,7 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
           {data.estimatedRosterSpots
             ? " Some rival rosters are estimated, so this list is approximate."
             : ""}
+          {` Projections: ${data.projectionLabel.toLowerCase()}.`}
         </p>
       )}
 
@@ -896,6 +896,11 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                   <span className="font-medium">{p.name}</span>
                   {p.undervalued && (
                     <Badge className="text-[10px]">Undervalued</Badge>
+                  )}
+                  {p.fromCutTeam && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      From cut team
+                    </Badge>
                   )}
                   {p.status && p.status !== "Active" && (
                     <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px]">
@@ -928,47 +933,39 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                       )}
                     </span>
                   )}
-                  {!p.bids && (
-                    <span>
-                      Bid{" "}
-                      <span className="stat-num text-foreground">
-                        {p.bid > 0 ? `${p.bid}%` : "no bid"}
-                      </span>
-                    </span>
-                  )}
                   {p.longTermValue !== null && (
                     <span>
                       Keep value{" "}
                       <span className="stat-num text-foreground">{p.longTermValue.toFixed(0)}</span>/100
                     </span>
                   )}
+                  {p.survivalDelta !== null && (
+                    <span className={p.survivalDelta > 0 ? "text-primary" : ""}>
+                      Survival {p.survivalDelta > 0 ? "+" : ""}
+                      {(p.survivalDelta * 100).toFixed(1)}%
+                    </span>
+                  )}
                   {p.titleDelta !== null && (
                     <span className={p.titleDelta > 0 ? "text-primary" : ""}>
                       Title {p.titleDelta > 0 ? "+" : ""}
-                      {(p.titleDelta * 100).toFixed(1)} pts · playoffs {(p.playoffDelta ?? 0) > 0 ? "+" : ""}
-                      {((p.playoffDelta ?? 0) * 100).toFixed(1)}
+                      {(p.titleDelta * 100).toFixed(1)}% · playoffs {(p.playoffDelta ?? 0) > 0 ? "+" : ""}
+                      {((p.playoffDelta ?? 0) * 100).toFixed(1)}%
                     </span>
                   )}
                   {p.suggestedDrop && <span>Drop {p.suggestedDrop}</span>}
                 </div>
-                {p.bids && (
-                  <div className="mt-2 rounded-lg bg-muted/30 p-2">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-md border border-border px-2 py-1">
-                        Passive{" "}
-                        <span className="stat-num text-foreground">${p.bids.passive}</span>
-                      </span>
-                      <span className="rounded-md bg-primary px-2 py-1 text-primary-foreground">
-                        Optimal <span className="stat-num">${p.bids.optimal}</span>
-                      </span>
-                      <span className="rounded-md border border-border px-2 py-1">
-                        Aggressive{" "}
-                        <span className="stat-num text-foreground">${p.bids.aggressive}</span>
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{p.bids.reason}</p>
-                  </div>
-                )}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-md border border-border px-2 py-1">
+                    Passive <span className="stat-num text-foreground">${p.bidRec.passive}</span>
+                  </span>
+                  <span className="rounded-md bg-primary px-2 py-1 text-primary-foreground">
+                    Bid <span className="stat-num">${p.bidRec.recommended}</span>
+                  </span>
+                  <span className="rounded-md border border-border px-2 py-1">
+                    Aggressive <span className="stat-num text-foreground">${p.bidRec.aggressive}</span>
+                  </span>
+                  <span className="text-muted-foreground">max ${p.bidRec.ceiling}</span>
+                </div>
               </div>
               <Button
                 size="sm"

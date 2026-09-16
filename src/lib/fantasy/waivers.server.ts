@@ -38,9 +38,16 @@ import {
   isSurvival,
   simulateGuillotine,
 } from "./format";
-import { bidLadder, type BidLadder, type FaabRival } from "./faab";
 import { classifyTeam } from "./team-class";
 import { strategyFor, type StrategyMode } from "./strategy";
+import {
+  bidRecommendation,
+  isInjuredStatus,
+  rankWaivers,
+  type BidRecommendation,
+  type RankableRow,
+  type WaiverSort,
+} from "./waiver-rank";
 
 type DB = SupabaseClient<Database>;
 
@@ -56,36 +63,18 @@ function asSlots(value: unknown): string[] {
 
 const key = (name: string) => normalizeName(name);
 
-export interface WaiverBoardRow {
-  id: string;
+export interface WaiverBoardRow extends RankableRow {
   name: string;
-  position: string;
   nflTeam: string | null;
   byeWeek: number | null;
-  status: string;
-  projWeek: number;
-  projSeason: number;
-  /** Season points above the replacement-level starter at this position. */
-  tradeValue: number;
-  /** Keep Trade Cut dynasty market price; null when the market has not loaded. */
-  ktcValue: number | null;
-  /** What our projections imply this player should be worth on the market. */
-  projValue: number;
-  /** True when our projections price this player well above the market. */
-  undervalued: boolean;
-  /** Suggested bid as a percentage of a $100 FAAB budget. */
-  bid: number;
-  /** Guillotine only: aggressive / optimal / passive dollar bids. */
-  bids: BidLadder | null;
+  /** One recommended dollar bid, with the passive and aggressive brackets. */
+  bidRec: BidRecommendation;
   /** Points your best starting lineup gains this week, if scored. */
   lineupGain: number | null;
-  titleDelta: number | null;
   playoffDelta: number | null;
   winDelta: number | null;
   suggestedDrop: string | null;
   scored: boolean;
-  /** 0-100 keep-forever value; only set in dynasty and keeper leagues. */
-  longTermValue: number | null;
 }
 
 export interface WaiverBoard {
@@ -103,17 +92,30 @@ export interface WaiverBoard {
   /** My team's posture: rebuilding boards lead with keepers, not weekly bumps. */
   strategy: StrategyMode | null;
   strategyNote: string | null;
-  /** True in guillotine leagues, where the three-tier bid ladder is shown. */
+  /** True in guillotine leagues, where survival drives the board. */
   isSurvivalLeague: boolean;
   faabBudget: number;
   myFaabRemaining: number | null;
   myTeamId: string | null;
+  /** Where the numbers came from, e.g. "App projections (fallback)". */
+  projectionLabel: string;
+  /** True when the league's own source had nothing and we used the app's. */
+  projectionFallback: boolean;
+  /** My roster has an unfilled kicker / defense slot. */
+  needsKicker: boolean;
+  needsDefense: boolean;
 }
 
 export async function buildWaiverBoard(
   supabase: DB,
   leagueId: string,
-  opts: { search?: string; position?: string; limit?: number } = {},
+  opts: {
+    search?: string;
+    position?: string;
+    limit?: number;
+    sort?: WaiverSort;
+    showInjured?: boolean;
+  } = {},
 ): Promise<WaiverBoard> {
   const { data: league, error } = await supabase
     .from("leagues")
@@ -136,7 +138,16 @@ export async function buildWaiverBoard(
   const spots = spotRows ?? [];
   const players = playerRows;
 
-  const rostered = new Set(spots.map((s) => key(s.player_name)));
+  // A cut roster in a guillotine league is back on the wire, tagged as such.
+  const cutTeamIds = new Set(
+    teams.filter((t) => (t as { eliminated_week?: number | null }).eliminated_week != null).map((t) => t.id),
+  );
+  const rostered = new Set(
+    spots.filter((s) => !cutTeamIds.has(s.team_id)).map((s) => key(s.player_name)),
+  );
+  const cutNames = new Set(
+    spots.filter((s) => cutTeamIds.has(s.team_id)).map((s) => key(s.player_name)),
+  );
   const usablePosition = (position: string) =>
     slots.some((slot) => slotAccepts(slot, position)) || BENCH_POSITIONS.includes(position);
 
@@ -147,12 +158,60 @@ export async function buildWaiverBoard(
   const distributionOf = (roster: EnginePlayer[]) =>
     bestBall ? bestBallDistribution(roster, slots) : teamDistribution(roster, slots);
   // The member's own projection adjustments replace the shared baseline.
-  const proj = await loadProjections(supabase, {
+  const projOpts = {
     scoring,
     week: league.current_week ?? 1,
-    source: resolveProjectionSource(league),
     sos: (league as { sos_adjust?: boolean }).sos_adjust,
+  };
+  let proj = await loadProjections(supabase, {
+    ...projOpts,
+    source: resolveProjectionSource(league),
   });
+
+  const weeksRemaining = Math.max(
+    1,
+    (league.regular_season_weeks ?? 17) - (league.current_week ?? 1) + 1,
+  );
+  const seasonWith = (
+    set: typeof proj,
+    p: {
+      id?: string;
+      full_name?: string;
+      position: string;
+      proj_points_season: number | string;
+      proj_points_week?: number | string;
+      stat_projections?: unknown;
+    },
+  ) => {
+    const pos = p.position.toUpperCase();
+    const total = set.season(
+      p.id ?? null,
+      p.full_name ?? null,
+      pos,
+      Number(p.proj_points_season),
+      p.stat_projections,
+    );
+    if (total > 0) return total;
+    // Weekly-only sources carry no season total: build one from what is left.
+    const week = set.week(p.id ?? null, p.full_name ?? null, pos, Number(p.proj_points_week ?? 0));
+    return week > 0 ? week * weeksRemaining : 0;
+  };
+
+  // A board full of zeros is useless: if the league's own source has no season
+  // numbers, quietly read the app's instead and say so.
+  const covered = (set: typeof proj) => players.filter((p) => seasonWith(set, p) > 0).length;
+  let projectionFallback = false;
+  if (covered(proj) < 20) {
+    const appSet = await loadProjections(supabase, {
+      ...projOpts,
+      source: { setting: "app", sources: ["app"], label: "App projections" },
+    });
+    if (covered(appSet) > covered(proj)) {
+      proj = appSet;
+      projectionFallback = true;
+    }
+  }
+
   // Dynasty market prices, matched by the same normalized names as everywhere else.
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
   // Put projection-implied worth on the market's scale before comparing.
@@ -168,14 +227,7 @@ export async function buildWaiverBoard(
     position: string;
     proj_points_season: number | string;
     stat_projections?: unknown;
-  }) =>
-    proj.season(
-      p.id ?? null,
-      p.full_name ?? null,
-      p.position.toUpperCase(),
-      Number(p.proj_points_season),
-      p.stat_projections,
-    );
+  }) => seasonWith(proj, p);
 
 
   // --- replacement level: the Nth best season projection at each position ---
@@ -233,11 +285,14 @@ export async function buildWaiverBoard(
         projValue,
         undervalued: marketValue !== null && projValue >= marketValue * 1.25 && projValue - marketValue >= 400,
         longTermValue: longTerm,
+        fromCutTeam: cutNames.has(key(p.full_name)),
         rank: showLongTerm
           ? blendedValue(format, projSeason, bestSeason, longTerm ?? 0)
           : projSeason - (replacement.get(pos) ?? 0),
       };
     })
+    // A row with no season projection tells nobody anything.
+    .filter((p) => p.projSeason > 0)
     .sort((a, b) => b.rank - a.rank);
 
   const mine = teams.find((t) => t.is_mine) ?? null;
@@ -254,12 +309,28 @@ export async function buildWaiverBoard(
         }))
     : [];
 
+  // A kicker or defense only deserves a top spot when that slot is empty.
+  const hasPosition = (pos: string) =>
+    myRoster.some((p) => p.position === pos || (pos === "DEF" && p.position === "DST"));
+  const slotFor = (pos: string) => slots.some((s) => slotAccepts(s, pos));
+  const needsKicker = slotFor("K") && !hasPosition("K");
+  const needsDefense = slotFor("DEF") && !hasPosition("DEF");
+
+  // Hurt, out and suspended players are hidden unless they are asked for.
+  const eligible = freeAgents.filter((p) => opts.showInjured || !isInjuredStatus(p.status));
+
   // --- championship impact for the strongest candidates --------------------
   const impacts = new Map<
     string,
-    { titleDelta: number; playoffDelta: number; winDelta: number; lineupGain: number; drop: string | null }
+    {
+      titleDelta: number;
+      playoffDelta: number;
+      winDelta: number;
+      survivalDelta: number | null;
+      lineupGain: number;
+      drop: string | null;
+    }
   >();
-  const bidLadders = new Map<string, BidLadder>();
   const survivalLeague = isSurvival(format);
   const faabBudget = Number((league as { faab_budget?: number }).faab_budget ?? 100) || 100;
   const myFaabRemaining =
@@ -350,10 +421,17 @@ export async function buildWaiverBoard(
     strategyNote = `${badge.label} — ${posture.rationale}`;
 
     const beforeLineup = optimalLineup(myRoster, slots).total;
-    const droppable = [...myRoster].sort((a, b) => a.proj - b.proj);
+    const byValue = [...myRoster].sort((a, b) => a.proj - b.proj);
     const rosterCap = slots.length + 6;
 
-    for (const fa of freeAgents.slice(0, SCORED_CANDIDATES)) {
+    for (const fa of eligible.slice(0, SCORED_CANDIDATES)) {
+      // Only ever suggest dropping someone the new player can actually cover:
+      // same position, or a flex slot they both fit.
+      const droppable = byValue.filter(
+        (p) =>
+          p.position === fa.position ||
+          slots.some((s) => slotAccepts(s, p.position) && slotAccepts(s, fa.position)),
+      );
       const candidate: EnginePlayer = {
         id: fa.id,
         name: fa.name,
@@ -369,6 +447,16 @@ export async function buildWaiverBoard(
       if (myRoster.length < rosterCap) options.push({ roster: [...myRoster, candidate], drop: null });
       for (const d of droppable.slice(0, 8)) {
         options.push({ roster: myRoster.map((p) => (p.name === d.name ? candidate : p)), drop: d });
+      }
+      // A full roster with nobody comparable to cut: fall back to the weakest
+      // bench player so the add is still priced rather than skipped.
+      if (!options.length) {
+        const weakest = [...myRoster].sort((a, b) => a.proj - b.proj)[0];
+        if (!weakest) continue;
+        options.push({
+          roster: myRoster.map((p) => (p.name === weakest.name ? candidate : p)),
+          drop: weakest,
+        });
       }
 
       let best = options[0]!;
@@ -389,53 +477,16 @@ export async function buildWaiverBoard(
       const res = simulateSeason(inputs, simConfig, schedule, 1500, 7);
       const m = res.find((r) => r.id === mine.id)!;
 
+      let survivalDelta: number | null = null;
       if (survivalLeague && survivalBase) {
         // Survival is the only currency here: re-simulate the week with him in
-        // my lineup, then read what each rival would pay for the same help.
+        // my lineup and read how much less likely I am to be cut.
         const myBase = survivalBase.find((r) => r.id === mine.id)!;
         const withMe = survivalInputs.map((t) =>
           t.id === mine.id ? { ...t, mean: dist.mean, sd: dist.sd } : t,
         );
         const after = simulateGuillotine(withMe, weeksLeft, 1200, 7).find((r) => r.id === mine.id)!;
-        const myGain = Math.max(0, after.surviveWeekOdds - myBase.surviveWeekOdds);
-
-        const rivals: FaabRival[] = engineTeams
-          .filter((t) => t.id !== mine.id && t.roster.length)
-          .map((t) => {
-            const theirBase = survivalBase.find((r) => r.id === t.id);
-            const before = optimalLineup(t.roster, slots).total;
-            const theirDrop = [...t.roster].sort((a, b) => a.proj - b.proj)[0];
-            const swapped = theirDrop
-              ? t.roster.map((p) => (p.name === theirDrop.name ? candidate : p))
-              : [...t.roster, candidate];
-            const gainPts = Math.max(0, optimalLineup(swapped, slots).total - before);
-            const risk = Math.max(0, 1 - (theirBase?.surviveWeekOdds ?? 1));
-            const team = teams.find((x) => x.id === t.id);
-            return {
-              id: t.id,
-              name: t.name,
-              surviveWeekOdds: theirBase?.surviveWeekOdds ?? 1,
-              // Points added shave elimination risk roughly in proportion to
-              // how big the gain is against a week's scoring spread.
-              survivalGain: risk * Math.min(0.9, gainPts / 15),
-              faabRemaining:
-                team && team.faab_remaining != null ? Number(team.faab_remaining) : null,
-            };
-          });
-
-        bidLadders.set(
-          fa.id,
-          bidLadder({
-            budget: faabBudget,
-            myRemaining: myFaabRemaining ?? faabBudget,
-            mySurviveWeekOdds: myBase.surviveWeekOdds,
-            mySurvivalGain: myGain,
-            rivals,
-            teamCount: teams.length,
-            weeksLeft,
-            poolFlooded: false,
-          }),
-        );
+        survivalDelta = after.surviveWeekOdds - myBase.surviveWeekOdds;
       }
 
       // A pickup that does not improve the optimal lineup cannot move the
@@ -445,29 +496,37 @@ export async function buildWaiverBoard(
         titleDelta: meaningful ? m.titleOdds - baseMine.titleOdds : 0,
         playoffDelta: meaningful ? m.playoffOdds - baseMine.playoffOdds : 0,
         winDelta: meaningful ? Math.round((m.projWins - baseMine.projWins) * 100) / 100 : 0,
+        survivalDelta: meaningful ? survivalDelta : survivalDelta === null ? null : 0,
         lineupGain: Math.round(lineupGain * 10) / 10,
         drop: lineupGain > 0 && drop ? drop.name : null,
       });
     }
   }
 
-  const bestTradeValue = Math.max(1, freeAgents[0]?.tradeValue ?? 1);
+  // What claims have actually cost in this league sets the price ceiling.
+  const { data: bidRows } = await supabase
+    .from("faab_bids")
+    .select("amount, won")
+    .eq("league_id", leagueId)
+    .eq("won", true);
+  const winningBids = (bidRows ?? []).map((b) => Number(b.amount)).filter((n) => n > 0);
 
-  const rows: WaiverBoardRow[] = freeAgents
+  const bestAtPosition = new Map<string, number>();
+  for (const p of eligible) {
+    bestAtPosition.set(p.position, Math.max(bestAtPosition.get(p.position) ?? 0, p.projWeek));
+  }
+
+  const mapped: WaiverBoardRow[] = eligible
     .filter((p) => (wanted && wanted !== "ALL" ? p.position === wanted : true))
     .filter((p) => (search ? p.name.toLowerCase().includes(search) : true))
-    .slice(0, opts.limit ?? 60)
     .map((p) => {
       const impact = impacts.get(p.id) ?? null;
-      let bid = 0;
-      if (impact && impact.lineupGain > 0.1) {
-        bid = Math.round(
-          Math.min(60, impact.lineupGain * 4 + Math.max(0, impact.titleDelta) * 100 * 2.5 + 1),
-        );
-      } else if (!impact && p.tradeValue > 0) {
-        // Stash value only: a small speculative bid scaled to season upside.
-        bid = Math.round(Math.min(8, (p.tradeValue / bestTradeValue) * 8));
-      }
+      const bidRec = bidRecommendation({
+        budget: myFaabRemaining ?? faabBudget,
+        perWeek: p.projWeek,
+        bestAtPositionPerWeek: bestAtPosition.get(p.position) ?? p.projWeek,
+        winningBids,
+      });
       return {
         id: p.id,
         name: p.name,
@@ -481,26 +540,28 @@ export async function buildWaiverBoard(
         ktcValue: p.ktcValue,
         projValue: p.projValue,
         undervalued: p.undervalued,
-        bid,
-        bids: bidLadders.get(p.id) ?? null,
+        bid: bidRec.recommended,
+        bidRec,
         lineupGain: impact ? impact.lineupGain : null,
         titleDelta: impact ? impact.titleDelta : null,
         playoffDelta: impact ? impact.playoffDelta : null,
         winDelta: impact ? impact.winDelta : null,
+        survivalDelta: impact ? impact.survivalDelta : null,
+        fromCutTeam: p.fromCutTeam,
         suggestedDrop: impact ? impact.drop : null,
         scored: !!impact,
         longTermValue: p.longTermValue,
       };
     });
 
-  // A rebuilding team should see keepers first, not a half-point weekly bump.
-  if (strategy === "sell") {
-    rows.sort(
-      (a, b) =>
-        (b.longTermValue ?? 0) - (a.longTermValue ?? 0) ||
-        (b.ktcValue ?? b.projValue) - (a.ktcValue ?? a.projValue),
-    );
-  }
+  const rows = rankWaivers(mapped, {
+    sort: opts.sort ?? "impact",
+    survival: survivalLeague,
+    showInjured: true,
+    needsKicker,
+    needsDefense,
+    strategy,
+  }).slice(0, opts.limit ?? 60);
 
   const estimated = spots.filter((s) => s.is_auto).length;
   const rosterSize = mine ? spots.filter((s) => s.team_id === mine.id).length : 0;
@@ -523,5 +584,11 @@ export async function buildWaiverBoard(
     faabBudget,
     myFaabRemaining,
     myTeamId: mine?.id ?? null,
+    projectionLabel: projectionFallback
+      ? "App projections (fallback)"
+      : resolveProjectionSource(league).label,
+    projectionFallback,
+    needsKicker,
+    needsDefense,
   };
 }
