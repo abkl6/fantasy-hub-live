@@ -152,6 +152,47 @@ interface PlayerRow {
   position: string;
 }
 
+/**
+ * Keep Trade Cut carries an age for every ranked player, so it is our primary
+ * age source. Our own record is filled in from it wherever it is still blank;
+ * an age we already hold is left alone.
+ */
+async function backfillPlayerAges(
+  admin: DB,
+  players: KtcPlayerValue[],
+  byKey: Map<string, string>,
+) {
+  const ageById = new Map<string, number>();
+  for (const player of players) {
+    if (player.age == null || !Number.isFinite(player.age) || player.age <= 0) continue;
+    const id = byKey.get(`${normalizeName(player.name)}|${player.position}`);
+    if (id && !ageById.has(id)) ageById.set(id, player.age);
+  }
+  if (!ageById.size) return 0;
+
+  const { data: blank } = await admin.from("players").select("id").is("age", null);
+  const needed = (blank ?? []).map((r) => r.id as string).filter((id) => ageById.has(id));
+
+  // Group by age so one update covers every player of that age.
+  const idsByAge = new Map<number, string[]>();
+  for (const id of needed) {
+    const age = ageById.get(id)!;
+    const list = idsByAge.get(age);
+    if (list) list.push(id);
+    else idsByAge.set(age, [id]);
+  }
+
+  let filled = 0;
+  for (const [age, ids] of idsByAge) {
+    for (let i = 0; i < ids.length; i += 200) {
+      const slice = ids.slice(i, i + 200);
+      const { error } = await admin.from("players").update({ age }).in("id", slice);
+      if (!error) filled += slice.length;
+    }
+  }
+  return filled;
+}
+
 /** Writes values to the database, matching players by normalized name + position. */
 export async function saveKtcValues(
   admin: DB,
@@ -196,6 +237,8 @@ export async function saveKtcValues(
       .upsert(rows.slice(i, i + 500), { onConflict: "norm_name,position,format" });
     if (error) throw new Error(error.message);
   }
+
+  await backfillPlayerAges(admin, data.players, byKey);
 
   let pickRows = 0;
   if (!options.onlyNames && data.picks.length) {

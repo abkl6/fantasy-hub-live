@@ -37,6 +37,7 @@ import {
   bestBallDistribution,
   blendedValue,
   dynastyValue,
+  dynastyValueDetail,
   FORMAT_LABELS,
   hasLineupDecisions,
   isMultiYear,
@@ -119,6 +120,8 @@ export interface DynastyRow {
   name: string;
   position: string;
   age: number | null;
+  /** Where the age came from: the market, years of experience, or nowhere. */
+  ageSource: "age" | "experience" | "unknown";
   longTermValue: number;
   blendedValue: number;
 }
@@ -208,6 +211,8 @@ export interface AnalysisPayload {
     /** KTC market value of roster + picks; dynasty leagues only. */
     dynastyValue: number | null;
     dynastyRank: number | null;
+    /** Roster spots with no age anywhere — usually an unmatched name. */
+    unknownAgeCount: number;
     /** Weeks this team was the league's top scorer. */
     weeklyHighs: number;
     /** Victory points banked; victory-point leagues only. */
@@ -376,6 +381,22 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const isDynastyLeague = isMultiYear(format);
   const dynastyRankById = new Map<string, number>();
   const dynastyValueById = new Map<string, number>();
+  const unknownAgeById = new Map<string, number>();
+  const ownAgeByName = new Map(
+    players.map((p) => [
+      normalizeName(p.full_name),
+      {
+        age: (p as { age?: number | null }).age ?? null,
+        yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
+      },
+    ]),
+  );
+  /** The market first, then our own record; false means nobody knows. */
+  const ageKnownFor = (p: EnginePlayer) => {
+    if (values.age(p.id, p.name, p.position) != null) return true;
+    const own = ownAgeByName.get(normalizeName(p.name));
+    return own?.age != null || own?.yearsExp != null;
+  };
   if (isDynastyLeague) {
     const rows = leagueDynastyValues(
       engineTeams.map((t) => ({
@@ -387,6 +408,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           name: p.name,
           position: p.position,
           projSeason: p.proj * 17,
+          ageKnown: ageKnownFor(p),
         })),
         picks: pickAssets.get(t.id) ?? [],
       })),
@@ -395,20 +417,13 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     for (const row of rows) {
       dynastyRankById.set(row.teamId, row.rank);
       dynastyValueById.set(row.teamId, row.total);
+      unknownAgeById.set(row.teamId, row.unknownAgeCount);
     }
   }
-  const ageByPlayer = new Map(
-    players.map((p) => [
-      normalizeName(p.full_name),
-      {
-        age: (p as { age?: number | null }).age ?? null,
-        yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
-      },
-    ]),
-  );
   const laneOf = (p: EnginePlayer) => {
-    const meta = ageByPlayer.get(normalizeName(p.name));
-    return ageLane(p.position, meta?.age ?? null, meta?.yearsExp ?? null);
+    const meta = ownAgeByName.get(normalizeName(p.name));
+    const age = values.age(p.id, p.name, p.position) ?? meta?.age ?? null;
+    return ageLane(p.position, age, meta?.yearsExp ?? null);
   };
 
   const distributionOf = (roster: EnginePlayer[]) =>
@@ -507,6 +522,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         }),
         dynastyValue: dynastyValueById.get(r.id) ?? null,
         dynastyRank: dynastyRankById.get(r.id) ?? null,
+        unknownAgeCount: unknownAgeById.get(r.id) ?? 0,
         weeklyHighs: 0,
         vp: vpByTeam.get(r.id) ?? 0,
       };
@@ -1120,16 +1136,26 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     );
     const bestSeason = Math.max(1, ...[...ageByName.values()].map((v) => v.season));
     dynasty = mine.roster
-      .map((p) => {
+      .map<DynastyRow>((p) => {
         const meta = ageByName.get(normalizeName(p.name));
         const season = meta?.season ?? p.proj * 17;
-        const longTerm = dynastyValue(p.position, season, bestSeason, meta?.age ?? null, meta?.yearsExp ?? null);
+        // The market's age wins; our own record only fills a gap.
+        const age = values.age(p.id, p.name, p.position) ?? meta?.age ?? null;
+        const longTerm = dynastyValueDetail(
+          p.position,
+          season,
+          bestSeason,
+          age,
+          meta?.yearsExp ?? null,
+          values.medianAge(p.position),
+        );
         return {
           name: p.name,
           position: p.position,
-          age: meta?.age ?? null,
-          longTermValue: longTerm,
-          blendedValue: blendedValue(format, season, bestSeason, longTerm),
+          age,
+          ageSource: longTerm.ageSource,
+          longTermValue: longTerm.value,
+          blendedValue: blendedValue(format, season, bestSeason, longTerm.value),
         };
       })
       .sort((a, b) => b.blendedValue - a.blendedValue);

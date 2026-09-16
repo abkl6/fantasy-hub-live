@@ -53,6 +53,10 @@ export interface TradeValueBook {
   player: (id: string | null, name: string, position: string, projSeason: number) => number;
   /** Real KTC market price only — null when the player is not in the book. */
   market: (id: string | null, name: string, position: string) => number | null;
+  /** Age from the market table — the primary age source for every player. */
+  age: (id: string | null, name: string, position: string) => number | null;
+  /** Median age of the position in the current market table. */
+  medianAge: (position: string) => number | null;
   pick: (season: number, round: number, slot: PickSlot) => number;
   lastRefreshed: string | null;
   covered: boolean;
@@ -83,21 +87,42 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
   const [{ data: values }, { data: picks }] = await Promise.all([
     supabase
       .from("player_trade_values")
-      .select("player_id, norm_name, position, value, fetched_at")
+      .select("player_id, norm_name, position, value, age, fetched_at")
       .eq("format", format),
     supabase.from("pick_values").select("season, round, slot, value").eq("format", format),
   ]);
 
   const byId = new Map<string, number>();
   const byName = new Map<string, number>();
+  const ageById = new Map<string, number>();
+  const ageByName = new Map<string, number>();
+  const agesByPosition = new Map<string, number[]>();
   let lastRefreshed: string | null = null;
 
   for (const row of values ?? []) {
     const value = Number(row.value ?? 0);
+    const pos = String(row.position).toUpperCase();
     if (row.player_id) byId.set(row.player_id, value);
-    byName.set(`${row.norm_name}|${String(row.position).toUpperCase()}`, value);
+    byName.set(`${row.norm_name}|${pos}`, value);
     byName.set(row.norm_name as string, Math.max(byName.get(row.norm_name as string) ?? 0, value));
+
+    const age = row.age == null ? null : Number(row.age);
+    if (age != null && Number.isFinite(age) && age > 0) {
+      if (row.player_id) ageById.set(row.player_id, age);
+      ageByName.set(`${row.norm_name}|${pos}`, age);
+      if (!ageByName.has(row.norm_name as string)) ageByName.set(row.norm_name as string, age);
+      const list = agesByPosition.get(pos);
+      if (list) list.push(age);
+      else agesByPosition.set(pos, [age]);
+    }
+
     if (!lastRefreshed || String(row.fetched_at) > lastRefreshed) lastRefreshed = String(row.fetched_at);
+  }
+
+  const medians = new Map<string, number>();
+  for (const [pos, ages] of agesByPosition) {
+    const sorted = [...ages].sort((a, b) => a - b);
+    medians.set(pos, sorted[Math.floor(sorted.length / 2)]!);
   }
 
   const pickMap = new Map<string, number>();
@@ -127,11 +152,19 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
     return byName.get(`${norm}|${pos}`) ?? byName.get(norm) ?? null;
   };
 
+  const age = (id: string | null, name: string, position: string) => {
+    if (id && ageById.has(id)) return ageById.get(id)!;
+    const norm = normalizeName(name);
+    return ageByName.get(`${norm}|${position.toUpperCase()}`) ?? ageByName.get(norm) ?? null;
+  };
+
   return {
     format,
     lastRefreshed,
     covered: byName.size > 0,
     market,
+    age,
+    medianAge: (position: string) => medians.get(position.toUpperCase()) ?? null,
     player: (id, name, position, projSeason) =>
       market(id, name, position) ?? fallbackValue(position.toUpperCase(), projSeason),
     pick,

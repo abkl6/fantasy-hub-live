@@ -48,6 +48,42 @@ const AGE_CURVE: Record<string, { peak: number; decline: number }> = {
   DEF: { peak: 99, decline: 0 },
 };
 
+/** Where the age used in the curve came from. */
+export type AgeSource = "age" | "experience" | "unknown";
+
+/** An unknown age is a guess, so the value it produces is held back. */
+const UNKNOWN_AGE_DISCOUNT = 0.85;
+
+/**
+ * Long-term value with the age it was based on. An age we never learned is
+ * treated as the position's median age in the current market table, not as a
+ * player just short of their peak, and is discounted for the uncertainty.
+ */
+export function dynastyValueDetail(
+  position: string,
+  seasonProj: number,
+  bestSeasonProj: number,
+  age: number | null,
+  yearsExp: number | null,
+  medianAge: number | null = null,
+): { value: number; ageSource: AgeSource } {
+  const curve = AGE_CURVE[position.toUpperCase()] ?? AGE_CURVE['WR']!;
+  const ageSource: AgeSource = age != null ? "age" : yearsExp != null ? "experience" : "unknown";
+  const effectiveAge =
+    age ??
+    (yearsExp != null ? 22 + yearsExp : (medianAge ?? curve.peak));
+  const yearsPast = Math.max(0, effectiveAge - curve.peak);
+  const decay = Math.pow(1 - curve.decline, yearsPast);
+  // Young players who already produce get a small ascending-curve bonus.
+  const ascending = effectiveAge < curve.peak - 2 ? 1.12 : 1;
+  const uncertainty = ageSource === "unknown" ? UNKNOWN_AGE_DISCOUNT : 1;
+  const production = bestSeasonProj > 0 ? seasonProj / bestSeasonProj : 0;
+  const value = Math.round(
+    Math.max(0, Math.min(100, production * decay * ascending * uncertainty * 100)),
+  );
+  return { value, ageSource };
+}
+
 /**
  * Long-term value, 0-100. Blends this season's projection with how many
  * productive years the player likely has left.
@@ -58,15 +94,9 @@ export function dynastyValue(
   bestSeasonProj: number,
   age: number | null,
   yearsExp: number | null,
+  medianAge: number | null = null,
 ): number {
-  const curve = AGE_CURVE[position.toUpperCase()] ?? AGE_CURVE['WR']!;
-  const effectiveAge = age ?? (yearsExp != null ? 22 + yearsExp : curve.peak - 1);
-  const yearsPast = Math.max(0, effectiveAge - curve.peak);
-  const decay = Math.pow(1 - curve.decline, yearsPast);
-  // Young players who already produce get a small ascending-curve bonus.
-  const ascending = effectiveAge < curve.peak - 2 ? 1.12 : 1;
-  const production = bestSeasonProj > 0 ? seasonProj / bestSeasonProj : 0;
-  return Math.round(Math.max(0, Math.min(100, production * decay * ascending * 100)));
+  return dynastyValueDetail(position, seasonProj, bestSeasonProj, age, yearsExp, medianAge).value;
 }
 
 /** How much a format cares about this season versus future seasons. */

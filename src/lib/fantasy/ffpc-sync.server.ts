@@ -12,7 +12,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 import { FfpcParseError, ffpcLeagueBundle, type FfpcLeagueBundle } from "./ffpc.server";
-import { playerIndex } from "./names";
+import { normalizeName, playerIndex } from "./names";
+import { queueUnmatched } from "./manual.server";
+import type { ManualPlayerRow } from "./manual-types";
 
 type DB = SupabaseClient<Database>;
 
@@ -211,13 +213,48 @@ export async function applyFfpcBundle(
       .from("players")
       .select("id, full_name, position, nfl_team, proj_points_week");
     const index = playerIndex(canonical ?? []);
+    const byId = new Map((canonical ?? []).map((p) => [p.id as string, p]));
 
+    // Second pass for anything the name index missed: the market table keyed
+    // on last name + NFL team + position. FFPC spells some names differently.
+    const { data: marketRows } = await supabase
+      .from("player_trade_values")
+      .select("player_id, display_name, position, nfl_team")
+      .not("player_id", "is", null);
+    const lastNameKey = (name: string, team: string | null, position: string) => {
+      const parts = normalizeName(name).split(" ");
+      const last = parts[parts.length - 1] ?? "";
+      return `${last}|${(team ?? "").toUpperCase()}|${position.toUpperCase()}`;
+    };
+    const marketByKey = new Map<string, string>();
+    for (const row of marketRows ?? []) {
+      const key = lastNameKey(
+        row.display_name as string,
+        row.nfl_team as string | null,
+        row.position as string,
+      );
+      if (!marketByKey.has(key)) marketByKey.set(key, row.player_id as string);
+    }
+
+    const missed: ManualPlayerRow[] = [];
     const spots: Record<string, unknown>[] = [];
     for (const t of bundle.teams) {
       const teamId = teamByExternal.get(t.externalId);
       if (!teamId || !t.roster.length) continue;
       for (const p of t.roster) {
-        const match = index.find(p.name, p.position, p.nflTeam);
+        let match = index.find(p.name, p.position, p.nflTeam);
+        if (!match) {
+          const viaMarket = marketByKey.get(lastNameKey(p.name, p.nflTeam, p.position));
+          if (viaMarket) match = byId.get(viaMarket) ?? null;
+        }
+        if (!match) {
+          missed.push({
+            name: p.name,
+            position: p.position,
+            nflTeam: p.nflTeam,
+            matched: false,
+          } as ManualPlayerRow);
+        }
         spots.push({
           team_id: teamId,
           league_id: leagueId,
@@ -240,6 +277,17 @@ export async function applyFfpcBundle(
       for (let i = 0; i < spots.length; i += 500) {
         await supabase.from("roster_spots").insert(spots.slice(i, i + 500) as never);
       }
+    }
+    if (missed.length) {
+      // Unmatched names are why a player has no age, so they go to the queue.
+      const seen = new Set<string>();
+      const unique = missed.filter((r) => {
+        const key = `${normalizeName(r.name)}|${r.position}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      await queueUnmatched(supabase, unique, "ffpc");
     }
 
     const games = bundle.schedule
