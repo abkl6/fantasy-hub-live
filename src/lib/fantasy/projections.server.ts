@@ -76,6 +76,8 @@ export interface ProjectionOptions {
   season?: number;
   /** Where the league reads projections from. */
   source?: ResolvedProjectionSource;
+  /** Adjust weekly numbers for how tough each opponent is. */
+  sos?: boolean | null;
 }
 
 export async function loadProjections(
