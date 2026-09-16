@@ -160,7 +160,12 @@ function percentile(values: number[], p: number) {
 export function bidRecommendation(input: BidCeilingInput): BidRecommendation {
   const budget = Math.max(1, input.budget);
   const best = Math.max(0.1, input.bestAtPositionPerWeek);
-  const share = Math.max(0, Math.min(1, input.perWeek / best));
+  // Being the best of a thin position does not make a 7-point player a prize:
+  // the share is held down by the points themselves as well.
+  const share = Math.max(
+    0,
+    Math.min(1, input.perWeek / best, input.perWeek / STARTER_WEEK_POINTS),
+  );
 
   const history = input.winningBids.filter((n) => n > 0);
   // No history: a top claim is worth about a quarter of the budget.
