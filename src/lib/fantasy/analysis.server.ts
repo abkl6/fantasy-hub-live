@@ -1122,16 +1122,26 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     );
     const bestSeason = Math.max(1, ...[...ageByName.values()].map((v) => v.season));
     dynasty = mine.roster
-      .map((p) => {
+      .map<DynastyRow>((p) => {
         const meta = ageByName.get(normalizeName(p.name));
         const season = meta?.season ?? p.proj * 17;
-        const longTerm = dynastyValue(p.position, season, bestSeason, meta?.age ?? null, meta?.yearsExp ?? null);
+        // The market's age wins; our own record only fills a gap.
+        const age = values.age(p.id, p.name, p.position) ?? meta?.age ?? null;
+        const longTerm = dynastyValueDetail(
+          p.position,
+          season,
+          bestSeason,
+          age,
+          meta?.yearsExp ?? null,
+          values.medianAge(p.position),
+        );
         return {
           name: p.name,
           position: p.position,
-          age: meta?.age ?? null,
-          longTermValue: longTerm,
-          blendedValue: blendedValue(format, season, bestSeason, longTerm),
+          age,
+          ageSource: longTerm.ageSource,
+          longTermValue: longTerm.value,
+          blendedValue: blendedValue(format, season, bestSeason, longTerm.value),
         };
       })
       .sort((a, b) => b.blendedValue - a.blendedValue);
