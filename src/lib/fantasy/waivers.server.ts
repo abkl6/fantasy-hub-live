@@ -77,6 +77,11 @@ type DB = SupabaseClient<Database>;
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
 /** How many candidates get a full season re-simulation. */
 const SCORED_CANDIDATES = 12;
+/** Cheap pass to order candidates, full pass only for the ones displayed. */
+const COARSE_ITERATIONS = 300;
+const FULL_ITERATIONS = 1500;
+const DISPLAYED_CANDIDATES = 5;
+
 
 function asSlots(value: unknown): string[] {
   if (Array.isArray(value) && value.length) return value.map(String).filter((s) => s.toUpperCase() !== "BN");
