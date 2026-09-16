@@ -98,7 +98,25 @@ function OverviewTab() {
           {!d.platforms.length && <p className="px-3 py-3 text-sm text-muted-foreground">No leagues yet.</p>}
         </div>
       </div>
+      <div className="rounded-xl bg-card">
+        <p className="px-3 pt-3 text-sm font-semibold">Compute time by cached view</p>
+        <div className="mt-2 divide-y divide-border">
+          {(d.computeTimes ?? []).map((c) => (
+            <div key={c.kind} className="flex items-center justify-between px-3 py-2 text-sm">
+              <span className="font-semibold capitalize">{c.kind.replace("-", " ")}</span>
+              <span className="text-xs text-muted-foreground">
+                median {(c.medianMs / 1000).toFixed(2)}s · worst {(c.worstMs / 1000).toFixed(2)}s ·{" "}
+                {c.runs} run{c.runs === 1 ? "" : "s"} · {c.fresh} still fresh
+              </span>
+            </div>
+          ))}
+          {!(d.computeTimes ?? []).length && (
+            <p className="px-3 py-3 text-sm text-muted-foreground">Nothing computed yet.</p>
+          )}
+        </div>
+      </div>
       <p className="text-xs text-muted-foreground">{d.newUsers7d} new member(s) in the last 7 days.</p>
+
     </div>
   );
 }
