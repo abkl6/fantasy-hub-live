@@ -5,7 +5,7 @@ import {
   eligiblePositions,
   isEligiblePosition,
 } from "./eligibility";
-import { parseLeagueRules } from "./ffpc-parse";
+import { parseRosterSlots } from "./ffpc-parse";
 
 describe("eligiblePositions", () => {
   it("expands flex slots and ignores the bench", () => {
@@ -59,9 +59,9 @@ describe("FFPC rules page", () => {
     const fs = await import("node:fs/promises");
     const url = new URL("./ffpc/__fixtures__/league-rules.html", import.meta.url);
     const html = await fs.readFile(url, "utf8");
-    const rules = parseLeagueRules(html);
-    const eligible = eligiblePositions(rules.rosterSlots);
-    expect(rules.rosterSlots.length).toBeGreaterThan(0);
+    const slots = parseRosterSlots(html);
+    const eligible = eligiblePositions(slots);
+    expect(slots.length).toBeGreaterThan(0);
     expect(eligible).toContain("QB");
     expect(eligible).toContain("RB");
     expect(eligible).toContain("WR");
