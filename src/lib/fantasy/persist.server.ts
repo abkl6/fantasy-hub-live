@@ -72,11 +72,25 @@ export async function persistBundle(
   bundle: NormalizedBundle,
   myTeamExternalId: string | null,
 ) {
+  // A manager's own league-type choice outlives a re-import of the league.
+  const { data: previous } = await supabase
+    .from("leagues")
+    .select("league_type, variant, type_source")
+    .eq("platform", bundle.platform)
+    .eq("external_id", bundle.externalId)
+    .maybeSingle();
+
   await supabase
     .from("leagues")
     .delete()
     .eq("platform", bundle.platform)
     .eq("external_id", bundle.externalId);
+
+  const keepUser = previous?.type_source === "user";
+  const leagueType = keepUser ? asLeagueType(previous?.league_type) : asLeagueType(bundle.leagueType);
+  const variant = keepUser ? asVariant(previous?.variant) : asVariant(bundle.variant);
+  const typeSource = keepUser ? "user" : (bundle.typeSource ?? "inferred");
+
 
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
