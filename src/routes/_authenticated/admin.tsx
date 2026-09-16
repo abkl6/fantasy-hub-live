@@ -281,6 +281,22 @@ function DataTab() {
     }
   };
 
+  const onPriorFile = async (file: File) => {
+    setBusy(true);
+    try {
+      const r = await uploadPrior({ data: { csv: await file.text(), season } });
+      toast.success(
+        `${r.rows} team ratings seeded from last season${r.skippedCount ? ` · ${r.skippedCount} rows skipped` : ""}`,
+      );
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+
   return (
     <div className="space-y-4">
       <section className="rounded-xl bg-card p-3">
