@@ -1532,7 +1532,7 @@ function ContestSettings({
   weeklyHighLabel,
 }: {
   leagueId: string;
-  contestFormat: "h2h" | "points" | "hybrid";
+  contestFormat: ContestFormat;
   pointsPlayoff: { teams: number | null; afterWeek: number | null };
   weeklyHighBonus: boolean;
   weeklyHighLabel: string | null;
