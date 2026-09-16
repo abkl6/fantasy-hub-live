@@ -429,7 +429,7 @@ function MyProjectionsUpload() {
               Remove my uploaded projections
             </Button>
             <Link
-              to="/projections/guide"
+              to="/projection-guide"
               target="_blank"
               className="text-xs text-muted-foreground underline"
             >

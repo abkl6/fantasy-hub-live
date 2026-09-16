@@ -6,7 +6,7 @@ import { Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { templateReference } from "@/lib/projections.functions";
 
-export const Route = createFileRoute("/_authenticated/projections/guide")({
+export const Route = createFileRoute("/_authenticated/projection-guide")({
   component: GuidePage,
   head: () => ({
     meta: [
