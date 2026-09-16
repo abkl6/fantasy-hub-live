@@ -40,8 +40,8 @@ describe("streaming kickers and defences", () => {
       expect(isStreamPosition(pos)).toBe(true);
     }
     expect(isStreamPosition("RB")).toBe(false);
-    expect(tradeAllowed(book, ["RB", "DEF"])).toBe(false);
-    expect(tradeAllowed(book, ["RB", "WR"])).toBe(true);
+    expect(tradeAllowed(book, ["RB", "DEF"]).allowed).toBe(false);
+    expect(tradeAllowed(book, ["RB", "WR"]).allowed).toBe(true);
   });
 });
 
@@ -83,7 +83,7 @@ describe("the remaining guard rails", () => {
 
   it("refuses to drop a player who would be a top-five pickup", () => {
     const wire = [20, 18, 16, 14, 12];
-    expect(dropAllowed(book, 19, wire)).toBe(false);
-    expect(dropAllowed(book, 4, wire)).toBe(true);
+    expect(dropAllowed(book, 19, wire).allowed).toBe(false);
+    expect(dropAllowed(book, 4, wire).allowed).toBe(true);
   });
 });
