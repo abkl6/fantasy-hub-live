@@ -278,6 +278,17 @@ export async function applyFfpcBundle(
         await supabase.from("roster_spots").insert(spots.slice(i, i + 500) as never);
       }
     }
+    if (missed.length) {
+      // Unmatched names are why a player has no age, so they go to the queue.
+      const seen = new Set<string>();
+      const unique = missed.filter((r) => {
+        const key = `${normalizeName(r.name)}|${r.position}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      await queueUnmatched(supabase, unique, "ffpc");
+    }
 
     const games = bundle.schedule
       .filter((g) => g.homeExternalId && g.awayExternalId)
