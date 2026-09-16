@@ -9,6 +9,8 @@ import {
   parsePlayerCell,
 } from "./ffpc-parse";
 import { parseLeagueSettings } from "./ffpc-settings";
+import { detectLeagueType } from "./league-type";
+
 import { parseAllRosters, parseLeagueHome } from "./ffpc.server";
 import { normalizeName } from "./names";
 
