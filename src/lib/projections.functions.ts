@@ -360,10 +360,10 @@ async function espnCreds(context: { supabase: any; userId: string }) {
 /**
  * "My projections" upload. Accepts any of the four templates (offence, team
  * defence, individual defenders, kickers), either week by week (a `week`
- * column) or as season totals, which are split across the weeks that player's
- * NFL team actually plays — evenly, or shaped by how tough each opponent is.
- * Stored privately under the member's own source key, and only used by leagues
- * set to "My projections".
+ * column) or as season totals. Season totals are stored whole; each league
+ * splits them into weeks when it reads them, so turning schedule adjustment on
+ * or off never needs a re-upload. Stored privately under the member's own
+ * source key, and only used by leagues set to "My projections".
  */
 export const uploadMyProjections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -374,10 +374,10 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         season: z.number().int().min(2020).max(2100).optional(),
         apply: z.boolean().optional(),
         group: z.enum(["offense", "dst", "idp", "k"]).optional(),
-        spread: z.enum(["even", "sos"]).optional(),
       })
       .parse(d),
   )
+
   .handler(async ({ data, context }) => {
     const { BASELINE_RULES, scoreStats } = await import("@/lib/fantasy/scoring");
     const season = data.season ?? new Date().getFullYear();
