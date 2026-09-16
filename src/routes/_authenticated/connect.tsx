@@ -702,17 +702,14 @@ function FfpcPanel() {
   const doImport = useServerFn(importFfpcLeague);
 
   const [url, setUrl] = useState("");
-  const [myTeam, setMyTeam] = useState<string | null>(null);
-
   const look = useMutation({
     mutationFn: () => preview({ data: { url: url.trim() } }),
-    onSuccess: (res) => setMyTeam(res.myTeamExternalId ?? null),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that league."),
   });
 
   const importer = useMutation({
     mutationFn: (leagueId: string) =>
-      doImport({ data: { leagueId, myTeamExternalId: myTeam ?? null } }),
+      doImport({ data: { leagueId } }),
     onSuccess: (res) => {
       toast.success(`${res.name} imported.`);
       navigate({ to: "/league/$leagueId", params: { leagueId: res.leagueId } });
@@ -760,29 +757,19 @@ function FfpcPanel() {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label>Which team is yours?</Label>
-            <div className="divide-y divide-border rounded-xl bg-secondary">
-              {found.teams.map((t) => (
-                <button
-                  key={t.externalId}
-                  type="button"
-                  onClick={() => setMyTeam(t.externalId)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left"
-                >
-                  <span className="text-sm font-medium">{t.name}</span>
-                  <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{t.record}</span>
-                    <span className="tabular-nums">{t.pointsFor.toFixed(1)}</span>
-                    {myTeam === t.externalId ? <Check className="h-4 w-4 text-primary" /> : null}
-                  </span>
-                </button>
-              ))}
+          {found.myTeamExternalId ? (
+            <div className="flex items-center gap-2 rounded-xl bg-secondary px-4 py-3 text-sm">
+              <Check className="h-4 w-4 text-primary" />
+              <span>
+                Your team: {found.teams.find((team) => team.externalId === found.myTeamExternalId)?.name}
+              </span>
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-destructive">FFPC did not identify your team from this league page.</p>
+          )}
 
           <Button
-            disabled={!myTeam || importer.isPending}
+            disabled={!found.myTeamExternalId || importer.isPending}
             onClick={() => importer.mutate(found.leagueId)}
           >
             {importer.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

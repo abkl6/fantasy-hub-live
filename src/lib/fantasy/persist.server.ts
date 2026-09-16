@@ -21,6 +21,8 @@ export interface NormalizedTeam {
   ties: number;
   pointsFor: number;
   pointsAgainst: number;
+  division?: string | null;
+  playoffSeed?: number | null;
   roster: { name: string; position: string; nflTeam: string | null; slot: string; isStarter: boolean }[];
 }
 
@@ -89,7 +91,7 @@ export async function persistBundle(
 
   const { data: canonical } = await supabase
     .from("players")
-    .select("id, full_name, position, proj_points_week");
+    .select("id, full_name, position, nfl_team, proj_points_week");
   const index = playerIndex(canonical ?? []);
 
   const { data: insertedTeams, error: teamError } = await supabase
@@ -107,6 +109,8 @@ export async function persistBundle(
         ties: t.ties,
         points_for: t.pointsFor,
         points_against: t.pointsAgainst,
+        division: t.division ?? null,
+        playoff_seed: t.playoffSeed ?? null,
       })),
     )
     .select("id, external_id");
@@ -118,7 +122,7 @@ export async function persistBundle(
     const id = teamId.get(t.externalId);
     if (!id) return [];
     return t.roster.map((p) => {
-      const match = index.find(p.name, p.position);
+      const match = index.find(p.name, p.position, p.nflTeam);
       return {
         team_id: id,
         league_id: league.id,

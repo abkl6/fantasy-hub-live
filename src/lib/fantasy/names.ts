@@ -58,17 +58,25 @@ export function normalizePosition(position: string | null | undefined): string {
  * Builds a lookup that resolves a (name, position) pair to a canonical player,
  * falling back to the name alone when the position differs (DEF/DST, LB/DL).
  */
-export function playerIndex<T extends { full_name: string; position: string }>(rows: T[]) {
+export function playerIndex<T extends { full_name: string; position: string; nfl_team?: string | null }>(rows: T[]) {
   const byKey = new Map<string, T>();
+  const byNameTeam = new Map<string, T>();
   const byName = new Map<string, T>();
   for (const row of rows) {
     byKey.set(playerKey(row.full_name, row.position), row);
     const n = normalizeName(row.full_name);
+    const team = (row.nfl_team ?? "").toUpperCase().trim();
+    if (team) byNameTeam.set(`${n}|${team}`, row);
     if (!byName.has(n)) byName.set(n, row);
   }
   return {
-    find(name: string | null | undefined, position?: string | null): T | null {
-      return byKey.get(playerKey(name, position)) ?? byName.get(normalizeName(name)) ?? null;
+    find(name: string | null | undefined, position?: string | null, nflTeam?: string | null): T | null {
+      const normalized = normalizeName(name);
+      const team = (nflTeam ?? "").toUpperCase().trim();
+      return (team ? byNameTeam.get(`${normalized}|${team}`) : undefined)
+        ?? byKey.get(playerKey(name, position))
+        ?? byName.get(normalized)
+        ?? null;
     },
   };
 }

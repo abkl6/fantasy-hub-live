@@ -1,0 +1,993 @@
+
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1"><title>
+	League Rosters
+</title><meta http-equiv="pragma" content="no-cache" /><meta http-equiv="x-ua-compatible" content="IE=edge" /><meta name="keywords" content="fantasy sports, nfl, football, league manager" /><meta name="description" content="fantasy sports league manager" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<!--
+	<meta name="google-site-verification" content="l-6UgW40nDhhv7EZxt6HqMCcqZ4j04pkEd_nCJ-Qw1Q" />
+	-->
+    <script type="text/javascript" src="javascript/hideShowPopup.js"></script>
+    <script type="text/javascript" src="javascript/JScript.js"></script>
+    <link rel="stylesheet" href="https://use.typekit.net/vht0txb.css" />
+    <script src="https://kit.fontawesome.com/eedc9ce520.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" type="text/css" href="assets/css/stylesheet.css?v1.81" media="all" />
+	<!-- Google Tag Manager -->
+<!--
+	<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+	new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+	j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+	'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+	})(window,document,'script','dataLayer','GTM-5M6586K');</script>
+-->
+    <!-- End Google Tag Manager -->
+	
+    <noscript>
+        <div style="width:100%;position:absolute;float:left;z-index:10000;">
+            <div style="margin:100px auto;text-align:center;width:40%;font-weight:bold;padding:50px 30px;color:Red;background-color:White;border:3px solid red;border-radius:5px;">
+                The browser that you're using has JavaScript disabled. Many features on this site, such as the online draft room and the live scoring page, rely on JavaScript to work properly. 
+                Here are the 
+                <a href="http://www.enable-javascript.com" target="_blank" style="color:Black;">
+                    instructions
+                </a> 
+                for how to enable JavaScript in your web browser.
+            </div>
+        </div>
+    </noscript>
+
+    <script lang="javascript" type="text/javascript">
+        function hidediv(pass) {
+            //alert("hide div ... " + pass);
+            var divs = document.getElementsByTagName('div');
+            for (i = 0; i < divs.length; i++) {
+                if (divs[i].id.match(pass)) {//if they are 'see' divs 
+                    if (document.getElementById) // DOM3 = IE5, NS6 
+                        divs[i].style.display = "none"; // show/hide 
+                    else
+                        if (document.layers) // Netscape 4 
+                            document.layers[divs[i]].display = 'hidden';
+                        else // IE 4 
+                            document.all.hideShow.divs[i].display = 'none';
+                }
+            }
+        }
+        function showdiv(pass) {
+            //alert("show div ... " + pass);
+            var divs = document.getElementsByTagName('div');
+            for (i = 0; i < divs.length; i++) {
+                if (divs[i].id.match(pass)) {
+                    if (document.getElementById)
+                        divs[i].style.display = "block";
+                    else
+                        if (document.layers) // Netscape 4 
+                            document.layers[divs[i]].display = 'visible';
+                        else // IE 4 
+                            document.all.hideShow.divs[i].visibility = 'visible';
+                }
+            }
+        }
+        if(window.location.href.indexOf("www.") > -1) {
+	        window.location = "http://myffpc.com";
+        }
+        function showHideDiv(pass) {
+            //alert("hide div ... " + pass);
+            var divs = document.getElementsByTagName('div');
+            for (i = 0; i < divs.length; i++) {
+                if (divs[i].id.match(pass)) {//if they are 'see' divs
+                    if (document.getElementById) { // DOM3 = IE5, NS6 
+                        //alert(divs[i].style.display);
+                        if (divs[i].style.display == "block") {
+                            divs[i].style.display = "none"; // show/hide 
+                        } else {
+                            divs[i].style.display = "block"; // show/hide 
+                        }
+                    } else {
+                        if (document.layers) { // Netscape 4 
+                            if (document.layers[divs[i]].display == 'visible') {
+                                document.layers[divs[i]].display = 'hidden';
+                            } else {
+                                document.layers[divs[i]].display = 'visible';
+                            }
+                        } else { // IE 4
+                            if (document.all.hideShow.divs[i].visibility = 'visible') {
+                                document.all.hideShow.divs[i].display = 'none';
+                            } else {
+                                document.all.hideShow.divs[i].visibility = 'visible';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script> 
+
+    <!--
+    <script src="javascript/bootstrap.js" type="text/javascript"></script>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,300,700,800" rel="stylesheet" type="text/css" /><link type="text/css" rel="stylesheet" media="all" href="https://www.myffpc.com/media/ffpcStyle.css" /><link href="css/bootstrap-responsive.css" rel="stylesheet?version=201709022140" />
+    -->
+
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png" /><link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png" /><link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png" /><link href="https://fonts.googleapis.com/css2?family=Odibee+Sans&amp;display=swap" rel="stylesheet" /><link rel="manifest" href="/assets/icons/site.webmanifest" /><link rel="mask-icon" href="/assets/icons/safari-pinned-tab.svg" color="#5bbad5" /><meta name="msapplication-TileColor" content="#da532c" />
+    
+    
+    <script src="jquery/jquery-1.8.2.min.js"></script>
+<script>
+    window.onload = function () {
+//        if (screen.width > 200) {
+//            var mvp = document.getElementById('ctl00_ctl00_ctl00_testViewport');
+//            mvp.setAttribute('content', 'width=1000,maximum-scale=1');
+//        }
+    }
+</script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $("a[href*='PlayerProfile']").click(function (e) {
+            e.preventDefault();
+            var href = $(this).attr('href');
+            var queryString = $(this).attr('href').substr(href.indexOf('?'), href.length - href.indexOf('?'));
+            var iframeSrc = 'PlayerSnapshot.aspx' + queryString;
+
+            var playersnapshotIframe;
+            var playersnapshotContainer;
+
+            if ($('#playersnapshot-container').length === 0) {
+                playersnapshotIframe = $('<iframe id="playersnapshot-iframe" style="height:620px;width:100%;border:none;background-color:transparent;"></iframe>');
+
+                playersnapshotContainer = $('<div id="playersnapshot-container"></div>')
+                $(playersnapshotContainer).append(playersnapshotIframe);
+                $('body').append(playersnapshotContainer);
+            }
+
+            $('#playersnapshot-iframe').attr('src', iframeSrc);
+            $('.snapshotBackground').show();
+        })
+    });
+
+    function openPlayerSnapshotIFrame() {
+        $('#playersnapshot-container').fadeIn(300);
+    }
+
+    function closePlayerSnapshotIFrame() {
+        $('#playersnapshot-container').fadeOut(300);
+        $('.snapshotBackground').hide();
+    }
+    </script>
+
+
+</head>
+<body id="pageBody" class="empire rostersPage">
+    <!-- Google Tag Manager (noscript) -->
+	 <!--
+	<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5M6586K"
+	height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+	-->
+    <!-- End Google Tag Manager (noscript) -->
+
+    <form method="post" action="./Rosters.aspx?leagueID=77294&amp;ltuid=REDACTED_LTUID" id="form1">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="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" />
+
+
+<script src="Scripts/WebForms/MsAjax/MicrosoftAjax.js" type="text/javascript"></script>
+<script type="text/javascript">
+//<![CDATA[
+if (typeof(Sys) === 'undefined') throw new Error('ASP.NET Ajax client-side framework failed to load.');
+//]]>
+</script>
+
+<script src="javascript/fixWebkit.js" type="text/javascript"></script>
+<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="997942E4" />
+        <div id="brolikWrapper" class="centered">
+            <div id="wrap">
+                <div style="display: none;">
+                    
+                </div>
+                
+                <div class="headerArea">
+                
+                    
+                
+                    
+<head>
+    <noscript>
+        <div style="width:100%;position:absolute;float:left;z-index:10000;">
+            <div style="margin:100px auto;text-align:center;width:40%;font-weight:bold;padding:50px 30px;color:Red;background-color:White;border:3px solid red;border-radius:5px;">
+                The browser that you're using has JavaScript disabled. Many features on this site, such as the online draft room and the live scoring page, rely on JavaScript to work properly. 
+                Here are the <a href="http://www.enable-javascript.com" target="_blank" style="color:Black;">instructions</a> for how to enable JavaScript in your web browser.
+            </div>
+        </div>
+    </noscript>
+    <script lang="javascript" type="text/javascript">
+        if(window.location.href.indexOf("www.") > -1) {
+            window.location = "http://myffpc.com";
+        }
+    </script>
+	<!-- Global site tag (gtag.js) - Google Ads: 1053339884 -->
+	<!--
+	<script async src="https://www.googletagmanager.com/gtag/js?id=AW-1053339884"></script>
+	-->
+	<style> .league-header-tabs img {width:6px;height:6px;margin-top:-10px;max-width:6px;"}</style>
+</head>
+<!-- begin footer top -->
+<!-- <div id="header-top"> -->
+       
+         
+        <div class="navbar-nav secondary-nav">
+        <ul class="first-level-nav" style="display:inline-block; margin-right: 30px;">     
+          <li class="social-icon social-radio"><a href="https://www.youtube.com/@FFPCfantasy/featured" target="_blank"><img src="https://myffpc.com/cms/public/assets/img/YouTubeLogo.png" style="max-width: 76px;"></a></li>
+          <li class="social-icon social-twitter"><a href="https://x.com/FFPC" target="_blank"><img src="https://myffpc.com/cms/public/assets/img/xLogo.png"></a></li>
+          <li class="social-icon social-facebook"><a href="https://www.facebook.com/FantasyFootballPlayersChampionship" target="_blank"><img src="https://myffpc.com/cms/public/assets/img/facebook.svg"></a></li>
+        </ul>   
+            <div id="cphHeader_ctl00_LoginView1_registrationDiv" class="secondary-nav-anon">
+                <a class="form-submit btn btn-blue-reverse" href="/account/Login.aspx">SIGN IN</a>
+                <a class="form-submit btn btn-green-reverse" href="/account/Registration.aspx">JOIN NOW</a>
+            </div>
+        </div>                   
+    
+<!-- </div> -->
+
+
+
+                </div>
+                <div style="clear: both"></div>
+                
+                
+    <a href='javascript:showHideDiv("nav")'>
+        <div id="respNav">
+            <span></span>
+        </div>
+    </a>
+    
+    <div id="nav" class="test">
+        
+
+<header>
+<nav class="navbar">
+    <div class="nav-brand">
+        <a href="https://myffpc.com/cms/public/" class="color-logo" style="display: block"><img src="/assets/img/FFPC-small-logo.svg?a" style="max-width: 200px"></a>
+    </div> 
+    <div style="display: none;">
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    </div>
+    
+            <div class="navbar-nav primary-nav">
+            <ul id="primary" class="menu">
+        
+            <li>
+                
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptMainMenu_hlnkMenuItem_0" href="/MyTeams"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptMainMenu_ParentMenuLabel_0" class="inner">
+                        My Teams
+                    </div></a>
+
+            </li>
+        
+            <li>
+                
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptMainMenu_hlnkMenuItem_1" href="/MainEvent.aspx"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptMainMenu_ParentMenuLabel_1" class="inner">
+                        Play
+                    </div></a>
+
+            </li>
+        
+            <!--<li class="filler">
+                   
+               </li>-->
+            <!--<div id="league-manager">        
+                    
+                </div>-->
+            </ul>
+            </div><!--closing primary-nav-->
+            </div><!--closing header-top?-->
+        
+    
+            <ul class="dropdown-content" style="width: 350px">
+                <li>
+                    <div class="row">
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_0" href="/WeeklyChallenge.aspx?y=2">Weekly Challenge</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_1" href="/BigGorilla.aspx">Big Gorilla</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_2" href="/MainEvent.aspx?y=2">Main Event</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_3" href="/BestBallTournament2.aspx">Best Ball Tournament 2</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_4" href="/SuperflexBBTournament2.aspx">Superflex Best Ball Tourney 2</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_5" href="/Terminator.aspx?y=2">Terminator Tourney</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_6" href="/LiveAncillary.aspx?y=2">High Stakes Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_7" href="/Dynasty.aspx?y=2">Dynasty Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_8" href="/Empire.aspx">Empire Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_9" href="/PlayerOne.aspx">Player One</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_10" href="/ChopLeagues.aspx">Chop Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_11" href="/OnlineSatellite.aspx?y=3">Best Ball Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_12" href="/OnlineSatellite.aspx?y=5">Best Ball Slim Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_13" href="/OnlineSatellite.aspx?y=2">Classic Draft Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_14" href="/OnlineSatellite.aspx?y=4">Superflex Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_15" href="/OnlineSatellite.aspx?y=7">TriFlex Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_16" href="/VPMoney.aspx?y=2">VP Cash Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_17" href="/OnlineSatellite.aspx?y=6">Varsity Leagues</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_18" href="/SuperBracketTourney.aspx?y=2">Super Bracket Tourney</a>
+            </div>
+        
+            <div class="col-md-12">
+                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptSubMenu_hlnkMenuItem_19" class="last" href="https://myffpc.com/cms/public/play/pros-vs-joe/">Pros vs. Joes</a>
+            </div>
+        
+                    </div>
+                </li>
+            </ul>
+        
+</nav>
+<div id="main" style="min-height: 50px;">
+    <div id="league-header">
+        <div class="container-fluid">
+            <div class="league-header-toggle row">
+                <div class="league-header-name col-md-12">
+                    <select name="ctl00$ctl00$ctl00$cphContent$cphHeaderLeagueNav$ctl00$ddlMyTeams" id="cphContent_cphHeaderLeagueNav_ctl00_ddlMyTeams">
+
+</select>
+                </div>
+                <!--
+                <div class="league-header-year col-sm-4 col-md-2">
+                    <select>
+                          <option value="foo1">2019</option>
+                          <option value="foo2">2018</option>
+                          <option value="foo3">2017</option>
+                          <option value="foo4">2016</option>
+                    </select>
+                </div> 
+                -->
+            </div>
+            <div class="league-header-tabs">
+                
+                        <ul id="secondary" class="game-tab-nav no-bullets inline-list">
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_0" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_0" class="nav-link" class="first" href="/MyTeams.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_0" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_0">My Teams</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_1" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_1" class="nav-link" href="/LeagueHome.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_1" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_1">League</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_2" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_2" class="nav-link" href="/SetLineup.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_2" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_2">Team</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_3" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_3" class="nav-link" href="/Scoreboard.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_3" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_3">Live Scoring</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_4" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_4" class="nav-link" href="StandingsVP.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_4" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_4">Standings</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_5" class="nav-item">
+                                
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_6" class="nav-item">
+                                
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_7" class="nav-item">
+                                
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_8" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_8" class="nav-link" href="/FreeAgents.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_8" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_8">Stats</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_9" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_9" class="nav-link" href="/Messages.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_9" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_9">Messages</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_10" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_10" class="nav-link" href="/LeagueChatRoom.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_10" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_10">Chat</span>
+                                        <img id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_imgChatIndicator_10" src="images/icon_notification2.png" />
+                                    </div></a>
+                            </li>
+                    
+                            <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_liMenuItem_11" class="nav-item">
+                                <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_hlnkMenuItem_11" class="nav-link" href="/DraftReportCard.aspx?ltuid=REDACTED_LTUID"><div id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_ParentMenuLabel_11" class="inner">
+                                        <span id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueMainMenu_spnMenuTitle_11">Draft</span>
+                                        
+                                    </div></a>
+                            </li>
+                    
+                        </ul>
+                    
+            </div>
+        </div>
+    </div>
+    <div id="main-header" class="container-fluid game-tabs">
+        
+                <ul id="secondary" class="game-tab-nav no-bullets inline-list">
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_0" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_0" class="nav-link" href="/LeagueHome.aspx?&amp;ltuid=REDACTED_LTUID">League Home</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_1" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_1" class="nav-link" href="/leagueRulesFFPC.aspx?ltuid=REDACTED_LTUID">Rules</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_2" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_2" class="nav-link" href="/Owners.aspx?ltuid=REDACTED_LTUID">Owners</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_3" class="nav-item active">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_3" class="nav-link" href="/Rosters.aspx?ltuid=REDACTED_LTUID">Rosters</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_4" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_4" class="nav-link" href="/Transactions.aspx?ltuid=REDACTED_LTUID">Transactions</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_5" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_5" class="nav-link" href="/Schedule.aspx?ltuid=REDACTED_LTUID">Schedule</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_6" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_6" class="nav-link" href="/DraftBoard.aspx?ltuid=REDACTED_LTUID" target="_blank">Draft Board</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_7" class="nav-item">
+                    
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_8" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_8" class="nav-link" href="/BidGroupsReport.aspx?ltuid=REDACTED_LTUID">FAAB Report</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_9" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_9" class="display771" href="/TradingBlock.aspx?ltuid=REDACTED_LTUID">Trading Block</a>
+                </li>
+            
+                <li id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_liMenuItem_10" class="nav-item">
+                    <a id="cphContent_cphHeaderLeagueNav_ctl00_rptLeagueSubMenu_hlnkMenuItem_10" class="nav-link" class="last" href="/DraftPickPortfolio.aspx?ltuid=REDACTED_LTUID">Future Picks</a>
+                </li>
+            
+                </ul>
+            
+    </div>
+</div>
+</header>        
+        <div style="display: none;"></div>
+    </div>
+    <div id="main">
+        
+    <div id="content" class="no-sidebar">
+        
+<div class="container-fluid">
+    <div class="snapshotBackground modalBackground shadow"></div>
+    <div id="content-header">
+        <h1>
+            <!--League Rosters-->League Rosters</h1>
+    </div>
+
+    <div id="cphContent_cphContent_cphContent_pnlMessages">
+	
+        <span id="cphContent_cphContent_cphContent_lblMessages"></span>
+    
+</div>
+
+    <div id="content-form" class="leagueRosters card">
+        <div class="table-head">
+        </div>
+        <div class="table-responsive">
+            
+                    <div>
+                        <table class="leagueRosterTable" cellspacing="0" rules="all" border="1" style="border-collapse:collapse;">
+                            <tbody>
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trHeader">
+	<th class="center" align="center" scope="col" style="border-color:White;">Team</th>
+	<th class="center" align="center" scope="col" style="border-color:White;">QB</th>
+	<th class="center" align="center" scope="col" style="border-color:White;">RB</th>
+	<th class="center" align="center" scope="col" style="border-color:White;">WR</th>
+	<th class="center" align="center" scope="col" style="border-color:White;">TE</th>
+	<th class="center" align="center" scope="col" style="border-color:White;">PK</th>
+	<th class="center" align="center" scope="col" style="border-color:White;">DF</th>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_0">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=1'>Spicy Subs</a><br/><i>Rostered: 20<br/>IR: 1</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28724&leagueID=77294&dbID=FF_D1'>Bo Nix</a>&nbsp;(DEN)</div><div><a href='PlayerProfile.aspx?playerID=26890&leagueID=77294&dbID=FF_D1'>Patrick Mahomes</a>&nbsp;(KC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27227&leagueID=77294&dbID=FF_D1'>Saquon Barkley</a>&nbsp;(PHI)</div><div><a href='PlayerProfile.aspx?playerID=29358&leagueID=77294&dbID=FF_D1'>Quinshon Judkins</a>&nbsp;(CLE)</div><div><a href='PlayerProfile.aspx?playerID=29656&leagueID=77294&dbID=FF_D1'>Jadarian Price</a>&nbsp;(SEA)</div><div><a href='PlayerProfile.aspx?playerID=28201&leagueID=77294&dbID=FF_D1'>Rhamondre Stevenson</a>&nbsp;(NE)</div><div><a href='PlayerProfile.aspx?playerID=28597&leagueID=77294&dbID=FF_D1'>Jaylen Warren</a>&nbsp;(PIT)</div><div><a href='PlayerProfile.aspx?playerID=29357&leagueID=77294&dbID=FF_D1'>TreVeyon Henderson</a>&nbsp;(NE)</div><div><a href='PlayerProfile.aspx?playerID=29658&leagueID=77294&dbID=FF_D1'>Emmett Johnson</a>&nbsp;(KC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28501&leagueID=77294&dbID=FF_D1'>Drake London</a>&nbsp;(ATL)</div><div><a href='PlayerProfile.aspx?playerID=28824&leagueID=77294&dbID=FF_D1'>Rashee Rice</a>&nbsp;(KC)</div><div><a href='PlayerProfile.aspx?playerID=27258&leagueID=77294&dbID=FF_D1'>Courtland Sutton</a>&nbsp;(DEN)</div><div><a href='PlayerProfile.aspx?playerID=28489&leagueID=77294&dbID=FF_D1'>Alec Pierce</a>&nbsp;(IND)</div><div><a href='PlayerProfile.aspx?playerID=29410&leagueID=77294&dbID=FF_D1'>Matthew Golden</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=29400&leagueID=77294&dbID=FF_D1'>Tre' Harris</a>&nbsp;(LAC)</div><div><a href='PlayerProfile.aspx?playerID=29701&leagueID=77294&dbID=FF_D1'>Zachariah Branch</a>&nbsp;(ATL)</div><div><a href='PlayerProfile.aspx?playerID=28796&leagueID=77294&dbID=FF_D1'>Tank Dell</a>&nbsp;(HOU) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29451&leagueID=77294&dbID=FF_D1'>Tyler Warren</a>&nbsp;(IND)</div><div><a href='PlayerProfile.aspx?playerID=28283&leagueID=77294&dbID=FF_D1'>Pat Freiermuth</a>&nbsp;(PIT)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28837&leagueID=77294&dbID=FF_D1'>Harrison Mevis</a>&nbsp;(LAR)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DBRNC&leagueID=77294&dbID=FF_D1'>DEN Team Defense</a>&nbsp;(DEN)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_0">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_1">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=2'>Spockndale</a><br/><i>Rostered: 20<br/>IR: 0</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29025&leagueID=77294&dbID=FF_D1'>Caleb Williams</a>&nbsp;(CHI)</div><div><a href='PlayerProfile.aspx?playerID=27890&leagueID=77294&dbID=FF_D1'>Jordan Love</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=29627&leagueID=77294&dbID=FF_D1'>Ty Simpson</a>&nbsp;(LAR)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28458&leagueID=77294&dbID=FF_D1'>James Cook</a>&nbsp;(BUF)</div><div><a href='PlayerProfile.aspx?playerID=29388&leagueID=77294&dbID=FF_D1'>Jacory Croskey-Merritt</a>&nbsp;(WAS)</div><div><a href='PlayerProfile.aspx?playerID=29394&leagueID=77294&dbID=FF_D1'>Kyle Monangai</a>&nbsp;(CHI)</div><div><a href='PlayerProfile.aspx?playerID=26906&leagueID=77294&dbID=FF_D1'>Alvin Kamara</a>&nbsp;(NO)</div><div><a href='PlayerProfile.aspx?playerID=29392&leagueID=77294&dbID=FF_D1'>Jaydon Blue</a>&nbsp;(PHI)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29066&leagueID=77294&dbID=FF_D1'>Malik Nabers</a>&nbsp;(NYG)</div><div><a href='PlayerProfile.aspx?playerID=27666&leagueID=77294&dbID=FF_D1'>Terry McLaurin</a>&nbsp;(WAS)</div><div><a href='PlayerProfile.aspx?playerID=29693&leagueID=77294&dbID=FF_D1'>Carnell Tate</a>&nbsp;(TEN)</div><div><a href='PlayerProfile.aspx?playerID=29070&leagueID=77294&dbID=FF_D1'>Brian Thomas</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=29698&leagueID=77294&dbID=FF_D1'>Chris Bell</a>&nbsp;(MIA)</div><div><a href='PlayerProfile.aspx?playerID=27952&leagueID=77294&dbID=FF_D1'>Brandon Aiyuk</a>&nbsp;(SF)</div><div><a href='PlayerProfile.aspx?playerID=29699&leagueID=77294&dbID=FF_D1'>Elijah Sarratt</a>&nbsp;(BAL)</div><div><a href='PlayerProfile.aspx?playerID=29401&leagueID=77294&dbID=FF_D1'>Elic Ayomanor</a>&nbsp;(TEN)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28563&leagueID=77294&dbID=FF_D1'>Sam LaPorta</a>&nbsp;(DET)</div><div><a href='PlayerProfile.aspx?playerID=29768&leagueID=77294&dbID=FF_D1'>Max Klare</a>&nbsp;(LAR)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28714&leagueID=77294&dbID=FF_D1'>Chad Ryland</a>&nbsp;(ARI)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DEAGL&leagueID=77294&dbID=FF_D1'>PHI Team Defense</a>&nbsp;(PHI)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_1">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_2">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=3'>ROC Squad</a><br/><i>Rostered: 20<br/>IR: 1</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27204&leagueID=77294&dbID=FF_D1'>Lamar Jackson</a>&nbsp;(BAL)</div><div><a href='PlayerProfile.aspx?playerID=29341&leagueID=77294&dbID=FF_D1'>Jaxson Dart</a>&nbsp;(NYG)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28737&leagueID=77294&dbID=FF_D1'>Chase Brown</a>&nbsp;(CIN)</div><div><a href='PlayerProfile.aspx?playerID=29027&leagueID=77294&dbID=FF_D1'>Bucky Irving</a>&nbsp;(TB)</div><div><a href='PlayerProfile.aspx?playerID=28462&leagueID=77294&dbID=FF_D1'>Jordan Mason</a>&nbsp;(MIN)</div><div><a href='PlayerProfile.aspx?playerID=28472&leagueID=77294&dbID=FF_D1'>Rachaad White</a>&nbsp;(WAS)</div><div><a href='PlayerProfile.aspx?playerID=28757&leagueID=77294&dbID=FF_D1'>Tyjae Spears</a>&nbsp;(TEN)</div><div><a href='PlayerProfile.aspx?playerID=28760&leagueID=77294&dbID=FF_D1'>Sean Tucker</a>&nbsp;(TB)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28234&leagueID=77294&dbID=FF_D1'>Amon-Ra St. Brown</a>&nbsp;(DET)</div><div><a href='PlayerProfile.aspx?playerID=28801&leagueID=77294&dbID=FF_D1'>Zay Flowers</a>&nbsp;(BAL)</div><div><a href='PlayerProfile.aspx?playerID=28510&leagueID=77294&dbID=FF_D1'>Jameson Williams</a>&nbsp;(DET)</div><div><a href='PlayerProfile.aspx?playerID=28496&leagueID=77294&dbID=FF_D1'>Christian Watson</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=28822&leagueID=77294&dbID=FF_D1'>Jayden Reed</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=29697&leagueID=77294&dbID=FF_D1'>KC Concepcion</a>&nbsp;(CLE)</div><div><a href='PlayerProfile.aspx?playerID=24567&leagueID=77294&dbID=FF_D1'>Stefon Diggs</a>&nbsp;(WAS)</div><div><a href='PlayerProfile.aspx?playerID=28521&leagueID=77294&dbID=FF_D1'>Khalil Shakir</a>&nbsp;(BUF)</div><div><a href='PlayerProfile.aspx?playerID=29703&leagueID=77294&dbID=FF_D1'>Germie Bernard</a>&nbsp;(PIT)</div><div><a href='PlayerProfile.aspx?playerID=29733&leagueID=77294&dbID=FF_D1'>Jeff Caldwell</a>&nbsp;(KC) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28566&leagueID=77294&dbID=FF_D1'>Trey McBride</a>&nbsp;(ARI)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28996&leagueID=77294&dbID=FF_D1'>Jake Bates</a>&nbsp;(DET)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DCHGR&leagueID=77294&dbID=FF_D1'>LAC Team Defense</a>&nbsp;(LAC)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_2">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_3">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=4'>Uncrowned King 1</a><br/><i>Rostered: 19<br/>IR: 3</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29012&leagueID=77294&dbID=FF_D1'>Drake Maye</a>&nbsp;(NE)</div><div><a href='PlayerProfile.aspx?playerID=T0635&leagueID=77294&dbID=FF_D1'>Matthew Stafford</a>&nbsp;(LAR)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28735&leagueID=77294&dbID=FF_D1'>De'Von Achane</a>&nbsp;(MIA)</div><div><a href='PlayerProfile.aspx?playerID=28448&leagueID=77294&dbID=FF_D1'>Breece Hall</a>&nbsp;(NYJ)</div><div><a href='PlayerProfile.aspx?playerID=27921&leagueID=77294&dbID=FF_D1'>Chuba Hubbard</a>&nbsp;(CAR)</div><div><a href='PlayerProfile.aspx?playerID=29044&leagueID=77294&dbID=FF_D1'>Jaylen Wright</a>&nbsp;(MIA)</div><div><a href='PlayerProfile.aspx?playerID=28457&leagueID=77294&dbID=FF_D1'>Isiah Pacheco</a>&nbsp;(DET) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28819&leagueID=77294&dbID=FF_D1'>Puka Nacua</a>&nbsp;(LAR)</div><div><a href='PlayerProfile.aspx?playerID=27950&leagueID=77294&dbID=FF_D1'>Tee Higgins</a>&nbsp;(CIN)</div><div><a href='PlayerProfile.aspx?playerID=28814&leagueID=77294&dbID=FF_D1'>Quentin Johnston</a>&nbsp;(LAC)</div><div><a href='PlayerProfile.aspx?playerID=28540&leagueID=77294&dbID=FF_D1'>Wan'Dale Robinson</a>&nbsp;(TEN)</div><div><a href='PlayerProfile.aspx?playerID=29695&leagueID=77294&dbID=FF_D1'>Makai Lemon</a>&nbsp;(PHI)</div><div><a href='PlayerProfile.aspx?playerID=27723&leagueID=77294&dbID=FF_D1'>Jakobi Meyers</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=29099&leagueID=77294&dbID=FF_D1'>Malik Washington</a>&nbsp;(MIA)</div><div><a href='PlayerProfile.aspx?playerID=29115&leagueID=77294&dbID=FF_D1'>Isaac TeSlaa</a>&nbsp;(DET)</div><div><a href='PlayerProfile.aspx?playerID=29402&leagueID=77294&dbID=FF_D1'>Jayden Higgins</a>&nbsp;(HOU) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=14618&leagueID=77294&dbID=FF_D1'>Travis Kelce</a>&nbsp;(KC)</div><div><a href='PlayerProfile.aspx?playerID=28553&leagueID=77294&dbID=FF_D1'>Jake Ferguson</a>&nbsp;(DAL)</div><div><a href='PlayerProfile.aspx?playerID=29767&leagueID=77294&dbID=FF_D1'>Kenyon Sadiq</a>&nbsp;(NYJ)</div><div><a href='PlayerProfile.aspx?playerID=29771&leagueID=77294&dbID=FF_D1'>Eli Stowers</a>&nbsp;(PHI) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=24640&leagueID=77294&dbID=FF_D1'>Jason Myers</a>&nbsp;(SEA)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DSTLR&leagueID=77294&dbID=FF_D1'>PIT Team Defense</a>&nbsp;(PIT)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_3">
+	<td colspan="7">2027 Draft Picks: R1, R2, R2 (from Ras 8 Empire), R3, R3 (from Rock is Back), R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_4">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=5'>The Octobox</a><br/><i>Rostered: 20<br/>IR: 0</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27208&leagueID=77294&dbID=FF_D1'>Josh Allen</a>&nbsp;(BUF)</div><div><a href='PlayerProfile.aspx?playerID=27206&leagueID=77294&dbID=FF_D1'>Sam Darnold</a>&nbsp;(SEA)</div><div><a href='PlayerProfile.aspx?playerID=28728&leagueID=77294&dbID=FF_D1'>C.J. Stroud</a>&nbsp;(HOU)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28467&leagueID=77294&dbID=FF_D1'>Kyren Williams</a>&nbsp;(LAR)</div><div><a href='PlayerProfile.aspx?playerID=28106&leagueID=77294&dbID=FF_D1'>Rico Dowdle</a>&nbsp;(PIT)</div><div><a href='PlayerProfile.aspx?playerID=27583&leagueID=77294&dbID=FF_D1'>Josh Jacobs</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=29657&leagueID=77294&dbID=FF_D1'>Jonah Coleman</a>&nbsp;(DEN)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=14287&leagueID=77294&dbID=FF_D1'>Davante Adams</a>&nbsp;(LAR)</div><div><a href='PlayerProfile.aspx?playerID=27606&leagueID=77294&dbID=FF_D1'>DK Metcalf</a>&nbsp;(PIT)</div><div><a href='PlayerProfile.aspx?playerID=28527&leagueID=77294&dbID=FF_D1'>Romeo Doubs</a>&nbsp;(NE)</div><div><a href='PlayerProfile.aspx?playerID=27613&leagueID=77294&dbID=FF_D1'>Deebo Samuel</a>&nbsp;(SF)</div><div><a href='PlayerProfile.aspx?playerID=29702&leagueID=77294&dbID=FF_D1'>Ja'Kobi Lane</a>&nbsp;(BAL)</div><div><a href='PlayerProfile.aspx?playerID=28625&leagueID=77294&dbID=FF_D1'>Rashid Shaheed</a>&nbsp;(SEA)</div><div><a href='PlayerProfile.aspx?playerID=28831&leagueID=77294&dbID=FF_D1'>Tre Tucker</a>&nbsp;(LV)</div><div><a href='PlayerProfile.aspx?playerID=29081&leagueID=77294&dbID=FF_D1'>Jalen McMillan</a>&nbsp;(TB)</div><div><a href='PlayerProfile.aspx?playerID=29704&leagueID=77294&dbID=FF_D1'>Malachi Fields</a>&nbsp;(NYG)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28552&leagueID=77294&dbID=FF_D1'>Isaiah Likely</a>&nbsp;(NYG)</div><div><a href='PlayerProfile.aspx?playerID=28001&leagueID=77294&dbID=FF_D1'>Colby Parkinson</a>&nbsp;(LAR)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28985&leagueID=77294&dbID=FF_D1'>Brandon Aubrey</a>&nbsp;(DAL)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DPATS&leagueID=77294&dbID=FF_D1'>NE Team Defense</a>&nbsp;(NE)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_4">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R3 (from Ras 8 Empire), R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_5">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=6'>Ras 8 Empire</a><br/><i>Rostered: 20<br/>IR: 2</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=26593&leagueID=77294&dbID=FF_D1'>Dak Prescott</a>&nbsp;(DAL)</div><div><a href='PlayerProfile.aspx?playerID=27889&leagueID=77294&dbID=FF_D1'>Justin Herbert</a>&nbsp;(LAC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28755&leagueID=77294&dbID=FF_D1'>Bijan Robinson</a>&nbsp;(ATL)</div><div><a href='PlayerProfile.aspx?playerID=27913&leagueID=77294&dbID=FF_D1'>Jonathan Taylor</a>&nbsp;(IND)</div><div><a href='PlayerProfile.aspx?playerID=28756&leagueID=77294&dbID=FF_D1'>Chris Rodriguez</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=28482&leagueID=77294&dbID=FF_D1'>Tyler Allgeier</a>&nbsp;(ARI)</div><div><a href='PlayerProfile.aspx?playerID=29663&leagueID=77294&dbID=FF_D1'>Adam Randall</a>&nbsp;(BAL) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28227&leagueID=77294&dbID=FF_D1'>Ja'Marr Chase</a>&nbsp;(CIN)</div><div><a href='PlayerProfile.aspx?playerID=29075&leagueID=77294&dbID=FF_D1'>Ladd McConkey</a>&nbsp;(LAC)</div><div><a href='PlayerProfile.aspx?playerID=28504&leagueID=77294&dbID=FF_D1'>Garrett Wilson</a>&nbsp;(NYJ)</div><div><a href='PlayerProfile.aspx?playerID=28228&leagueID=77294&dbID=FF_D1'>Jaylen Waddle</a>&nbsp;(DEN)</div><div><a href='PlayerProfile.aspx?playerID=29721&leagueID=77294&dbID=FF_D1'>De'Zhaun Stribling</a>&nbsp;(SF)</div><div><a href='PlayerProfile.aspx?playerID=29694&leagueID=77294&dbID=FF_D1'>Jordyn Tyson</a>&nbsp;(NO) <span style='color:red;'>IR</span></div><div><a href='PlayerProfile.aspx?playerID=29761&leagueID=77294&dbID=FF_D1'>Cyrus Allen</a>&nbsp;(KC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29452&leagueID=77294&dbID=FF_D1'>Harold Fannin</a>&nbsp;(CLE)</div><div><a href='PlayerProfile.aspx?playerID=26990&leagueID=77294&dbID=FF_D1'>George Kittle</a>&nbsp;(SF)</div><div><a href='PlayerProfile.aspx?playerID=27307&leagueID=77294&dbID=FF_D1'>Mark Andrews</a>&nbsp;(BAL)</div><div><a href='PlayerProfile.aspx?playerID=27313&leagueID=77294&dbID=FF_D1'>Dalton Schultz</a>&nbsp;(HOU)</div><div><a href='PlayerProfile.aspx?playerID=29456&leagueID=77294&dbID=FF_D1'>Gunnar Helm</a>&nbsp;(TEN)</div><div><a href='PlayerProfile.aspx?playerID=29774&leagueID=77294&dbID=FF_D1'>Eli Raridon</a>&nbsp;(NE)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=24354&leagueID=77294&dbID=FF_D1'>Chris Boswell</a>&nbsp;(PIT)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DSEAH&leagueID=77294&dbID=FF_D1'>SEA Team Defense</a>&nbsp;(SEA)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_5">
+	<td colspan="7">2027 Draft Picks: R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_6">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=7'>Mingos (C) </a><br/><i>Rostered: 19<br/>IR: 1</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27893&leagueID=77294&dbID=FF_D1'>Jalen Hurts</a>&nbsp;(PHI)</div><div><a href='PlayerProfile.aspx?playerID=28429&leagueID=77294&dbID=FF_D1'>Brock Purdy</a>&nbsp;(SF)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=26905&leagueID=77294&dbID=FF_D1'>Christian McCaffrey</a>&nbsp;(SF)</div><div><a href='PlayerProfile.aspx?playerID=26606&leagueID=77294&dbID=FF_D1'>Derrick Henry</a>&nbsp;(BAL)</div><div><a href='PlayerProfile.aspx?playerID=29375&leagueID=77294&dbID=FF_D1'>Bhayshul Tuten</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=29029&leagueID=77294&dbID=FF_D1'>Jonathon Brooks</a>&nbsp;(CAR)</div><div><a href='PlayerProfile.aspx?playerID=29361&leagueID=77294&dbID=FF_D1'>Woody Marks</a>&nbsp;(HOU)</div><div><a href='PlayerProfile.aspx?playerID=29660&leagueID=77294&dbID=FF_D1'>Kaytron Allen</a>&nbsp;(WAS)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27609&leagueID=77294&dbID=FF_D1'>A.J. Brown</a>&nbsp;(NE) <span style='color:red;'>IR</span></div><div><a href='PlayerProfile.aspx?playerID=28832&leagueID=77294&dbID=FF_D1'>Parker Washington</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=14038&leagueID=77294&dbID=FF_D1'>Mike Evans</a>&nbsp;(SF)</div><div><a href='PlayerProfile.aspx?playerID=12970&leagueID=77294&dbID=FF_D1'>Keenan Allen</a>&nbsp;(IND)</div><div><a href='PlayerProfile.aspx?playerID=29072&leagueID=77294&dbID=FF_D1'>Adonai Mitchell</a>&nbsp;(NYJ)</div><div><a href='PlayerProfile.aspx?playerID=29732&leagueID=77294&dbID=FF_D1'>Caleb Douglas</a>&nbsp;(MIA)</div><div><a href='PlayerProfile.aspx?playerID=29705&leagueID=77294&dbID=FF_D1'>Omar Cooper</a>&nbsp;(NYJ)</div><div><a href='PlayerProfile.aspx?playerID=29118&leagueID=77294&dbID=FF_D1'>Jaylin Noel</a>&nbsp;(HOU)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29126&leagueID=77294&dbID=FF_D1'>Brock Bowers</a>&nbsp;(LV)</div><div><a href='PlayerProfile.aspx?playerID=27309&leagueID=77294&dbID=FF_D1'>Dallas Goedert</a>&nbsp;(PHI)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=26692&leagueID=77294&dbID=FF_D1'>Ka'imi Fairbairn</a>&nbsp;(HOU)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DTEXN&leagueID=77294&dbID=FF_D1'>HOU Team Defense</a>&nbsp;(HOU)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_6">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_7">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=8'>Porch Pirates</a><br/><i>Rostered: 20<br/>IR: 2</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28179&leagueID=77294&dbID=FF_D1'>Trevor Lawrence</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=26588&leagueID=77294&dbID=FF_D1'>Jared Goff</a>&nbsp;(DET)</div><div><a href='PlayerProfile.aspx?playerID=28733&leagueID=77294&dbID=FF_D1'>Bryce Young</a>&nbsp;(CAR)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29655&leagueID=77294&dbID=FF_D1'>Jeremiyah Love</a>&nbsp;(ARI)</div><div><a href='PlayerProfile.aspx?playerID=27912&leagueID=77294&dbID=FF_D1'>D'Andre Swift</a>&nbsp;(CHI)</div><div><a href='PlayerProfile.aspx?playerID=27670&leagueID=77294&dbID=FF_D1'>Tony Pollard</a>&nbsp;(TEN)</div><div><a href='PlayerProfile.aspx?playerID=28738&leagueID=77294&dbID=FF_D1'>Zach Charbonnet</a>&nbsp;(SEA) <span style='color:red;'>IR</span></div><div><a href='PlayerProfile.aspx?playerID=29674&leagueID=77294&dbID=FF_D1'>Kaelon Black</a>&nbsp;(SF)</div><div><a href='PlayerProfile.aspx?playerID=29365&leagueID=77294&dbID=FF_D1'>Dylan Sampson</a>&nbsp;(CLE)</div><div><a href='PlayerProfile.aspx?playerID=28217&leagueID=77294&dbID=FF_D1'>Brian Robinson</a>&nbsp;(ATL)</div><div><a href='PlayerProfile.aspx?playerID=26916&leagueID=77294&dbID=FF_D1'>James Conner</a>&nbsp;(ARI) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27946&leagueID=77294&dbID=FF_D1'>CeeDee Lamb</a>&nbsp;(DAL)</div><div><a href='PlayerProfile.aspx?playerID=27957&leagueID=77294&dbID=FF_D1'>Michael Pittman</a>&nbsp;(PIT)</div><div><a href='PlayerProfile.aspx?playerID=29696&leagueID=77294&dbID=FF_D1'>Denzel Boston</a>&nbsp;(CLE)</div><div><a href='PlayerProfile.aspx?playerID=29411&leagueID=77294&dbID=FF_D1'>Pat Bryant</a>&nbsp;(DEN)</div><div><a href='PlayerProfile.aspx?playerID=29712&leagueID=77294&dbID=FF_D1'>Ted Hurst</a>&nbsp;(TB)</div><div><a href='PlayerProfile.aspx?playerID=29395&leagueID=77294&dbID=FF_D1'>Travis Hunter</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=29407&leagueID=77294&dbID=FF_D1'>Tory Horton</a>&nbsp;(SEA)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28282&leagueID=77294&dbID=FF_D1'>Kyle Pitts</a>&nbsp;(ATL)</div><div><a href='PlayerProfile.aspx?playerID=28769&leagueID=77294&dbID=FF_D1'>Dalton Kincaid</a>&nbsp;(BUF)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29483&leagueID=77294&dbID=FF_D1'>Tyler Loop</a>&nbsp;(BAL)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DRAMS&leagueID=77294&dbID=FF_D1'>LAR Team Defense</a>&nbsp;(LAR)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_7">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_8">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=9'>Rock is Back</a><br/><i>Rostered: 20<br/>IR: 0</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27207&leagueID=77294&dbID=FF_D1'>Baker Mayfield</a>&nbsp;(TB)</div><div><a href='PlayerProfile.aspx?playerID=29626&leagueID=77294&dbID=FF_D1'>Fernando Mendoza</a>&nbsp;(LV)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29355&leagueID=77294&dbID=FF_D1'>Ashton Jeanty</a>&nbsp;(LV)</div><div><a href='PlayerProfile.aspx?playerID=29662&leagueID=77294&dbID=FF_D1'>Mike Washington</a>&nbsp;(LV)</div><div><a href='PlayerProfile.aspx?playerID=26930&leagueID=77294&dbID=FF_D1'>Aaron Jones</a>&nbsp;(MIN)</div><div><a href='PlayerProfile.aspx?playerID=27590&leagueID=77294&dbID=FF_D1'>Justice Hill</a>&nbsp;(BAL)</div><div><a href='PlayerProfile.aspx?playerID=29041&leagueID=77294&dbID=FF_D1'>Kimani Vidal</a>&nbsp;(LAC)</div><div><a href='PlayerProfile.aspx?playerID=29659&leagueID=77294&dbID=FF_D1'>Nicholas Singleton</a>&nbsp;(TEN)</div><div><a href='PlayerProfile.aspx?playerID=29362&leagueID=77294&dbID=FF_D1'>Ollie Gordon</a>&nbsp;(MIA)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29398&leagueID=77294&dbID=FF_D1'>Emeka Egbuka</a>&nbsp;(TB)</div><div><a href='PlayerProfile.aspx?playerID=29397&leagueID=77294&dbID=FF_D1'>Luther Burden</a>&nbsp;(CHI)</div><div><a href='PlayerProfile.aspx?playerID=28786&leagueID=77294&dbID=FF_D1'>Jordan Addison</a>&nbsp;(MIN)</div><div><a href='PlayerProfile.aspx?playerID=27945&leagueID=77294&dbID=FF_D1'>Jerry Jeudy</a>&nbsp;(CLE)</div><div><a href='PlayerProfile.aspx?playerID=27976&leagueID=77294&dbID=FF_D1'>Jauan Jennings</a>&nbsp;(MIN)</div><div><a href='PlayerProfile.aspx?playerID=29068&leagueID=77294&dbID=FF_D1'>Keon Coleman</a>&nbsp;(BUF)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=26672&leagueID=77294&dbID=FF_D1'>Hunter Henry</a>&nbsp;(NE)</div><div><a href='PlayerProfile.aspx?playerID=28543&leagueID=77294&dbID=FF_D1'>Chig Okonkwo</a>&nbsp;(WAS)</div><div><a href='PlayerProfile.aspx?playerID=29148&leagueID=77294&dbID=FF_D1'>Elijah Arroyo</a>&nbsp;(SEA)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27853&leagueID=77294&dbID=FF_D1'>Chase McLaughlin</a>&nbsp;(TB)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DFALC&leagueID=77294&dbID=FF_D1'>ATL Team Defense</a>&nbsp;(ATL)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_8">
+	<td colspan="7">2027 Draft Picks: R1, R2, R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_9">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=10'>Scavengers</a><br/><i>Rostered: 20<br/>IR: 1</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27887&leagueID=77294&dbID=FF_D1'>Joe Burrow</a>&nbsp;(CIN)</div><div><a href='PlayerProfile.aspx?playerID=27573&leagueID=77294&dbID=FF_D1'>Daniel Jones</a>&nbsp;(IND)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28202&leagueID=77294&dbID=FF_D1'>Kenny Gainwell</a>&nbsp;(TB)</div><div><a href='PlayerProfile.aspx?playerID=29367&leagueID=77294&dbID=FF_D1'>RJ Harvey</a>&nbsp;(DEN)</div><div><a href='PlayerProfile.aspx?playerID=27914&leagueID=77294&dbID=FF_D1'>J.K. Dobbins</a>&nbsp;(DEN)</div><div><a href='PlayerProfile.aspx?playerID=29032&leagueID=77294&dbID=FF_D1'>Braelon Allen</a>&nbsp;(NYJ)</div><div><a href='PlayerProfile.aspx?playerID=29037&leagueID=77294&dbID=FF_D1'>Ray Davis</a>&nbsp;(BUF)</div><div><a href='PlayerProfile.aspx?playerID=29161&leagueID=77294&dbID=FF_D1'>Tyrone Tracy</a>&nbsp;(NYG)</div><div><a href='PlayerProfile.aspx?playerID=29052&leagueID=77294&dbID=FF_D1'>George Holani</a>&nbsp;(SEA)</div><div><a href='PlayerProfile.aspx?playerID=29372&leagueID=77294&dbID=FF_D1'>LeQuint Allen</a>&nbsp;(JAC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28828&leagueID=77294&dbID=FF_D1'>Jaxon Smith-Njigba</a>&nbsp;(SEA)</div><div><a href='PlayerProfile.aspx?playerID=27273&leagueID=77294&dbID=FF_D1'>DJ Moore</a>&nbsp;(BUF)</div><div><a href='PlayerProfile.aspx?playerID=26943&leagueID=77294&dbID=FF_D1'>Chris Godwin</a>&nbsp;(TB)</div><div><a href='PlayerProfile.aspx?playerID=29096&leagueID=77294&dbID=FF_D1'>Jalen Coker</a>&nbsp;(CAR)</div><div><a href='PlayerProfile.aspx?playerID=28790&leagueID=77294&dbID=FF_D1'>Kayshon Boutte</a>&nbsp;(HOU)</div><div><a href='PlayerProfile.aspx?playerID=29078&leagueID=77294&dbID=FF_D1'>Ricky Pearsall</a>&nbsp;(SF) <span style='color:red;'>IR</span></div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28770&leagueID=77294&dbID=FF_D1'>Tucker Kraft</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=27986&leagueID=77294&dbID=FF_D1'>Juwan Johnson</a>&nbsp;(NO)</div><div><a href='PlayerProfile.aspx?playerID=29137&leagueID=77294&dbID=FF_D1'>Theo Johnson</a>&nbsp;(NYG)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29805&leagueID=77294&dbID=FF_D1'>Trey Smack</a>&nbsp;(GB)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DCHFS&leagueID=77294&dbID=FF_D1'>KC Team Defense</a>&nbsp;(KC)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_9">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R4, R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_10">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=11'>Ray Davis +++++</a><br/><i>Rostered: 20<br/>IR: 0</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29004&leagueID=77294&dbID=FF_D1'>Jayden Daniels</a>&nbsp;(WAS)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28741&leagueID=77294&dbID=FF_D1'>Jahmyr Gibbs</a>&nbsp;(DET)</div><div><a href='PlayerProfile.aspx?playerID=28465&leagueID=77294&dbID=FF_D1'>Kenneth Walker</a>&nbsp;(KC)</div><div><a href='PlayerProfile.aspx?playerID=29356&leagueID=77294&dbID=FF_D1'>Omarion Hampton</a>&nbsp;(LAC)</div><div><a href='PlayerProfile.aspx?playerID=29034&leagueID=77294&dbID=FF_D1'>MarShawn Lloyd</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=29028&leagueID=77294&dbID=FF_D1'>Blake Corum</a>&nbsp;(LAR)</div><div><a href='PlayerProfile.aspx?playerID=28751&leagueID=77294&dbID=FF_D1'>Keaton Mitchell</a>&nbsp;(LAC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27953&leagueID=77294&dbID=FF_D1'>Justin Jefferson</a>&nbsp;(MIN)</div><div><a href='PlayerProfile.aspx?playerID=28236&leagueID=77294&dbID=FF_D1'>Nico Collins</a>&nbsp;(HOU)</div><div><a href='PlayerProfile.aspx?playerID=28233&leagueID=77294&dbID=FF_D1'>Chris Olave</a>&nbsp;(NO)</div><div><a href='PlayerProfile.aspx?playerID=28229&leagueID=77294&dbID=FF_D1'>DeVonta Smith</a>&nbsp;(PHI)</div><div><a href='PlayerProfile.aspx?playerID=28800&leagueID=77294&dbID=FF_D1'>Josh Downs</a>&nbsp;(IND)</div><div><a href='PlayerProfile.aspx?playerID=29073&leagueID=77294&dbID=FF_D1'>Xavier Worthy</a>&nbsp;(KC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29450&leagueID=77294&dbID=FF_D1'>Colston Loveland</a>&nbsp;(CHI)</div><div><a href='PlayerProfile.aspx?playerID=28779&leagueID=77294&dbID=FF_D1'>Brenton Strange</a>&nbsp;(JAC)</div><div><a href='PlayerProfile.aspx?playerID=29455&leagueID=77294&dbID=FF_D1'>Terrance Ferguson</a>&nbsp;(LAR)</div><div><a href='PlayerProfile.aspx?playerID=27638&leagueID=77294&dbID=FF_D1'>T.J. Hockenson</a>&nbsp;(MIN)</div><div><a href='PlayerProfile.aspx?playerID=29457&leagueID=77294&dbID=FF_D1'>Oronde Gadsden</a>&nbsp;(LAC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28706&leagueID=77294&dbID=FF_D1'>Cameron Dicker</a>&nbsp;(LAC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DJGRS&leagueID=77294&dbID=FF_D1'>JAC Team Defense</a>&nbsp;(JAC)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_10">
+	<td colspan="7">2027 Draft Picks: R1, R2, R3, R4 (from Ras 8 Empire), R4, R5 (from Ras 8 Empire), R5, R6, R7</td>
+</tr>
+
+                
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trTeamNameAndRoster_11">
+	<td><a href='SetLineup.aspx?refid=&viewingTeam=12'>Rain the Wolf </a><br/><i>Rostered: 19<br/>IR: 0</i></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=27571&leagueID=77294&dbID=FF_D1'>Kyler Murray</a>&nbsp;(MIN)</div><div><a href='PlayerProfile.aspx?playerID=29347&leagueID=77294&dbID=FF_D1'>Tyler Shough</a>&nbsp;(NO)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28199&leagueID=77294&dbID=FF_D1'>Javonte Williams</a>&nbsp;(DAL)</div><div><a href='PlayerProfile.aspx?playerID=28197&leagueID=77294&dbID=FF_D1'>Travis Etienne</a>&nbsp;(NO)</div><div><a href='PlayerProfile.aspx?playerID=29360&leagueID=77294&dbID=FF_D1'>Cam Skattebo</a>&nbsp;(NYG)</div><div><a href='PlayerProfile.aspx?playerID=27580&leagueID=77294&dbID=FF_D1'>David Montgomery</a>&nbsp;(HOU)</div><div><a href='PlayerProfile.aspx?playerID=29359&leagueID=77294&dbID=FF_D1'>Kaleb Johnson</a>&nbsp;(GB)</div><div><a href='PlayerProfile.aspx?playerID=28838&leagueID=77294&dbID=FF_D1'>Chris Brooks</a>&nbsp;(GB)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=28505&leagueID=77294&dbID=FF_D1'>George Pickens</a>&nbsp;(DAL)</div><div><a href='PlayerProfile.aspx?playerID=29396&leagueID=77294&dbID=FF_D1'>Tetairoa McMillan</a>&nbsp;(CAR)</div><div><a href='PlayerProfile.aspx?playerID=29067&leagueID=77294&dbID=FF_D1'>Rome Odunze</a>&nbsp;(CHI)</div><div><a href='PlayerProfile.aspx?playerID=29065&leagueID=77294&dbID=FF_D1'>Marvin Harrison</a>&nbsp;(ARI)</div><div><a href='PlayerProfile.aspx?playerID=28836&leagueID=77294&dbID=FF_D1'>Michael Wilson</a>&nbsp;(ARI)</div><div><a href='PlayerProfile.aspx?playerID=27263&leagueID=77294&dbID=FF_D1'>Calvin Ridley</a>&nbsp;(TEN)</div><div><a href='PlayerProfile.aspx?playerID=29706&leagueID=77294&dbID=FF_D1'>Antonio Williams</a>&nbsp;(WAS)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29139&leagueID=77294&dbID=FF_D1'>AJ Barner</a>&nbsp;(SEA)</div><div><a href='PlayerProfile.aspx?playerID=26973&leagueID=77294&dbID=FF_D1'>David Njoku</a>&nbsp;(LAC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=29152&leagueID=77294&dbID=FF_D1'>Cam Little</a>&nbsp;(JAC)</div></td>
+	<td><div><a href='PlayerProfile.aspx?playerID=DVIKS&leagueID=77294&dbID=FF_D1'>MIN Team Defense</a>&nbsp;(MIN)</div></td>
+</tr>
+
+                                <tr id="cphContent_cphContent_cphContent_rptLeagueRosters_trDraftPicks_11">
+	<td colspan="7">2027 Draft Picks: R1 (from Ras 8 Empire), R1, R2, R3, R4, R5, R6, R7</td>
+</tr>
+
+                
+                            </tbody>
+                        </table>
+                    </div>
+                
+        </div>
+        <div class="footer">
+        </div>
+    </div>
+</div>
+
+    </div>   
+    <div style="clear: both">
+    </div>
+
+    </div>
+
+                <div style="clear: both;"></div>
+            </div>
+        </div>
+        
+    
+    
+
+
+
+<footer id="footer">
+    <div class="container">
+      <div class="footer-sitemap">
+        <div class="row">
+          <div class="col-sm-6 offset-sm-3  col-md-3 offset-md-0 footer-id">
+            <div class="footer-logo"><img src="/assets/img/FFPC-full-logo.svg" style="max-width: 225px;"></div>
+            <div class="footer-disclaimer">
+              <p style="display: inline-block;">&copy;<script>new Date().getFullYear()>2010&&document.write(new Date().getFullYear());</script> For Players, By Players LLC. FFPC and FFPC Logo are trademarks of For Players - By Players LLC and may not be used without the express permission.</p>
+              <p>If you or someone you know has a gambling problem, help is available. Call (1-800-MYRESET).</p>
+            </div>
+			 <p style="text-align:center;"><a href="https://myffpc.com/cms/public/trust/responsible-play"><img src="https://myffpc.com/assets/img/responsible-gaming.png" style="max-width:55px"></a></p>
+          </div>
+          <div class="col-6 col-sm-6 col-md-3 footer-links">
+            <p><a href="https://apps.apple.com/us/app/ffpc/id1399810018" target="_blank"><img src="https://myffpc.com/assets/img/apple-store.svg" style="width:180px; max-widht:100%;"/></p>
+            <p><a href="AndroidApp.aspx"><img src="https://myffpc.com/assets/img/android.svg" style="border:1px solid #b5b5b5;border-radius:5px;width:180px;max-width:100%" /></p>
+            <h4>About</h4>
+            <ul class="no-bullets">
+              <li><a href="https://myffpc.com/cms/public/about/what-is-the-ffpc/" target="_blank">What is the FFPC?</a></li>
+              <li><a href="https://myffpc.com/cms/public/about/ffpc-history" target="_blank">FFPC History</a></li>
+              <li><a href="https://myffpc.com/cms/public/about/ffpc-team" target="_blank">FFPC Team</a></li>
+              <li><a href="https://myffpc.com/cms/public/about/contact-us" target="_blank">Contact Us</a></li>
+              <!--<li><a href="https://boards.myffpc.com/" target="_blank">Message Board</a></li> -->
+              <li><a href="https://myffpc.com/cms/public/winners" target="_blank">Winners Circle</a></li>
+            </ul>
+            <div class="footer-address">
+              <ul class="no-bullets">
+                <li class="contact-address">323 Sunny Isles Blvd. STE 704<br>Sunny Isles Beach, FL 33160</li>
+                <li class="contact-phone">888.898.FFPC</li>
+                <li class-"contact-email"="">info@myffpc.com</li>
+              </ul>
+            </div> 
+          </div>
+          <div class="col-6 col-sm-6 col-md-3 footer-links">
+            <h4>Connect with Us</h4>
+            <ul class="no-bullets">
+              <li><img src=""><a href="https://twitter.com/FFPC" target="_blank">Twitter</a></li>
+              <li><img src=""><a href="https://www.facebook.com/FantasyFootballPlayersChampionship" target="_blank">Facebook</a></li>
+            </ul>
+            <h4>Trust &amp; Protect</h4>
+            <ul class="no-bullets">
+              <li><a href="https://myffpc.com/cms/public/trust/terms-and-conditions" target="_blank">Terms and Conditions</a></li>
+              <li><a href="https://myffpc.com/cms/public/trust/privacy-policy" target="_blank">Privacy Policy</a></li>
+              <li><a href="https://myffpc.com/cms/public/trust/responsible-play" target="_blank">Responsible Play</a></li>
+              <li><a href="https://myffpc.com/cms/public/trust/attorney-escrow" target="_blank">Prize Protection</a></li>
+              <li><a href="https://myffpc.com/cms/public/trust/odds-of-winning" target="_blank">Odds of Winning</a></li>
+              <li><a href="https://myffpc.com/cms/public/trust/parental-controls" target="_blank">Parental Controls</a></li>
+              <li><a href="https://myffpc.com/cms/public/trust/file-a-complaint" target="_blank">File a Complaint</a></li>
+            </ul>
+          </div>
+          <div class="col-sm-12 col-md-3 footer-links">
+            <div class="twitter-feed" style="height: 500px; overflow: auto;">
+                <a class="twitter-timeline" data-link-color="#7AC000" href="https://twitter.com/FFPC?ref_src=twsrc%5Etfw">Tweets by FFPC</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script> 
+            </div>
+          </div>
+        </div><!-- row -->
+      </div><!-- footer-sitemap -->
+    </div><!-- container -->   
+
+  </footer>
+<div class="footer-icon-bar-container">
+    <div class="overlay">
+        <div class="footer-icon-bar">
+            <ul>
+                <style>
+                    div.AuthorizeNetSeal
+                    {
+                        text-align: center;
+                        margin: 0;
+                        padding: 0;
+                        width: 90px;
+                        font: normal 9px arial,helvetica,san-serif;
+                        line-height: 10px;
+                    }
+                    div.AuthorizeNetSeal a
+                    {
+                        text-decoration: none;
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a:visited
+                    {
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a:active
+                    {
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a:hover
+                    {
+                        text-decoration: underline;
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a img
+                    {
+                        border: 0px;
+                        margin: 0px;
+                        text-decoration: none;
+                    }
+                </style>
+                <style type="text/css">
+                    div.AuthorizeNetSeal
+                    {
+                        text-align: center;
+                        margin: 0;
+                        padding: 0;
+                        width: 90px;
+                        font: normal 9px arial,helvetica,san-serif;
+                        line-height: 10px;
+                    }
+                    div.AuthorizeNetSeal a
+                    {
+                        text-decoration: none;
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a:visited
+                    {
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a:active
+                    {
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a:hover
+                    {
+                        text-decoration: underline;
+                        color: black;
+                    }
+                    div.AuthorizeNetSeal a img
+                    {
+                        border: 0px;
+                        margin: 0px;
+                        text-decoration: none;
+                    }
+                </style>
+                <!--
+                <li>
+                    <img src="http://cdn.myffpc.com/ffpccontent/media/visa-curved-32px.png" scale="0"><img
+                        src="http://cdn.myffpc.com/ffpccontent/media/mastercard-curved-32px.png" scale="0"><br>
+                    <img src="http://cdn.myffpc.com/ffpccontent/media/discover-curved-32px.png" scale="0"><img
+                        src="http://cdn.myffpc.com/ffpccontent/media/american-express-curved-32px.png"
+                        scale="0"></li>
+                <li style="margin-left: 0; margin-right: 0;">
+                    <img class="imgfade" src="../images/ffpc/WestgateLogo.png" scale="0"></li>
+                <li style="margin-left: 0; margin-right: 0;">
+                    <img class="imgfade" src="../images/ffpc/sbfstaLogo.png" scale="0"></li>
+                <li>
+                    <img src="http://cdn.myffpc.com/ffpccontent/wp-content/uploads/2014/04/footer-bg-logo.png"
+                        scale="0"></li>
+                <li>
+                    <img src="http://cdn.myffpc.com/ffpccontent/media/ffpc/fsta.png" scale="0">
+
+                </li>
+                -->
+            </ul>
+        </div>
+    </div>
+</div>
+<!-- begin olark code -->
+<script data-cfasync="false" type='text/javascript'>/*<![CDATA[*/window.olark||(function(c){var f=window,d=document,l=f.location.protocol=="https:"?"https:":"http:",z=c.name,r="load";var nt=function(){
+f[z]=function(){
+(a.s=a.s||[]).push(arguments)};var a=f[z]._={
+},q=c.methods.length;while(q--){(function(n){f[z][n]=function(){
+f[z]("call",n,arguments)}})(c.methods[q])}a.l=c.loader;a.i=nt;a.p={
+0:+new Date};a.P=function(u){
+a.p[u]=new Date-a.p[0]};function s(){
+a.P(r);f[z](r)}f.addEventListener?f.addEventListener(r,s,false):f.attachEvent("on"+r,s);var ld=function(){function p(hd){
+hd="head";return["<",hd,"></",hd,"><",i,' onl' + 'oad="var d=',g,";d.getElementsByTagName('head')[0].",j,"(d.",h,"('script')).",k,"='",l,"//",a.l,"'",'"',"></",i,">"].join("")}var i="body",m=d[i];if(!m){
+return setTimeout(ld,100)}a.P(1);var j="appendChild",h="createElement",k="src",n=d[h]("div"),v=n[j](d[h](z)),b=d[h]("iframe"),g="document",e="domain",o;n.style.display="none";m.insertBefore(n,m.firstChild).id=z;b.frameBorder="0";b.id=z+"-loader";if(/MSIE[ ]+6/.test(navigator.userAgent)){
+b.src="javascript:false"}b.allowTransparency="true";v[j](b);try{
+b.contentWindow[g].open()}catch(w){
+c[e]=d[e];o="javascript:var d="+g+".open();d.domain='"+d.domain+"';";b[k]=o+"void(0);"}try{
+var t=b.contentWindow[g];t.write(p());t.close()}catch(x){
+b[k]=o+'d.write("'+p().replace(/"/g,String.fromCharCode(92)+'"')+'");d.close();'}a.P(2)};ld()};nt()})({
+loader: "static.olark.com/jsclient/loader0.js",name:"olark",methods:["configure","extend","declare","identify"]});
+/* custom configuration goes here (www.olark.com/documentation) */
+olark.identify('5847-979-10-8669');/*]]>*/</script>
+<noscript>
+    <a href="https://www.olark.com/site/5847-979-10-8669/contact" title="Contact us"
+        target="_blank">Questions? Feedback?</a> powered by <a href="http://www.olark.com?welcome"
+            title="Olark live chat software">Olark live chat software</a></noscript>
+<!-- end olark code -->
+        <div id="pnlFooter">
+
+</div>
+        <div id="overlay"></div>
+    </form>
+    <!--
+    <script src="https://d998027e2znu1.cloudfront.net/widgets/embed.js"></script>
+    -->
+    <!--SC scripts-->
+    <script src="assets/js/scripts.js?v=739_258"></script>
+	
+
+
+</body>
+</html>
+
+
+
+
+
+
