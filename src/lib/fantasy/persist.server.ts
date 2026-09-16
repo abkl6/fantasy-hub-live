@@ -47,6 +47,8 @@ export interface NormalizedBundle {
   rosterSlots: string[];
   /** How the platform says the league is won, when it exposes it. */
   contestFormat?: "h2h" | "points" | "hybrid" | "vp";
+  /** Engine format the platform reports directly, e.g. "best_ball". */
+  format?: string | null;
   /** Redraft / keeper / dynasty, and how confident we are about it. */
   leagueType?: LeagueType;
   variant?: LeagueVariant;
