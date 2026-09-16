@@ -36,6 +36,14 @@ describe("FFPC league link", () => {
     });
   });
 
+  it("accepts a link that carries only the token", () => {
+    expect(parseFfpcUrl("https://myffpc.com/LeagueHome.aspx?ltuid=762-17F0D0BFA8FF")).toEqual({
+      leagueId: null,
+      ltuid: "762-17F0D0BFA8FF",
+    });
+  });
+
+
   it("rejects links from other sites", () => {
     expect(parseFfpcUrl("https://example.com/LeagueHome.aspx?leagueID=1")).toBeNull();
   });
