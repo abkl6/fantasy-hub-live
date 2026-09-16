@@ -442,6 +442,14 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       weeksByTeam.set(key, list);
     }
 
+    const useSos = data.spread === "sos";
+    const strength = useSos ? await loadStrengthBook(context.supabase, season) : neutralStrength();
+    if (useSos && !strength.covered) {
+      throw new Error(
+        "Schedule strength has not been worked out for this season yet. Upload with an even split, or ask an admin to refresh schedule strength.",
+      );
+    }
+
     const source = `user:${context.userId}`;
     const out: Record<string, unknown>[] = [];
     const unmatched: string[] = [];
@@ -477,14 +485,18 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
         push(week, stats, games.find((g) => g.week === week)?.opponent ?? null);
       } else {
-        // Season totals: spread them across the weeks this team actually plays.
+        // Season totals: spread them across the weeks this team actually plays,
+        // evenly or shaped by how tough each week's opponent is.
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
-        const play = games.length ? games : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
-        for (const g of play) {
-          const per: Record<string, number> = {};
-          for (const [k, v] of Object.entries(stats)) per[k] = Math.round((v / play.length) * 1000) / 1000;
-          push(g.week, per, g.opponent);
-        }
+        const play = games.length
+          ? games
+          : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
+        const split = spreadSeasonTotals(
+          stats,
+          play,
+          useSos ? (opponent) => strength.multiplier(hit.position, opponent) : undefined,
+        );
+        for (const week of split) push(week.week, week.stats, week.opponent);
       }
     }
 
