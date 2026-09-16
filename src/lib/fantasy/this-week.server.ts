@@ -45,9 +45,10 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
 
   const { data: leagueRows, error } = await supabase
     .from("leagues")
-    .select("id, name, platform, color, current_week, last_confirmed_at")
+    .select("id, name, platform, color, current_week, last_confirmed_at, user_id")
     .order("created_at");
   if (error) throw new Error(error.message);
+
 
   // How often each kind of advice has been right lately. Kinds that have been
   // landing get pushed up the list; kinds that have not drop down.
