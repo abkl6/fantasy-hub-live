@@ -274,15 +274,41 @@ function BaselineEditor({ row, onDone }: { row: BaselineRow; onDone: () => void 
 }
 
 /** A member's own weekly stat projections, used by leagues set to "My projections". */
+type UploadGroup = "offense" | "dst" | "idp" | "k";
+
+const GROUP_CHOICES: { value: UploadGroup; label: string }[] = [
+  { value: "offense", label: "Offence (QB, RB, WR, TE)" },
+  { value: "dst", label: "Team defence" },
+  { value: "idp", label: "Individual defenders" },
+  { value: "k", label: "Kickers" },
+];
+
 function MyProjectionsUpload() {
   const upload = useServerFn(uploadMyProjections);
   const clear = useServerFn(clearMyProjections);
+  const template = useServerFn(projectionTemplate);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [csv, setCsv] = useState("");
+  const [group, setGroup] = useState<UploadGroup>("offense");
+  const [spread, setSpread] = useState<"even" | "sos">("even");
+
+  const download = useMutation({
+    mutationFn: () => template({ data: { group } }),
+    onSuccess: (file) => {
+      const url = URL.createObjectURL(new Blob([file.csv], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${file.label} template with ${file.players} players downloaded.`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build that template."),
+  });
 
   const run = useMutation({
-    mutationFn: (apply: boolean) => upload({ data: { csv, apply } }),
+    mutationFn: (apply: boolean) => upload({ data: { csv, apply, group, spread } }),
     onSuccess: (result) => {
       if (result.applied) {
         toast.success(`Saved projections for ${result.matchedCount} players.`);
