@@ -24,6 +24,18 @@ function sleeperFormat(settings: Record<string, unknown> | undefined) {
   return "redraft";
 }
 
+/** Picks traded for a later season only exist in leagues that keep rosters. */
+async function sleeperHasFuturePicks(leagueId: string, season: number) {
+  try {
+    const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/traded_picks`);
+    if (!res.ok) return false;
+    const picks = (await res.json()) as { season?: string }[];
+    return (picks ?? []).some((p) => Number(p.season ?? 0) > season);
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------- leagues
 
 export const listLeagues = createServerFn({ method: "GET" })
