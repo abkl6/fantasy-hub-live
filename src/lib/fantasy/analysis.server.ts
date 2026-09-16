@@ -70,6 +70,8 @@ import {
   type ValueFormat,
 } from "./trade-value";
 import { leagueDynastyValues } from "./dynasty-value";
+import { tierFromRank, trajectoryFor, type Trajectory } from "./age-curve";
+import { loadAgeCurves } from "./age-curve.server";
 import {
   ageLane,
   partnerModes,
@@ -116,10 +118,22 @@ export interface LeagueRow {
   last_sync_error?: string | null;
 }
 
+/** Value now / +1yr / +2yr for one player, or null when the age is unknown. */
+export type PlayerTrajectory = Trajectory;
+
+/** One line about where a dynasty roster sits on the age curve. */
+export interface DynastyOutlook {
+  /** Share of team value tied up in players at or past their position peak. */
+  pastPeakShare: number;
+  contentionWindow: string;
+  sellSoon: { name: string; position: string; value: number; classification: string; change1: number }[];
+}
+
 export interface DynastyRow {
   name: string;
   position: string;
   age: number | null;
+  trajectory: PlayerTrajectory | null;
   /** Where the age came from: the market, years of experience, or nowhere. */
   ageSource: "age" | "experience" | "unknown";
   longTermValue: number;
@@ -219,8 +233,8 @@ export interface AnalysisPayload {
     vp: number;
   })[];
   grades: PositionGrade[];
-  lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
-  bench: { name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
+  lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null; trajectory: PlayerTrajectory | null }[];
+  bench: { name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null; trajectory: PlayerTrajectory | null }[];
   suggestions: MoveSuggestion[];
   scoreboard: ScoreboardGame[];
   tradeCandidates: { id: string; name: string; position: string; proj: number; teamName: string; teamId: string }[];
@@ -253,6 +267,10 @@ export interface AnalysisPayload {
   mySurvival: SurvivalResult | null;
   /** Dynasty / keeper only: long-term value of my roster. */
   dynasty: DynastyRow[] | null;
+  /** Dynasty / keeper only: the age-curve read on my roster. */
+  dynastyOutlook: DynastyOutlook | null;
+  /** True when the league shows value trajectories (dynasty, keeper, empire). */
+  showTrajectories: boolean;
   /** True while the dynasty market is still being fetched after an import. */
   valuesPending: boolean;
   /** My team's badge and the trading posture that follows from it. */
