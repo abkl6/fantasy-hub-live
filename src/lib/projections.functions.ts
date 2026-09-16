@@ -385,8 +385,6 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const { detectGroup, mapHeaders, GROUP_LABEL } = await import(
       "@/lib/fantasy/projection-templates"
     );
-    const { loadStrengthBook, neutralStrength } = await import("@/lib/fantasy/sos.server");
-    const { spreadSeasonTotals } = await import("@/lib/fantasy/sos");
 
     const rows = parseCsv(data.csv);
     if (rows.length < 2) throw new Error("That file has no rows under the header.");
