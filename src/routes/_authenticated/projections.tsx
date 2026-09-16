@@ -398,20 +398,16 @@ function MyProjectionsUpload() {
             <div className="space-y-3 text-sm">
               <p>
                 {result.matchedCount} {result.groupLabel.toLowerCase()} players matched (
-                {result.mode === "weekly"
-                  ? "week by week"
-                  : result.spread === "sos"
-                    ? "season totals, shaped by schedule"
-                    : "season totals, split evenly"}
-                )
+                {result.mode === "weekly" ? "week by week" : "season totals"})
                 {result.unmatchedCount > 0 ? `, ${result.unmatchedCount} names not recognised` : ""}.
               </p>
               {result.unmatched.length > 0 && (
                 <p className="text-muted-foreground">Not recognised: {result.unmatched.join(", ")}</p>
               )}
               <Button onClick={() => run.mutate(true)} disabled={run.isPending || !result.matchedCount}>
-                Save {result.rowsWritten} weekly lines
+                Save {result.rowsWritten} {result.mode === "weekly" ? "weekly lines" : "season totals"}
               </Button>
+
             </div>
           )}
           <div className="flex items-center justify-between">
