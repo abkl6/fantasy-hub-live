@@ -304,17 +304,8 @@ export async function buildWaiverBoard(
   const needsKicker = slotFor("K") && !hasPosition("K");
   const needsDefense = slotFor("DEF") && !hasPosition("DEF");
 
-  // The board only ever considers players you could actually use this week.
-  const SKILL = new Set(["QB", "RB", "WR", "TE", "DL", "LB", "DB"]);
-  const eligible = freeAgents.filter(
-    (p) =>
-      (opts.showInjured || !isInjuredStatus(p.status)) &&
-      (SKILL.has(p.position) ||
-        (p.position === "K" && needsKicker) ||
-        ((p.position === "DEF" || p.position === "DST") && needsDefense) ||
-        // Keep them on the board, just never near the top.
-        true),
-  );
+  // Hurt, out and suspended players are hidden unless they are asked for.
+  const eligible = freeAgents.filter((p) => opts.showInjured || !isInjuredStatus(p.status));
 
   // --- championship impact for the strongest candidates --------------------
   const impacts = new Map<
