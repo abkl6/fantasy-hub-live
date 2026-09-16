@@ -116,3 +116,34 @@ describe("schedule strength maths", () => {
   });
 });
 
+
+describe("real-world headings", () => {
+  const header = [
+    "Week", "Player", "Pos", "Team",
+    "PASS YDS", "Pass TDs", "INTS", "RUSH_YDS", "Rush TDs",
+    "REC", "Rec Yds", "REC TD", "FUMBLES LOST",
+  ];
+
+  it("maps third-party spellings onto the right stats", () => {
+    const keys = mapHeaders("offense", header).map((m) => m.key);
+    expect(keys).toContain("pass_yd");
+    expect(keys).toContain("pass_td");
+    expect(keys).toContain("pass_int");
+    expect(keys).toContain("rush_yd");
+    expect(keys).toContain("rush_td");
+    expect(keys).toContain("rec");
+    expect(keys).toContain("rec_yd");
+    expect(keys).toContain("rec_td");
+    expect(keys).toContain("fum_lost");
+  });
+
+  it("still recognises the file as an offence sheet", () => {
+    expect(detectGroup(header)).toBe("offense");
+  });
+
+  it("does not read passing columns into a defence sheet", () => {
+    const keys = mapHeaders("dst", ["Team", "SCK", "INT", "FR", "TD"]).map((m) => m.key);
+    expect(keys).toContain("def_int");
+    expect(keys).not.toContain("pass_int");
+  });
+});

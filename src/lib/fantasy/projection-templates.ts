@@ -8,6 +8,8 @@
  * Pure: no I/O, so the column maps can be tested directly.
  */
 
+import { STAT_ALIASES } from "./scoring";
+
 export type TemplateGroup = "offense" | "dst" | "idp" | "k";
 
 export const TEMPLATE_GROUPS: TemplateGroup[] = ["offense", "dst", "idp", "k"];
@@ -123,6 +125,77 @@ export function templateHeaderRow(group: TemplateGroup): string {
 
 const clean = (h: string) => h.trim().toLowerCase().replace(/\s+/g, " ");
 
+/** Loosest possible form of a heading: letters and digits, single spaces. */
+const loose = (h: string) =>
+  h
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9+]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Extra spellings real-world files use for the same column. Keyed loosely, so
+ * "Pass Yds", "PASS_YDS" and "passing yards" all land on the same stat.
+ */
+const HEADER_ALIASES: Record<string, string> = {
+  // passing
+  "pass yd": "pass_yd", "pass yds": "pass_yd", "pass yards": "pass_yd",
+  "passing yds": "pass_yd", "passing yards": "pass_yd", "py": "pass_yd",
+  "pyds": "pass_yd", "pa yd": "pass_yd", "pass": "pass_yd",
+  "pass td": "pass_td", "pass tds": "pass_td", "passing td": "pass_td",
+  "passing tds": "pass_td", "ptd": "pass_td", "ptds": "pass_td", "pa td": "pass_td",
+  "int": "pass_int", "ints": "pass_int", "interceptions": "pass_int",
+  "pass int": "pass_int", "pass ints": "pass_int", "interception": "pass_int",
+  // rushing
+  "rush yd": "rush_yd", "rush yds": "rush_yd", "rush yards": "rush_yd",
+  "rushing yds": "rush_yd", "rushing yards": "rush_yd", "ry": "rush_yd",
+  "ryds": "rush_yd", "ru yd": "rush_yd",
+  "rush td": "rush_td", "rush tds": "rush_td", "rushing td": "rush_td",
+  "rushing tds": "rush_td", "rtd": "rush_td", "rtds": "rush_td", "ru td": "rush_td",
+  // receiving
+  "rec": "rec", "receptions": "rec", "catches": "rec", "recs": "rec",
+  "rec yd": "rec_yd", "rec yds": "rec_yd", "rec yards": "rec_yd",
+  "receiving yds": "rec_yd", "receiving yards": "rec_yd", "reyds": "rec_yd",
+  "rec td": "rec_td", "rec tds": "rec_td", "receiving td": "rec_td",
+  "receiving tds": "rec_td",
+  // misc offence
+  "fum": "fum_lost", "fmb": "fum_lost", "fum lost": "fum_lost",
+  "fumbles lost": "fum_lost", "fl": "fum_lost", "fumbles": "fum_lost",
+  // kicking
+  "fg": "fg_made", "fgm": "fg_made", "fg made": "fg_made",
+  "fg missed": "fg_miss", "fg miss": "fg_miss",
+  "xp": "xp_made", "xpm": "xp_made", "pat": "xp_made", "xp made": "xp_made",
+  "xp missed": "xp_miss", "xp miss": "xp_miss",
+  "fg 50": "fg_50p", "fg 50+": "fg_50p",
+  // team defence
+  "sck": "def_sack", "sack": "def_sack", "sacks": "def_sack",
+  "saf": "def_saf", "safety": "def_saf", "safeties": "def_saf",
+  "fr": "def_fr", "fum rec": "def_fr", "ff": "def_ff", "forced fumbles": "def_ff",
+  // individual defenders
+  "tck": "idp_tkl", "tkl": "idp_tkl", "tackles": "idp_tkl",
+  "solo": "idp_solo", "solo tackles": "idp_solo",
+  "ast": "idp_ast", "assists": "idp_ast", "assisted tackles": "idp_ast",
+};
+
+/** Which loose alias spellings are allowed for a group, to avoid cross-talk. */
+function aliasMapFor(group: TemplateGroup): Map<string, string> {
+  const allowed = new Set(
+    TEMPLATE_STATS[group].map((c) => c.key).filter((k): k is string => !!k),
+  );
+  const out = new Map<string, string>();
+  for (const [name, key] of Object.entries(HEADER_ALIASES)) {
+    if (allowed.has(key)) out.set(name, key);
+  }
+  // The shared scoring aliases, keyed loosely too ("pass_yds" -> "pass yds").
+  for (const [name, key] of Object.entries(STAT_ALIASES)) {
+    if (allowed.has(key) && !out.has(loose(name))) out.set(loose(name), key);
+  }
+  // A file may simply use the scoring key itself.
+  for (const key of allowed) out.set(loose(key), key);
+  return out;
+}
+
 /**
  * Maps a file's headers onto scoring keys for one group. Bare band headings
  * ("1-6", "200-49") only make sense in order, so the defence layout is walked
@@ -162,8 +235,10 @@ export function mapHeaders(
     return out;
   }
 
+  const aliases = aliasMapFor(group);
   for (let i = 0; i < header.length; i++) {
-    const key = byName.get(clean(header[i] ?? ""));
+    const raw = header[i] ?? "";
+    const key = byName.get(clean(raw)) ?? aliases.get(loose(raw));
     if (key && !used.has(key)) { out.push({ key, index: i }); used.add(key); }
   }
   return out;
@@ -175,8 +250,7 @@ export function detectGroup(header: string[]): TemplateGroup | null {
   if (names.has("pa 0") || names.has("saf")) return "dst";
   if (names.has("solo") || names.has("tck")) return "idp";
   if (names.has("fga") || names.has("fg 40-49") || names.has("xpa")) return "k";
-  if (names.has("rec") || names.has("pass yd") || names.has("rush yd") || names.has("rec yd")) {
-    return "offense";
-  }
+  const offense = aliasMapFor("offense");
+  if (header.some((h) => offense.has(loose(h)))) return "offense";
   return null;
 }

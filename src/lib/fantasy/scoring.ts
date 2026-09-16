@@ -73,7 +73,7 @@ const PRESETS: Record<string, ScoringRules> = {
 };
 
 /** Aliases used by ESPN / Yahoo / hand-entered rule sets. */
-const ALIASES: Record<string, string> = {
+export const STAT_ALIASES: Record<string, string> = {
   receptions: "rec",
   reception: "rec",
   rec_ppr: "rec",
@@ -136,7 +136,7 @@ export function normalizeRules(scoringType: string | null | undefined, rules: Sc
   for (const [rawKey, value] of Object.entries(rules ?? {})) {
     if (typeof value !== "number" || Number.isNaN(value)) continue;
     const k = rawKey.toLowerCase();
-    out[ALIASES[k] ?? k] = value;
+    out[STAT_ALIASES[k] ?? k] = value;
   }
   return out;
 }

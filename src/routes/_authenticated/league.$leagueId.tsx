@@ -337,8 +337,8 @@ function LeaguePage() {
             leagueId={leagueId}
             teamId={data.myTeam?.id ?? null}
             week={data.league.current_week}
-            teamClass={data.teamClass}
-            suggestions={data.suggestions}
+            teamClass={data.teamClass ?? "middle"}
+            suggestions={data.suggestions ?? []}
           />
           {!data.suggestions.length && (
             <p className="text-sm text-muted-foreground">
@@ -351,13 +351,13 @@ function LeaguePage() {
               leagueId={leagueId}
               week={data.league.current_week}
               teamId={data.myTeam?.id ?? null}
-              teamClass={data.teamClass}
+              teamClass={data.teamClass ?? "middle"}
               suggestion={s}
               onApplied={() => refetch()}
             />
           ))}
 
-          {!!data.buySell.length && (
+          {!!data.buySell?.length && (
             <Section title="Buy and sell">
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">

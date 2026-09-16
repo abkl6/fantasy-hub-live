@@ -441,6 +441,12 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     }
 
     const source = `user:${context.userId}`;
+    const recognised = statCols.map((c) => rawHeader[c.i] ?? "").filter(Boolean);
+    const unrecognised = rawHeader.filter(
+      (h, i) => h && !statCols.some((c) => c.i === i) && i !== iName && i !== iPos && i !== iWeek,
+    );
+    const seenPos = new Set<string>();
+    const preview: { name: string; position: string; points: number }[] = [];
     const weekOut: Record<string, unknown>[] = [];
     const seasonOut: Record<string, unknown>[] = [];
     const unmatched: string[] = [];
@@ -458,7 +464,9 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         if (Number.isFinite(n) && n !== 0) stats[col.key] = n;
       }
       matchedCount++;
+      seenPos.add(hit.position.toUpperCase());
       const points = Math.round(scoreStats(stats, BASELINE_RULES, hit.position) * 100) / 100;
+      preview.push({ name: hit.full_name ?? name, position: hit.position.toUpperCase(), points });
 
       if (iWeek >= 0) {
         const week = Number(raw[iWeek]);
@@ -480,7 +488,45 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       }
     }
 
+    // A file that silently lost a whole stat category is worse than no file at
+    // all: every player in that category ends up priced far too low.
+    const haveKeys = new Set(statCols.map((c) => c.key));
+    const missing: string[] = [];
+    if (group === "offense") {
+      if (seenPos.has("QB") && !haveKeys.has("pass_yd")) missing.push("passing yards");
+      if (seenPos.has("RB") && !haveKeys.has("rush_yd")) missing.push("rushing yards");
+      if ((seenPos.has("WR") || seenPos.has("TE")) && !haveKeys.has("rec_yd")) {
+        missing.push("receiving yards");
+      }
+    }
+    if (group === "k" && !haveKeys.has("fg_made")) missing.push("field goals made");
+    if (missing.length) {
+      throw new Error(
+        `No column for ${missing.join(" or ")} was recognised, so those points would all be lost. ` +
+          `Columns read: ${recognised.join(", ") || "none"}. ` +
+          `Columns not recognised: ${unrecognised.join(", ") || "none"}. ` +
+          `Rename them to match the template headings and upload again.`,
+      );
+    }
+
     if (data.apply) {
+      const { error: batchError } = await context.supabase.from("projection_batches").insert({
+        source,
+        label: `${GROUP_LABEL[group]} · ${iWeek >= 0 ? "weekly" : "season totals"}`,
+        season,
+        published: true,
+        row_count: weekOut.length + seasonOut.length,
+        matched_count: matchedCount,
+        uploaded_by: context.userId,
+        rows: {
+          recognised,
+          unrecognised,
+          unmatchedCount: unmatched.length,
+          preview: preview.slice(0, 10),
+        },
+      } as never);
+      if (batchError) throw new Error(batchError.message);
+
       for (let i = 0; i < weekOut.length; i += 500) {
         const { error } = await context.supabase
           .from("player_week_stats")
@@ -509,6 +555,9 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       rowsWritten: weekOut.length + seasonOut.length,
       unmatched: unmatched.slice(0, 100),
       unmatchedCount: unmatched.length,
+      recognised,
+      unrecognised,
+      preview: [...preview].sort((a, b) => b.points - a.points).slice(0, 8),
     };
   });
 
