@@ -20,6 +20,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
+import {
+  LEAGUE_TYPES,
+  LEAGUE_TYPE_LABELS,
+  LEAGUE_VARIANTS,
+  LEAGUE_VARIANT_LABELS,
+  type LeagueType,
+  type LeagueVariant,
+} from "@/lib/fantasy/league-type";
 import type { ManualDraftPreview } from "@/lib/fantasy/manual-types";
 import { readScreenshot, updateLeagueSettings } from "@/lib/fantasy.functions";
 import {
