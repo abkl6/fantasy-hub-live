@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis, type Alert, type MoveSuggestion } from "./analysis.server";
+import type { Trajectory as PlayerTrajectory } from "./age-curve";
 import type { Slot } from "./engine";
 import { isMultiYear } from "./format";
 import { normalizeName } from "./names";
