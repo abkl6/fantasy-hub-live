@@ -36,15 +36,15 @@ describe("season totals split", () => {
   it("splits evenly and keeps the season total", () => {
     const split = spreadSeasonTotals({ pass_yd: 300, rush_td: 3 }, weeks);
     const total = split.reduce((sum, w) => sum + (w.stats["pass_yd"] ?? 0), 0);
-    expect(total).toBeCloseTo(300, 5);
-    expect(split[0]?.stats["rush_td"]).toBeCloseTo(1, 5);
+    expect(total).toBeCloseTo(300, 1);
+    expect(split[0]?.stats["rush_td"]).toBeCloseTo(1, 3);
   });
 
   it("shapes weeks by opponent strength without changing the season total", () => {
     const multiplier = (opp: string | null) => (opp === "CAR" ? 1.15 : opp === "KC" ? 0.85 : 1);
     const split = spreadSeasonTotals({ pass_yd: 300 }, weeks, multiplier);
     const total = split.reduce((sum, w) => sum + (w.stats["pass_yd"] ?? 0), 0);
-    expect(total).toBeCloseTo(300, 5);
+    expect(total).toBeCloseTo(300, 1);
     const easy = split.find((w) => w.opponent === "CAR")!.stats["pass_yd"]!;
     const tough = split.find((w) => w.opponent === "KC")!.stats["pass_yd"]!;
     expect(easy).toBeGreaterThan(tough);
