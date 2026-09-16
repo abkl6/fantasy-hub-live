@@ -12,6 +12,7 @@ import {
 } from "./league-type";
 import { playerIndex } from "./names";
 
+import { eligiblePositions } from "./eligibility";
 type DB = SupabaseClient<Database>;
 
 const DEFAULT_PROJ: Record<string, number> = {
@@ -109,6 +110,7 @@ export async function persistBundle(
       scoring_type: bundle.scoringType,
       scoring_rules: bundle.scoringRules ?? {},
       roster_slots: bundle.rosterSlots,
+      eligible_positions: eligiblePositions(bundle.rosterSlots),
       contest_format: bundle.contestFormat ?? "h2h",
       league_type: leagueType,
       variant,

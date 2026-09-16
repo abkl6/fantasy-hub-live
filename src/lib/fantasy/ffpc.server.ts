@@ -18,6 +18,7 @@ import {
   findTable,
   idFromLinks,
   parsePlayerCell,
+  parseRosterSlots,
   text,
   toNumber,
   type FfpcPlayer,
@@ -384,19 +385,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
 /** leagueRulesFFPC.aspx — roster slots and the scoring table. */
 function parseRules(html: string) {
   const flat = text(html);
-  const rosterSlots: string[] = [];
-  const slotTable = findTable(html, "position", "starters") ?? findTable(html, "position", "start");
-  if (slotTable) {
-    const cPos = Math.max(0, columnIndex(slotTable, "position"));
-    const cCount = columnIndex(slotTable, "starters", "start", "number");
-    for (const row of slotTable.rows) {
-      const pos = (row[cPos] ?? "").toUpperCase().replace(/[^A-Z/]/g, "");
-      const count = cCount >= 0 ? toNumber(row[cCount]) : 0;
-      if (!pos || count <= 0) continue;
-      const slot = pos === "D/ST" || pos === "DST" ? "DEF" : pos === "PK" ? "K" : pos;
-      for (let i = 0; i < Math.min(count, 6); i++) rosterSlots.push(slot);
-    }
-  }
+  const rosterSlots = parseRosterSlots(html);
 
   const scoringRules: Record<string, number> = {};
   const scoringTable = findTable(html, "scoring") ?? findTable(html, "category", "points");

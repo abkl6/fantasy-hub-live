@@ -20,6 +20,7 @@ import {
 import { normalizeName, playerKey } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
+import { eligiblePositions } from "@/lib/fantasy/eligibility";
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
 };
@@ -262,6 +263,7 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
         scoring_type: (bundle.league.scoring_settings?.["rec"] ?? 0) >= 1 ? "ppr" : (bundle.league.scoring_settings?.["rec"] ?? 0) > 0 ? "half_ppr" : "standard",
         scoring_rules: bundle.league.scoring_settings ?? {},
         roster_slots: slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"],
+        eligible_positions: eligiblePositions(slots.length ? slots : ["QB","RB","RB","WR","WR","TE","FLEX","K","DEF"]),
         format: effectiveFormat(leagueType, variant, storedFormat),
         league_type: leagueType,
         variant,
@@ -410,6 +412,7 @@ export const createManualLeague = createServerFn({ method: "POST" })
         scoring_type: data.scoringType,
         scoring_rules: data.scoringRules ?? {},
         roster_slots: data.rosterSlots,
+        eligible_positions: eligiblePositions(data.rosterSlots),
         format: data.format ?? "redraft",
         league_type:
           data.format === "dynasty" || data.format === "keeper" ? data.format : "redraft",
@@ -645,7 +648,10 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
       patch["weekly_high_label"] = data.weeklyHighLabel?.trim() || null;
     if (data.currentWeek !== undefined) patch["current_week"] = data.currentWeek;
     if (data.scoringRules !== undefined) patch["scoring_rules"] = data.scoringRules;
-    if (data.rosterSlots !== undefined) patch["roster_slots"] = data.rosterSlots;
+    if (data.rosterSlots !== undefined) {
+      patch["roster_slots"] = data.rosterSlots;
+      patch["eligible_positions"] = eligiblePositions(data.rosterSlots);
+    }
     if (data.scoringType !== undefined) patch["scoring_type"] = data.scoringType;
     if (data.format !== undefined) patch["format"] = data.format;
     if (data.color !== undefined) patch["color"] = data.color;

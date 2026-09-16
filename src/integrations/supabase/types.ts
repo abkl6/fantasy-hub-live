@@ -333,6 +333,7 @@ export type Database = {
           created_at: string
           current_week: number
           divisions: Json
+          eligible_positions: Json
           external_id: string | null
           faab_budget: number
           format: string
@@ -380,6 +381,7 @@ export type Database = {
           created_at?: string
           current_week?: number
           divisions?: Json
+          eligible_positions?: Json
           external_id?: string | null
           faab_budget?: number
           format?: string
@@ -427,6 +429,7 @@ export type Database = {
           created_at?: string
           current_week?: number
           divisions?: Json
+          eligible_positions?: Json
           external_id?: string | null
           faab_budget?: number
           format?: string

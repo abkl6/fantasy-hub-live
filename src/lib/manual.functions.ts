@@ -15,6 +15,7 @@ import {
 import { normalizeName } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
+import { eligiblePositions } from "@/lib/fantasy/eligibility";
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
 };
@@ -69,6 +70,7 @@ export const createManualLeagueWizard = createServerFn({ method: "POST" })
         scoring_type: data.scoringType,
         scoring_rules: data.scoringRules ?? {},
         roster_slots: data.rosterSlots,
+        eligible_positions: eligiblePositions(data.rosterSlots),
         format: effectiveFormat(
           asLeagueType(data.leagueType),
           asVariant(data.variant),

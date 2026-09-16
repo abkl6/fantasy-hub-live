@@ -62,10 +62,10 @@ import {
 } from "./waiver-rank";
 import { buildFaabPlan, paceBid, type FaabPlan } from "./faab-plan";
 
+import { asEligiblePositions, isEligiblePosition } from "./eligibility";
 type DB = SupabaseClient<Database>;
 
 const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
-const BENCH_POSITIONS = ["QB", "RB", "WR", "TE"];
 /** How many candidates get a full season re-simulation. */
 const SCORED_CANDIDATES = 12;
 
@@ -166,8 +166,11 @@ export async function buildWaiverBoard(
   const cutNames = new Set(
     spots.filter((s) => cutTeamIds.has(s.team_id)).map((s) => key(s.player_name)),
   );
-  const usablePosition = (position: string) =>
-    slots.some((slot) => slotAccepts(slot, position)) || BENCH_POSITIONS.includes(position);
+  const eligiblePos = asEligiblePositions(
+    (league as { eligible_positions?: unknown }).eligible_positions,
+    slots,
+  );
+  const usablePosition = (position: string) => isEligiblePosition(position, eligiblePos);
 
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
   const format = asFormat((league as { format?: string }).format);
@@ -255,7 +258,7 @@ export async function buildWaiverBoard(
     return Math.max(1, direct + Math.ceil(flex / 3));
   };
   const replacement = new Map<string, number>();
-  for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"]) {
+  for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"].filter(usablePosition)) {
     const pool = players
       .filter((p) => p.position.toUpperCase() === pos)
       .map((p) => seasonOf(p))

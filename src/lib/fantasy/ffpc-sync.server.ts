@@ -16,6 +16,7 @@ import { normalizeName, playerIndex } from "./names";
 import { queueUnmatched } from "./manual.server";
 import type { ManualPlayerRow } from "./manual-types";
 
+import { eligiblePositions } from "./eligibility";
 type DB = SupabaseClient<Database>;
 
 const DEFAULT_PROJ: Record<string, number> = {
@@ -188,6 +189,7 @@ export async function applyFfpcBundle(
             scoring_rules: bundle.scoringRules,
             scoring_type: bundle.scoringType,
             roster_slots: bundle.rosterSlots,
+            eligible_positions: eligiblePositions(bundle.rosterSlots),
             team_count: bundle.teamCount,
           }),
       sync_paused: false,

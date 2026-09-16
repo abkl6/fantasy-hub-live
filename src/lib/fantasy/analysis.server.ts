@@ -107,6 +107,7 @@ import {
 } from "./rules";
 import { loadStrategyRules } from "./rules.server";
 import { loadVolatilityDefaults, recordPredictions } from "./calibration.server";
+import { asEligiblePositions, isEligiblePosition, DEFAULT_ELIGIBLE } from "./eligibility";
 import {
   BORDERLINE_POINTS,
   modeLine,
@@ -328,6 +329,8 @@ export interface AnalysisPayload {
   classLine: TeamClassLine | null;
   /** Dynasty / keeper only: players priced away from what they produce. */
   buySell: BuySellRow[];
+  /** Positions this league can actually field. */
+  eligiblePositions: string[];
   /** Impact by move, so other screens show the same numbers. */
   impactIndex: Record<string, RecommendationImpact>;
   /** My chance of winning this week's matchup, 0-1; null with no opponent. */
@@ -458,8 +461,13 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // Anyone held by any team in the league is off the waiver wire, whatever
   // position label the platform used for them.
   const rosteredNames = new Set(spots.map((s) => normalizeName(s.player_name)));
-  const usablePosition = (position: string) =>
-    slots.some((slot) => slotAccepts(slot, position)) || ["QB", "RB", "WR", "TE"].includes(position);
+  // Only positions this league can actually field: no kickers where there is
+  // no kicker slot, no defensive players unless the league starts them.
+  const eligible = asEligiblePositions(
+    (league as { eligible_positions?: unknown }).eligible_positions,
+    slots,
+  );
+  const usablePosition = (position: string) => isEligiblePosition(position, eligible);
 
   const engineTeams: EngineTeam[] = teams.map((t) => ({
     id: t.id,
@@ -832,6 +840,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       myBadge: null,
       myStrategy: null,
       teamClass: "middle" as TeamClass,
+      eligiblePositions: [...DEFAULT_ELIGIBLE],
       classLine: null,
       buySell: [],
       impactIndex: {},
@@ -1492,7 +1501,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         }))
         // A player with no value or no recorded games would rank last on one
         // side for reasons that have nothing to do with the market.
-        .filter((c) => c.value > 0 && (!played || c.production > 0)),
+        .filter((c) => c.value > 0 && (!played || c.production > 0))
+        .filter((c) => usablePosition(c.position)),
     );
     buySell = filterBuySellForClass(buildBuySell(candidates), teamClass).slice(0, 12);
   }
@@ -1732,6 +1742,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     teamClass,
     classLine,
     buySell,
+    eligiblePositions: eligible,
     impactIndex,
     matchupWinProb,
     startSitMode: lineupMode,
