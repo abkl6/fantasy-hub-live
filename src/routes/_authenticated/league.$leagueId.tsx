@@ -206,6 +206,8 @@ function LeaguePage() {
         </Button>
       </div>
 
+      <ScoringGapBanner leagueId={leagueId} />
+
       {data.classLine && (
         <section className="mt-6 rounded-xl bg-card p-5">
           <div className="flex flex-wrap items-center gap-2">
