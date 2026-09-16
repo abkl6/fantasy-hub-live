@@ -33,8 +33,11 @@ function GameDayPage() {
     <main className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="text-2xl font-bold">Game day</h1>
       <div className="mt-6">
-        <GameDayBoard />
+        <Suspense fallback={<p className="eyebrow text-muted-foreground">Loading the board…</p>}>
+          <GameDayBoard />
+        </Suspense>
       </div>
+
     </main>
   );
 }
