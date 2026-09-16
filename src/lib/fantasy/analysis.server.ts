@@ -94,6 +94,18 @@ import {
   type TeamClass,
 } from "./impact";
 import { buildBuySell, filterBuySellForClass, type BuySellRow } from "./buy-sell";
+import {
+  dropAllowed,
+  duplicateStreamer,
+  hasProof,
+  isHandcuff,
+  isStreamPosition,
+  replacementLevels,
+  ruleNote as firstRuleNote,
+  tradeAllowed,
+  valueOverReplacement,
+} from "./rules";
+import { loadStrategyRules } from "./rules.server";
 
 
 type DB = SupabaseClient<Database>;
@@ -191,6 +203,10 @@ export interface MoveSuggestion {
   impactLabel: string;
   /** Sort key for this team: bigger is better. */
   impactRank: number;
+  /** One line naming the strategy rule that changed or suppressed this idea. */
+  ruleNote?: string | null;
+  /** Projection minus the best free agent at the same position. */
+  vor?: number;
 }
 
 
@@ -356,6 +372,9 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     .maybeSingle();
   if (leagueError) throw new Error(leagueError.message);
   if (!league) throw new Error("League not found.");
+
+  // The strategy layer: every ranking below is filtered and ordered by it.
+  const book = await loadStrategyRules(supabase);
 
   const [{ data: teamRows }, { data: spotRows }, { data: matchupRows }, playerRows] =
     await Promise.all([
@@ -963,9 +982,34 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   };
 
   const waiverIdeas: MoveSuggestion[] = [];
+  // Value over replacement, measured against the wire itself.
+  const wireLevels = replacementLevels(
+    freeAgents.map((p) => ({ id: p.id ?? p.name, position: p.position, proj: p.proj })),
+  );
+  const topWire = freeAgents.map((p) => p.proj);
+  const steadyBench = [...mine.roster].sort((a, b) => b.proj - a.proj)[Math.min(4, mine.roster.length - 1)];
   for (const fa of freeAgents.slice(0, 10)) {
-    const drop = droppable[0];
+    const notes: (string | null)[] = [];
+    // Never carry a second kicker or defence.
+    const duplicate = duplicateStreamer(book, fa.position, mine.roster.map((p) => p.position));
+    if (duplicate) continue;
+    // Never cut a player who would immediately be a top-five add himself.
+    const drop =
+      droppable.find((p) => dropAllowed(book, p.proj, topWire).allowed) ?? null;
     if (!drop) continue;
+    if (droppable[0] && drop.name !== droppable[0].name) notes.push(book.why("protect-top-wire"));
+    const handcuff = book.on("handcuff-top-rb") && isHandcuff(fa, mine.roster);
+    if (handcuff) notes.push(book.why("handcuff-top-rb"));
+    const proven =
+      !book.on("waiver-proof") ||
+      hasProof({
+        strongWeeks: 0,
+        roleChange: false,
+        benchProj: steadyBench?.proj ?? 0,
+        proj: fa.proj,
+      });
+    if (!proven) notes.push(book.why("waiver-proof"));
+    if (isStreamPosition(fa.position) && book.on("stream-k-def")) notes.push(book.why("stream-k-def"));
     const nextRoster = mine.roster.map((p) => (p.name === drop.name ? fa : p));
     const before = optimalLineup(mine.roster, slots).total;
     const after = optimalLineup(nextRoster, slots).total;
@@ -993,9 +1037,19 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       impact,
       impactLabel: "",
       impactRank: 0,
+      ruleNote: firstRuleNote(notes),
+      vor:
+        (book.on("value-over-replacement")
+          ? valueOverReplacement(fa.proj, fa.position, wireLevels)
+          : fa.proj) *
+        (handcuff ? 1.5 : 1) *
+        (proven ? 1 : 0.5),
     });
   }
-  waiverIdeas.sort((a, b) => b.pointsDelta - a.pointsDelta || b.titleDelta - a.titleDelta);
+  // Value over replacement first, then what the simulation says.
+  waiverIdeas.sort(
+    (a, b) => (b.vor ?? 0) - (a.vor ?? 0) || b.pointsDelta - a.pointsDelta || b.titleDelta - a.titleDelta,
+  );
   suggestions.push(...keepTopFive(waiverIdeas, (s) => s.pointsDelta >= 0.4));
 
 
@@ -1262,7 +1316,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     impactScore(s.impact, teamClass, isDynastyLeague) * (0.4 + 1.2 * (s.acceptance ?? 0.5));
   tradeIdeas.sort((a, b) => rankScore(b) - rankScore(a) || b.pointsDelta - a.pointsDelta);
   // Always show five trade ideas, even when the best of them still costs points.
-  suggestions.push(...keepTopFive(tradeIdeas, (s) => rankScore(s) > 0));
+  // Never trade for a kicker or a defence.
+  const tradeKept = tradeIdeas.filter((idea) => {
+    const positions = [...(idea.getAssets ?? [])].map((a) => a.split("(").pop()?.replace(")", "") ?? "");
+    return tradeAllowed(book, positions).allowed;
+  });
+  suggestions.push(...keepTopFive(tradeKept.length ? tradeKept : tradeIdeas, (s) => rankScore(s) > 0));
 
   for (const s of suggestions) {
     if (s.addName && s.dropName) impactIndex[swapKey(s.addName, s.dropName)] = s.impact;
@@ -1280,6 +1339,10 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const ranked = (onClass.length >= 4 ? onClass : suggestions).sort(
     (a, b) => b.impactRank - a.impactRank || b.pointsDelta - a.pointsDelta,
   );
+  // Say so when the team's class is what pushed ideas off the list.
+  if (book.on("class-tiebreak") && ranked.length && ranked.length < suggestions.length) {
+    ranked[0] = { ...ranked[0]!, ruleNote: ranked[0]!.ruleNote ?? book.why("class-tiebreak") };
+  }
   suggestions.length = 0;
   suggestions.push(...ranked);
 
