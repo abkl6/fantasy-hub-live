@@ -3,6 +3,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+import { effectiveFormat } from "./format";
+import {
+  asLeagueType,
+  asVariant,
+  type LeagueType,
+  type LeagueVariant,
+} from "./league-type";
 import { playerIndex } from "./names";
 
 type DB = SupabaseClient<Database>;
@@ -40,6 +47,10 @@ export interface NormalizedBundle {
   rosterSlots: string[];
   /** How the platform says the league is won, when it exposes it. */
   contestFormat?: "h2h" | "points" | "hybrid" | "vp";
+  /** Redraft / keeper / dynasty, and how confident we are about it. */
+  leagueType?: LeagueType;
+  variant?: LeagueVariant;
+  typeSource?: "detected" | "inferred";
   teams: NormalizedTeam[];
   schedule: {
     week: number;
