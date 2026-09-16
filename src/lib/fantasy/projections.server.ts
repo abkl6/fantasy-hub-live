@@ -89,6 +89,9 @@ export interface ProjectionOptions {
   sos?: boolean | null | undefined;
 }
 
+/** Sources that already publish a number for every week — never re-shaped. */
+const WEEKLY_SOURCES = new Set(["sleeper", "espn"]);
+
 export async function loadProjections(
   supabase: DB,
   opts: ProjectionOptions = {},
@@ -98,8 +101,9 @@ export async function loadProjections(
   const scoring = opts.scoring;
   const source = opts.source ?? { setting: "app" as const, sources: ["app"], label: "App projections" };
   const rank = new Map(source.sources.map((s, i) => [s, i]));
+  const shapeable = source.sources.some((s) => !WEEKLY_SOURCES.has(s));
 
-  const [overrideRes, weekRows] = await Promise.all([
+  const [overrideRes, weekRows, seasonRows] = await Promise.all([
     supabase
       .from("player_projection_overrides")
       .select("player_id, proj_points_week, proj_points_season, players(full_name)"),
@@ -113,6 +117,15 @@ export async function loadProjections(
           .in("source", source.sources)
           .order("player_id")
           .range(from, to),
+    ),
+    fetchAllRows<{ player_id: string; stats: unknown; source: string }>((from, to) =>
+      supabase
+        .from("player_season_projections")
+        .select("player_id, stats, source")
+        .eq("season", season)
+        .in("source", source.sources)
+        .order("player_id")
+        .range(from, to),
     ),
   ]);
 
@@ -144,13 +157,58 @@ export async function loadProjections(
     });
   }
 
-  // Opponent strength: only when this league has asked for it.
-  const { loadStrengthBook, neutralStrength } = await import("./sos.server");
-  const strength = opts.sos ? await loadStrengthBook(supabase, season) : neutralStrength();
-  const matchup = (playerId: string | null | undefined, position: string) => {
-    if (!strength.covered || !playerId) return 1;
-    return strength.multiplier(position, weekStats.get(playerId)?.opponent ?? null);
-  };
+  // Season totals are stored whole and split here, so a league can change its
+  // mind about schedule adjustment without anyone re-uploading anything.
+  const seasonTotals = new Map<string, { stats: StatLine | null; rank: number }>();
+  for (const row of seasonRows) {
+    const order = rank.get(row.source) ?? 99;
+    const held = seasonTotals.get(row.player_id);
+    if (held && held.rank <= order) continue;
+    seasonTotals.set(row.player_id, { stats: asStats(row.stats), rank: order });
+  }
+
+  // Opponent strength: only when this league has asked for it, and never for a
+  // source that is already week by week.
+  const { loadStrengthBook, neutralStrength, loadScheduleByTeam } = await import("./sos.server");
+  const wantsSos = !!opts.sos && shapeable;
+  const [strength, scheduleByTeam] = await Promise.all([
+    wantsSos ? loadStrengthBook(supabase, season) : Promise.resolve(neutralStrength()),
+    seasonTotals.size ? loadScheduleByTeam(supabase, season) : Promise.resolve(new Map()),
+  ]);
+  const sosOn = wantsSos && strength.covered;
+
+  // Where a player has no week row, fall back to their season total split
+  // across the weeks their team plays.
+  if (seasonTotals.size) {
+    const { spreadSeasonTotals } = await import("./sos");
+    const { data: teamRows } = await supabase.from("players").select("id, position, nfl_team");
+    const teamOf = new Map((teamRows ?? []).map((p) => [p.id, p]));
+    for (const [playerId, entry] of seasonTotals) {
+      const held = weekStats.get(playerId);
+      if (held && held.rank <= entry.rank) continue;
+      const meta = teamOf.get(playerId);
+      const games = (scheduleByTeam as Map<string, { week: number; opponent: string | null }[]>).get(
+        (meta?.nfl_team ?? "").toUpperCase(),
+      );
+      const play =
+        games && games.length
+          ? games
+          : Array.from({ length: 17 }, (_, i) => ({ week: i + 1, opponent: null }));
+      const split = spreadSeasonTotals(
+        (entry.stats ?? {}) as Record<string, number>,
+        play,
+        meta?.position ?? null,
+        sosOn ? (group, opponent) => strength.category(group, opponent) : undefined,
+      );
+      const hit = split.find((s) => s.week === week);
+      weekStats.set(playerId, {
+        stats: hit ? asStats(hit.stats) : null,
+        opponent: hit?.opponent ?? null,
+        rank: entry.rank,
+      });
+    }
+  }
+
 
   const find = (playerId?: string | null, name?: string | null) => {
     if (playerId) {
