@@ -257,8 +257,8 @@ export function hasProof(input: ProofInput): boolean {
 
 /** Same-team backup to one of my two best running backs. */
 export function isHandcuff(
-  candidate: { position: string; nflTeam: string | null },
-  myBacks: { position: string; nflTeam: string | null; proj: number }[],
+  candidate: { position: string; nflTeam?: string | null },
+  myBacks: { position: string; nflTeam?: string | null; proj: number }[],
 ): boolean {
   if (candidate.position.toUpperCase() !== "RB" || !candidate.nflTeam) return false;
   const topTwo = myBacks
