@@ -1209,6 +1209,37 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       .sort((a, b) => b.blendedValue - a.blendedValue);
   }
 
+  // How much of my roster's value sits at or past its position peak, and who
+  // to move before the market notices.
+  let dynastyOutlook: DynastyOutlook | null = null;
+  if (showTrajectories && dynasty?.length) {
+    const withTrajectory = dynasty.filter((row) => row.trajectory);
+    const totalValue = withTrajectory.reduce((sum, row) => sum + (row.trajectory?.now ?? 0), 0);
+    const pastPeakValue = withTrajectory
+      .filter((row) => (row.trajectory?.age ?? 0) >= (row.trajectory?.peakAge ?? 99))
+      .reduce((sum, row) => sum + (row.trajectory?.now ?? 0), 0);
+    const pastPeakShare = totalValue > 0 ? pastPeakValue / totalValue : 0;
+    const contentionWindow =
+      pastPeakShare > 0.55
+        ? "Win now — this roster is built for the next season or two."
+        : pastPeakShare > 0.35
+          ? "Two to three seasons before this core needs replacing."
+          : "Young core — the window is three or more seasons out.";
+    const sellSoon = withTrajectory
+      .filter((row) => ["cliff", "declining"].includes(row.trajectory!.classification))
+      .filter((row) => row.trajectory!.now >= 1000)
+      .sort((a, b) => a.trajectory!.change1 - b.trajectory!.change1)
+      .slice(0, 3)
+      .map((row) => ({
+        name: row.name,
+        position: row.position,
+        value: row.trajectory!.now,
+        classification: row.trajectory!.classification,
+        change1: row.trajectory!.change1,
+      }));
+    dynastyOutlook = { pastPeakShare, contentionWindow, sellSoon };
+  }
+
   const myTeamRow = teams.find((t) => t.id === mine.id)!;
 
   // Player metadata for status badges and alerts.
@@ -1326,6 +1357,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     ...formatMeta,
     mySurvival,
     dynasty,
+    dynastyOutlook,
+    showTrajectories,
     myBadge,
     myStrategy,
   };
