@@ -10,9 +10,9 @@
 export const POSITION_GROUPS = ["QB", "RB", "WR", "TE", "K", "DST", "IDP"] as const;
 export type PositionGroup = (typeof POSITION_GROUPS)[number];
 
-/** Widest a matchup may move a weekly projection. */
-export const SOS_MIN = 0.85;
-export const SOS_MAX = 1.15;
+/** Widest a matchup may move a projection. */
+export const SOS_MIN = 0.9;
+export const SOS_MAX = 1.1;
 
 export function groupOf(position: string | null | undefined): PositionGroup | null {
   const pos = (position ?? "").toUpperCase();
@@ -24,6 +24,28 @@ export function groupOf(position: string | null | undefined): PositionGroup | nu
   return null;
 }
 
+/**
+ * Which position's opponent rating governs a stat. Passing is judged by how an
+ * opponent handles quarterbacks, rushing by runners, receiving by receivers
+ * (tight ends use the tight-end rating), kicking by kickers. Anything else is
+ * left alone.
+ */
+export function categoryGroupFor(
+  statKey: string,
+  position: string | null | undefined,
+): PositionGroup | null {
+  const key = statKey.toLowerCase();
+  if (key.startsWith("pass_")) return "QB";
+  if (key.startsWith("rush_")) return "RB";
+  if (key === "rec" || key.startsWith("rec_")) {
+    return groupOf(position) === "TE" ? "TE" : "WR";
+  }
+  if (key.startsWith("fg_") || key.startsWith("xp_")) return "K";
+  if (key.startsWith("def_") || key.startsWith("pa_") || key.startsWith("ya_")) return "DST";
+  if (key.startsWith("idp_")) return "IDP";
+  return null;
+}
+
 export function clampMultiplier(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.max(SOS_MIN, Math.min(SOS_MAX, value));
@@ -32,8 +54,8 @@ export function clampMultiplier(value: number): number {
 export type MatchupRating = "easy" | "neutral" | "tough";
 
 export function ratingOf(multiplier: number): MatchupRating {
-  if (multiplier >= 1.03) return "easy";
-  if (multiplier <= 0.97) return "tough";
+  if (multiplier >= 1.02) return "easy";
+  if (multiplier <= 0.98) return "tough";
   return "neutral";
 }
 
@@ -42,6 +64,30 @@ export const RATING_LABEL: Record<MatchupRating, string> = {
   neutral: "Even",
   tough: "Tough",
 };
+
+/**
+ * How much this season's own results count against last season's baseline:
+ * nothing at week zero, everything from eight games on.
+ */
+export function blendWeight(gamesPlayed: number): number {
+  if (!Number.isFinite(gamesPlayed) || gamesPlayed <= 0) return 0;
+  return Math.min(1, gamesPlayed / 8);
+}
+
+export function blendMeasure(
+  prior: number | null | undefined,
+  current: number | null | undefined,
+  gamesPlayed: number,
+): number | null {
+  const w = blendWeight(gamesPlayed);
+  const hasPrior = Number.isFinite(prior) && (prior as number) > 0;
+  const hasCurrent = Number.isFinite(current) && (current as number) > 0;
+  if (!hasPrior && !hasCurrent) return null;
+  if (!hasPrior) return current as number;
+  if (!hasCurrent || w <= 0) return prior as number;
+  return (prior as number) * (1 - w) + (current as number) * w;
+}
+
 
 /**
  * Turns a raw per-team measure (points allowed, offensive strength, …) into a
