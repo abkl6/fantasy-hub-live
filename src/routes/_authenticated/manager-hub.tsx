@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { deleteLeague, getManagerHubFn } from "@/lib/fantasy.functions";
+import { TrajectoryChip } from "@/components/TrajectoryChip";
 
 export const Route = createFileRoute("/_authenticated/manager-hub")({
   head: () => ({
@@ -544,6 +545,7 @@ function ManagerHub() {
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"><div className={`h-full rounded-full ${player.concentrated ? "bg-destructive" : "bg-primary"}`} style={{ width: `${Math.min(100, player.share * 100 * 4)}%` }} /></div>
                 {player.concentrated && <Badge variant="destructive" className="shrink-0">Over 15%</Badge>}
                 {player.status !== "Active" && <Badge variant="outline" className="shrink-0">{player.status}</Badge>}
+                <TrajectoryChip trajectory={player.trajectory} playerName={player.name} />
               </div>
             </div>)}
           </div>
