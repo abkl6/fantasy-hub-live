@@ -211,6 +211,8 @@ export interface AnalysisPayload {
     /** KTC market value of roster + picks; dynasty leagues only. */
     dynastyValue: number | null;
     dynastyRank: number | null;
+    /** Roster spots with no age anywhere — usually an unmatched name. */
+    unknownAgeCount: number;
     /** Weeks this team was the league's top scorer. */
     weeklyHighs: number;
     /** Victory points banked; victory-point leagues only. */
