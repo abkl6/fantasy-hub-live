@@ -66,7 +66,7 @@ describe("schedule strength maths", () => {
   });
 
   it("turns a measure into multipliers around one", () => {
-    const m = multipliersFromMeasure(new Map([["KC", 20], ["CAR", 10], ["SF", 15]]), 1);
+    const m = multipliersFromMeasure(new Map([["KC", 20], ["CAR", 10], ["SF", 15], ["NYJ", 12]]), 1);
     const values = [...m.values()];
     expect(Math.max(...values)).toBeGreaterThan(1);
     expect(Math.min(...values)).toBeLessThan(1);
