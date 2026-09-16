@@ -226,6 +226,16 @@ function LeaguePage() {
         </div>
       )}
 
+      {data.showSurvival && !!data.survival?.length && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Weekly cut:{" "}
+          <span className="font-medium text-foreground">
+            {[...data.survival].sort((a, b) => a.surviveWeekOdds - b.surviveWeekOdds)[0]!.name}
+          </span>{" "}
+          is most likely to go out this week.
+        </p>
+      )}
+
       {data.league.sync_paused && (
         <div className="mt-6 flex items-start gap-3 rounded-xl border border-l-4 border-border border-l-destructive bg-card p-4">
           <AlertTriangle className="mt-0.5 size-4 text-destructive" />
