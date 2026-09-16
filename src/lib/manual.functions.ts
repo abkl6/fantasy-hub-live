@@ -106,6 +106,9 @@ export const createManualLeagueWizard = createServerFn({ method: "POST" })
       .select("id, name");
     if (teamError) throw new Error(teamError.message);
 
+    const { ensureTradeValuesInBackground } = await import("./fantasy/ktc.server");
+    ensureTradeValuesInBackground({ scope: league.id, userId: context.userId, platform: "manual" });
+
     return { leagueId: league.id, teams: teams ?? [] };
   });
 
