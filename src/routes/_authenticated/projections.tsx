@@ -424,9 +424,18 @@ function MyProjectionsUpload() {
               </Button>
             </div>
           )}
-          <Button size="sm" variant="ghost" onClick={() => wipe.mutate()} disabled={wipe.isPending}>
-            Remove my uploaded projections
-          </Button>
+          <div className="flex items-center justify-between">
+            <Button size="sm" variant="ghost" onClick={() => wipe.mutate()} disabled={wipe.isPending}>
+              Remove my uploaded projections
+            </Button>
+            <Link
+              to="/projections/guide"
+              target="_blank"
+              className="text-xs text-muted-foreground underline"
+            >
+              Printable column guide
+            </Link>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -26,6 +26,7 @@ import { Route as AuthenticatedTradesRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedTvRouteImport } from './routes/_authenticated/tv'
 import { Route as AuthenticatedWaiversRouteImport } from './routes/_authenticated/waivers'
 import { Route as AuthenticatedLeagueLeagueIdRouteImport } from './routes/_authenticated/league.$leagueId'
+import { Route as AuthenticatedProjectionsGuideRouteImport } from './routes/_authenticated/projections.guide'
 import { Route as ApiPublicCronFfpcRouteImport } from './routes/api/public/cron/ffpc'
 import { Route as ApiPublicCronInactivesRouteImport } from './routes/api/public/cron/inactives'
 import { Route as ApiPublicCronLiveScoringRouteImport } from './routes/api/public/cron/live-scoring'
@@ -120,6 +121,12 @@ const AuthenticatedLeagueLeagueIdRoute =
     path: '/league/$leagueId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProjectionsGuideRoute =
+  AuthenticatedProjectionsGuideRouteImport.update({
+    id: '/guide',
+    path: '/guide',
+    getParentRoute: () => AuthenticatedProjectionsRoute,
+  } as any)
 const ApiPublicCronFfpcRoute = ApiPublicCronFfpcRouteImport.update({
   id: '/api/public/cron/ffpc',
   path: '/api/public/cron/ffpc',
@@ -163,7 +170,7 @@ export interface FileRoutesByFullPath {
   '/games': typeof AuthenticatedGamesRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
-  '/projections': typeof AuthenticatedProjectionsRoute
+  '/projections': typeof AuthenticatedProjectionsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/this-week': typeof AuthenticatedThisWeekRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/tv': typeof AuthenticatedTvRoute
   '/waivers': typeof AuthenticatedWaiversRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/projections/guide': typeof AuthenticatedProjectionsGuideRoute
   '/api/public/cron/ffpc': typeof ApiPublicCronFfpcRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -187,7 +195,7 @@ export interface FileRoutesByTo {
   '/games': typeof AuthenticatedGamesRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
-  '/projections': typeof AuthenticatedProjectionsRoute
+  '/projections': typeof AuthenticatedProjectionsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/this-week': typeof AuthenticatedThisWeekRoute
   '/trade-desk': typeof AuthenticatedTradeDeskRoute
@@ -195,6 +203,7 @@ export interface FileRoutesByTo {
   '/tv': typeof AuthenticatedTvRoute
   '/waivers': typeof AuthenticatedWaiversRoute
   '/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/projections/guide': typeof AuthenticatedProjectionsGuideRoute
   '/api/public/cron/ffpc': typeof ApiPublicCronFfpcRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -213,7 +222,7 @@ export interface FileRoutesById {
   '/_authenticated/games': typeof AuthenticatedGamesRoute
   '/_authenticated/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/_authenticated/manager-hub': typeof AuthenticatedManagerHubRoute
-  '/_authenticated/projections': typeof AuthenticatedProjectionsRoute
+  '/_authenticated/projections': typeof AuthenticatedProjectionsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/this-week': typeof AuthenticatedThisWeekRoute
   '/_authenticated/trade-desk': typeof AuthenticatedTradeDeskRoute
@@ -221,6 +230,7 @@ export interface FileRoutesById {
   '/_authenticated/tv': typeof AuthenticatedTvRoute
   '/_authenticated/waivers': typeof AuthenticatedWaiversRoute
   '/_authenticated/league/$leagueId': typeof AuthenticatedLeagueLeagueIdRoute
+  '/_authenticated/projections/guide': typeof AuthenticatedProjectionsGuideRoute
   '/api/public/cron/ffpc': typeof ApiPublicCronFfpcRoute
   '/api/public/cron/inactives': typeof ApiPublicCronInactivesRoute
   '/api/public/cron/live-scoring': typeof ApiPublicCronLiveScoringRoute
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/tv'
     | '/waivers'
     | '/league/$leagueId'
+    | '/projections/guide'
     | '/api/public/cron/ffpc'
     | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/tv'
     | '/waivers'
     | '/league/$leagueId'
+    | '/projections/guide'
     | '/api/public/cron/ffpc'
     | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
@@ -296,6 +308,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tv'
     | '/_authenticated/waivers'
     | '/_authenticated/league/$leagueId'
+    | '/_authenticated/projections/guide'
     | '/api/public/cron/ffpc'
     | '/api/public/cron/inactives'
     | '/api/public/cron/live-scoring'
@@ -437,6 +450,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeagueLeagueIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/projections/guide': {
+      id: '/_authenticated/projections/guide'
+      path: '/guide'
+      fullPath: '/projections/guide'
+      preLoaderRoute: typeof AuthenticatedProjectionsGuideRouteImport
+      parentRoute: typeof AuthenticatedProjectionsRoute
+    }
     '/api/public/cron/ffpc': {
       id: '/api/public/cron/ffpc'
       path: '/api/public/cron/ffpc'
@@ -482,6 +502,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedProjectionsRouteChildren {
+  AuthenticatedProjectionsGuideRoute: typeof AuthenticatedProjectionsGuideRoute
+}
+
+const AuthenticatedProjectionsRouteChildren: AuthenticatedProjectionsRouteChildren =
+  {
+    AuthenticatedProjectionsGuideRoute: AuthenticatedProjectionsGuideRoute,
+  }
+
+const AuthenticatedProjectionsRouteWithChildren =
+  AuthenticatedProjectionsRoute._addFileChildren(
+    AuthenticatedProjectionsRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedConnectRoute: typeof AuthenticatedConnectRoute
@@ -489,7 +523,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
   AuthenticatedLineupCheckRoute: typeof AuthenticatedLineupCheckRoute
   AuthenticatedManagerHubRoute: typeof AuthenticatedManagerHubRoute
-  AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRoute
+  AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedThisWeekRoute: typeof AuthenticatedThisWeekRoute
   AuthenticatedTradeDeskRoute: typeof AuthenticatedTradeDeskRoute
@@ -506,7 +540,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGamesRoute: AuthenticatedGamesRoute,
   AuthenticatedLineupCheckRoute: AuthenticatedLineupCheckRoute,
   AuthenticatedManagerHubRoute: AuthenticatedManagerHubRoute,
-  AuthenticatedProjectionsRoute: AuthenticatedProjectionsRoute,
+  AuthenticatedProjectionsRoute: AuthenticatedProjectionsRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedThisWeekRoute: AuthenticatedThisWeekRoute,
   AuthenticatedTradeDeskRoute: AuthenticatedTradeDeskRoute,
