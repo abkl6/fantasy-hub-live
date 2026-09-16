@@ -147,6 +147,52 @@ function WaiversPage() {
         </p>
       ) : null}
 
+      {data?.fills?.length ? (
+        <section className="mt-4 space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">Fill empty slots</h2>
+          {data.fills.map((group) => (
+            <div
+              key={group.leagueId}
+              className="rounded-xl bg-card p-3"
+              style={{ borderLeft: `3px solid ${leagueColor(group.leagueColor, group.leagueId)}` }}
+            >
+              <p className="text-xs font-semibold">{group.leagueName}</p>
+              <ul className="mt-1 space-y-1">
+                {group.fills.map((fill) => (
+                  <li
+                    key={fill.slot + fill.playerId}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <span className="min-w-0 truncate text-sm">
+                      <span className="eyebrow mr-2 text-muted-foreground">{fill.slot}</span>
+                      {fill.name}
+                      <span className="ml-2 text-xs text-muted-foreground">{fill.reason}</span>
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">${fill.bid}</span>
+                  </li>
+                ))}
+                {group.stream ? (
+                  <li className="flex items-center justify-between gap-3 border-t border-border pt-1">
+                    <span className="min-w-0 truncate text-sm">
+                      <span className="eyebrow mr-2 text-muted-foreground">
+                        Stream {group.stream.position}
+                      </span>
+                      {group.stream.inName} for {group.stream.outName}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {group.stream.reason}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                      ${group.stream.bid}
+                    </span>
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       {data && data.players.length ? (
         <>
           <div className="mt-3 flex flex-wrap gap-2">

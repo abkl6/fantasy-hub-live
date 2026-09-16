@@ -1,6 +1,7 @@
 /** Client-safe shapes for the "This week" list. */
 
 export type ThisWeekKind =
+  | "fill"
   | "claim"
   | "lineup"
   | "trade-offer"

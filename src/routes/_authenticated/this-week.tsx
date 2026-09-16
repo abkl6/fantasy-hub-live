@@ -1,6 +1,15 @@
 import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, ArrowRight, ClipboardCheck, Clock, Repeat2, Sparkles, Ticket } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  ClipboardCheck,
+  Clock,
+  PlusCircle,
+  Repeat2,
+  Sparkles,
+  Ticket,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CacheStatus } from "@/components/CacheStatus";
@@ -37,6 +46,7 @@ export const Route = createFileRoute("/_authenticated/this-week")({
 });
 
 const ICONS = {
+  fill: PlusCircle,
   lineup: AlertTriangle,
   claim: Ticket,
   "trade-offer": Repeat2,
@@ -47,6 +57,7 @@ const ICONS = {
 
 const GROUPS: { kind: ThisWeekItem["kind"]; label: string }[] = [
   { kind: "upkeep", label: "Keep your manual leagues current" },
+  { kind: "fill", label: "Fill empty slots" },
   { kind: "lineup", label: "Lineup risks" },
   { kind: "claim", label: "Pending claims" },
   { kind: "trade-offer", label: "Trade offers" },

@@ -1,5 +1,7 @@
 /** Client-safe shapes for the cross-league waivers view. */
 
+import type { SlotFill, StreamSuggestion } from "./slot-fill";
+
 export interface WaiverHubLeagueEntry {
   leagueId: string;
   leagueName: string;
@@ -39,9 +41,20 @@ export interface WaiverHubPlayer {
   leagues: WaiverHubLeagueEntry[];
 }
 
+/** One league's empty starting spots, shown above the cross-league list. */
+export interface WaiverHubFills {
+  leagueId: string;
+  leagueName: string;
+  leagueColor: string | null;
+  fills: SlotFill[];
+  stream: StreamSuggestion | null;
+}
+
 export interface WaiverHubPayload {
   generatedAt: string;
   week: number;
   leagues: { id: string; name: string; color: string | null; platform: string; faabRemaining: number | null; faabBudget: number }[];
   players: WaiverHubPlayer[];
+  /** Leagues with a starting slot nobody is filling. */
+  fills: WaiverHubFills[];
 }
