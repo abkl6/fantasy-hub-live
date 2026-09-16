@@ -58,7 +58,7 @@ export interface RankOptions {
   /** My roster has an unfilled defense slot. */
   needsDefense: boolean;
   /** Rebuilding boards lead with keepers. */
-  strategy?: "buy" | "hold" | "sell" | null;
+  strategy?: string | null;
 }
 
 /** Kickers and defenses sit below everyone unless a starting slot is empty. */
