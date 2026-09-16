@@ -176,10 +176,11 @@ function LeaguePage() {
             <Badge variant="outline" className="text-[10px]">
               {data.scoringLabel}
             </Badge>
-            <Badge variant="secondary" className="text-[10px]">
-              {LEAGUE_TYPE_LABELS[data.leagueType]}
-              {data.variant !== "none" ? ` · ${LEAGUE_VARIANT_LABELS[data.variant]}` : ""}
-            </Badge>
+            <LeagueTypeBadge
+              leagueId={leagueId}
+              leagueType={data.leagueType}
+              variant={data.variant}
+            />
             <ProjectionSourcePicker
               leagueId={leagueId}
               platform={data.league.platform}
