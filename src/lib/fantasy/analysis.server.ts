@@ -99,6 +99,9 @@ export interface LeagueRow {
   last_synced_at: string | null;
   format: string;
   projection_source: string;
+  /** True when a platform read failed and the stored copy is being kept. */
+  sync_paused?: boolean;
+  last_sync_error?: string | null;
 }
 
 export interface DynastyRow {
@@ -449,7 +452,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const teamById = new Map(teams.map((t) => [t.id, t]));
 
   const standings = [...baseline]
-    .sort((a, b) => b.titleOdds - a.titleOdds || b.projWins - a.projWins)
+    .sort((a, b) =>
+      usesVp
+        ? (vpByTeam.get(b.id) ?? 0) - (vpByTeam.get(a.id) ?? 0) ||
+          Number(teamById.get(b.id)?.points_for ?? 0) - Number(teamById.get(a.id)?.points_for ?? 0)
+        : b.titleOdds - a.titleOdds || b.projWins - a.projWins,
+    )
     .map((r, index) => {
       const row = teamById.get(r.id);
       return {
