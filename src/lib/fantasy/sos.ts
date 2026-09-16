@@ -115,29 +115,61 @@ export interface WeekSlot {
   opponent: string | null;
 }
 
+/** Looks up the multiplier for one stat category against one opponent. */
+export type CategoryMultiplier = (
+  group: PositionGroup | null,
+  opponent: string | null,
+) => number;
+
 /**
- * Splits a season total across the weeks a team actually plays. With
- * `multiplierFor` supplied the weekly shares follow the schedule, and the
- * season total is preserved exactly.
+ * Splits a season total across the weeks a team actually plays. Each stat is
+ * shaped by the opponent rating for its own category (passing by the
+ * opponent's quarterback rating, rushing by its runner rating, and so on), and
+ * every stat's season total is preserved exactly.
  */
 export function spreadSeasonTotals(
   totals: Record<string, number>,
   weeks: WeekSlot[],
-  multiplierFor?: (opponent: string | null) => number,
+  position?: string | null,
+  multiplierFor?: CategoryMultiplier,
 ): { week: number; opponent: string | null; stats: Record<string, number> }[] {
   if (!weeks.length) return [];
-  const shares = weeks.map((w) => (multiplierFor ? Math.max(0.01, multiplierFor(w.opponent)) : 1));
-  const sum = shares.reduce((a, b) => a + b, 0);
-  return weeks.map((w, i) => {
-    const share = shares[i]! / sum;
-    const stats: Record<string, number> = {};
-    for (const [key, value] of Object.entries(totals)) {
-      const per = Math.round(value * share * 1000) / 1000;
-      if (per !== 0) stats[key] = per;
+  const out = weeks.map((w) => ({
+    week: w.week,
+    opponent: w.opponent,
+    stats: {} as Record<string, number>,
+  }));
+
+  for (const [key, value] of Object.entries(totals)) {
+    if (!Number.isFinite(value) || value === 0) continue;
+    const group = multiplierFor ? categoryGroupFor(key, position) : null;
+    const shares = weeks.map((w) =>
+      multiplierFor ? Math.max(0.01, multiplierFor(group, w.opponent)) : 1,
+    );
+    const sum = shares.reduce((a, b) => a + b, 0) || weeks.length;
+    for (let i = 0; i < weeks.length; i++) {
+      const per = Math.round(((value * shares[i]!) / sum) * 1000) / 1000;
+      if (per !== 0) out[i]!.stats[key] = per;
     }
-    return { week: w.week, opponent: w.opponent, stats };
-  });
+  }
+  return out;
 }
+
+/** Scales one week's stat line by each stat's own matchup multiplier. */
+export function applyMatchup(
+  stats: Record<string, number>,
+  position: string | null | undefined,
+  opponent: string | null,
+  multiplierFor: CategoryMultiplier,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(stats)) {
+    const m = multiplierFor(categoryGroupFor(key, position), opponent);
+    out[key] = Math.round(value * m * 1000) / 1000;
+  }
+  return out;
+}
+
 
 /** Average multiplier across a player's season — the schedule rating. */
 export function seasonRating(
