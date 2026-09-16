@@ -84,7 +84,6 @@ export const importFfpcLeague = createServerFn({ method: "POST" })
     z
       .object({
         leagueId: z.string().min(1).max(40),
-        myTeamExternalId: z.string().min(1).max(40).nullish(),
       })
       .parse(d),
   )
@@ -100,7 +99,8 @@ export const importFfpcLeague = createServerFn({ method: "POST" })
 
     try {
       const bundle = await ffpcLeagueBundle(data.leagueId, ltuid);
-      const mine = data.myTeamExternalId ?? bundle.myTeamExternalId;
+      const mine = bundle.myTeamExternalId;
+      if (!mine) throw new Error("FFPC did not identify your team from the league page.");
       const saved = await persistBundle(
         context.supabase,
         context.userId,

@@ -125,6 +125,8 @@ export async function applyFfpcBundle(
       points_for: t.pointsFor,
       points_against: t.pointsAgainst,
       vp: t.vp,
+      division: t.division,
+      playoff_seed: t.playoffSeed,
       ...(t.faabRemaining == null
         ? {}
         : {
@@ -156,7 +158,7 @@ export async function applyFfpcBundle(
   if (!options.live) {
     const { data: canonical } = await supabase
       .from("players")
-      .select("id, full_name, position, proj_points_week");
+      .select("id, full_name, position, nfl_team, proj_points_week");
     const index = playerIndex(canonical ?? []);
 
     const spots: Record<string, unknown>[] = [];
@@ -164,7 +166,7 @@ export async function applyFfpcBundle(
       const teamId = teamByExternal.get(t.externalId);
       if (!teamId || !t.roster.length) continue;
       for (const p of t.roster) {
-        const match = index.find(p.name, p.position);
+        const match = index.find(p.name, p.position, p.nflTeam);
         spots.push({
           team_id: teamId,
           league_id: leagueId,
