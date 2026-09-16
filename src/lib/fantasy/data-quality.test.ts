@@ -70,7 +70,7 @@ describe("score reconciliation", () => {
     );
     expect(hasScoringGap(out.diff)).toBe(true);
     expect(out.topPlayerName).toBe("A Receiver");
-    expect(reconciliationBanner(out.diff, 3)).toContain("Week 3");
+    expect(reconciliationBanner([{ week: 3, diff: out.diff }])?.text).toContain("Week 3");
   });
 });
 
