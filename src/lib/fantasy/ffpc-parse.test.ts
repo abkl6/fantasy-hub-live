@@ -150,3 +150,27 @@ describe("FFPC captured league pages", () => {
     expect(home.myRoster).toHaveLength(22);
   });
 });
+
+describe("ffpc league settings", () => {
+  const html = readFileSync(
+    new URL("./ffpc/__fixtures__/league-home.html", import.meta.url),
+    "utf8",
+  );
+
+  it("reads the playoff, waiver and division rules off League Home", () => {
+    const settings = parseLeagueSettings(html);
+    expect(settings.playoffWeeks).toEqual([15, 16, 17]);
+    expect(settings.playoffWeekStart).toBe(15);
+    expect(settings.playoffTeams).toBe(6);
+    expect(settings.playoffByes).toBe(2);
+    expect(settings.thirdPlaceGame).toBe(true);
+    expect(settings.allPlay).toEqual([{ week: 6, rule: "top half win, bottom half lose" }]);
+    expect(settings.waiverType).toBe("faab");
+    expect(settings.waiverRunTimes).toEqual(["Wed 10:00PM ET", "Sun 10:00PM ET"]);
+    expect(settings.divisions).toHaveLength(3);
+    expect(settings.playoffSeedType).toBe("division_winners_first");
+    expect(settings.usesVp).toBe(true);
+    expect(settings.consolation[0]?.label).toBe("Playoff for #1 Pick");
+    expect(settings.consolation[0]?.weeks).toEqual([15, 16, 17]);
+  });
+});
