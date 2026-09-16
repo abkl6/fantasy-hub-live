@@ -197,6 +197,8 @@ export async function saveKtcValues(
     if (error) throw new Error(error.message);
   }
 
+  await backfillPlayerAges(admin, data.players, byKey);
+
   let pickRows = 0;
   if (!options.onlyNames && data.picks.length) {
     const picks = data.picks.flatMap((p) =>
