@@ -229,35 +229,62 @@ export async function loadProjections(
 
   const round = (n: number) => Math.round(n * 10) / 10;
 
+  const { applyMatchup } = await import("./sos");
+
+  /** Stat line for this week, with the matchup applied where it belongs. */
+  const lineFor = (playerId: string | null | undefined, position: string) => {
+    const line = playerId ? weekStats.get(playerId) : undefined;
+    if (!line) return undefined;
+    if (!sosOn || line.shaped || line.weekly || !line.stats) return line;
+    const shaped = applyMatchup(
+      line.stats as Record<string, number>,
+      position,
+      line.opponent,
+      (group, opponent) => strength.category(group, opponent),
+    );
+    return { ...line, stats: shaped as StatLine };
+  };
+
+  /** Whole-player multiplier, for numbers that have no stat line behind them. */
+  const flat = (playerId: string | null | undefined, position: string) => {
+    if (!sosOn || !playerId) return 1;
+    const line = weekStats.get(playerId);
+    if (!line || line.shaped || line.weekly) return 1;
+    return strength.multiplier(position, line.opponent);
+  };
+
   return {
     count: byId.size,
     week: (playerId, name, position, base) => {
-      const m = matchup(playerId, position);
       const override = find(playerId, name);
       if (override) {
+        const m = flat(playerId, position);
         return round((scoring ? scoring.scale(position, override.week) : override.week) * m);
       }
-      const line = playerId ? weekStats.get(playerId) : undefined;
-      if (scoring && line?.stats) return round(scoring.score(position, line.stats) * m);
+      const line = lineFor(playerId, position);
+      if (scoring && line?.stats) return round(scoring.score(position, line.stats));
       if (line && !line.stats) return 0; // bye week or no projected usage
+      const m = flat(playerId, position);
       return round((scoring ? scoring.scale(position, base) : base) * m);
     },
     season: (playerId, name, position, base, stats) => {
       const override = find(playerId, name);
       if (override) return scoring ? scoring.scale(position, override.season) : override.season;
-      const line = asStats(stats);
+      const stored = playerId ? seasonTotals.get(playerId)?.stats : null;
+      const line = stored ?? asStats(stats);
       if (scoring && line) return round(scoring.score(position, line));
       return scoring ? scoring.scale(position, base) : base;
     },
     opponent: (playerId) => (playerId ? (weekStats.get(playerId)?.opponent ?? null) : null),
     hasOverride: (playerId, name) => !!find(playerId, name),
     sourceLabel: source.label,
-    sosOn: !!opts.sos && strength.covered,
+    sosOn,
     matchupRating: (playerId, position) => {
-      if (!strength.covered || !playerId) return null;
-      const opponent = weekStats.get(playerId)?.opponent ?? null;
-      if (!opponent) return null;
-      return strength.rating(position, opponent);
+      if (!sosOn || !playerId) return null;
+      const line = weekStats.get(playerId);
+      if (!line?.opponent || line.weekly) return null;
+      return strength.rating(position, line.opponent);
     },
   };
+
 }
