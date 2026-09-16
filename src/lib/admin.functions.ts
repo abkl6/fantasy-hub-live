@@ -612,9 +612,27 @@ export const getDataQuality = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const season = data.season ?? new Date().getUTCFullYear();
 
-    const [{ data: players }, { data: recon }, { data: implied }, { data: blend }] =
+    // Counted in the database: the player pool is larger than one page of rows.
+    const idCount = async (field: "sleeper_id" | "espn_id" | "yahoo_id" | "ktc_slug") => {
+      const { count } = await context.supabase
+        .from("players")
+        .select("id", { count: "exact", head: true })
+        .not(field, "is", null);
+      return count ?? 0;
+    };
+    const [total, sleeperIds, espnIds, yahooIds, ktcIds] = await Promise.all([
+      context.supabase
+        .from("players")
+        .select("id", { count: "exact", head: true })
+        .then((r) => r.count ?? 0),
+      idCount("sleeper_id"),
+      idCount("espn_id"),
+      idCount("yahoo_id"),
+      idCount("ktc_slug"),
+    ]);
+
+    const [{ data: recon }, { data: implied }, { data: blend }] =
       await Promise.all([
-        context.supabase.from("players").select("id, sleeper_id, espn_id, yahoo_id, ktc_slug"),
         context.supabase
           .from("score_reconciliation")
           .select("league_id, week, diff, top_player_name, top_player_diff, leagues(name)")
