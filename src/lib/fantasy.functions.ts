@@ -949,8 +949,16 @@ export const getPlayoffPictureFn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { loadPlayoffPicture } = await import("./fantasy/playoff.server");
-    return loadPlayoffPicture(context.supabase, data.leagueId);
+    const { cached, leagueInputsHash } = await import("./fantasy/cache.server");
+    const hash = await leagueInputsHash(context.supabase, data.leagueId);
+    return cached(
+      context.supabase,
+      { userId: context.userId, leagueId: data.leagueId, kind: "playoff" },
+      hash,
+      () => loadPlayoffPicture(context.supabase, data.leagueId),
+    );
   });
+
 
 export const getTrendsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
