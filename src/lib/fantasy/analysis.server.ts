@@ -379,6 +379,22 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   const isDynastyLeague = isMultiYear(format);
   const dynastyRankById = new Map<string, number>();
   const dynastyValueById = new Map<string, number>();
+  const unknownAgeById = new Map<string, number>();
+  const ownAgeByName = new Map(
+    players.map((p) => [
+      normalizeName(p.full_name),
+      {
+        age: (p as { age?: number | null }).age ?? null,
+        yearsExp: (p as { years_exp?: number | null }).years_exp ?? null,
+      },
+    ]),
+  );
+  /** The market first, then our own record; false means nobody knows. */
+  const ageKnownFor = (p: EnginePlayer) => {
+    if (values.age(p.id, p.name, p.position) != null) return true;
+    const own = ownAgeByName.get(normalizeName(p.name));
+    return own?.age != null || own?.yearsExp != null;
+  };
   if (isDynastyLeague) {
     const rows = leagueDynastyValues(
       engineTeams.map((t) => ({
@@ -390,6 +406,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           name: p.name,
           position: p.position,
           projSeason: p.proj * 17,
+          ageKnown: ageKnownFor(p),
         })),
         picks: pickAssets.get(t.id) ?? [],
       })),
@@ -398,6 +415,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     for (const row of rows) {
       dynastyRankById.set(row.teamId, row.rank);
       dynastyValueById.set(row.teamId, row.total);
+      unknownAgeById.set(row.teamId, row.unknownAgeCount);
     }
   }
   const ageByPlayer = new Map(
