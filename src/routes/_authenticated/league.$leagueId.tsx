@@ -928,47 +928,39 @@ function WaiverPanel({ leagueId, onAdded }: { leagueId: string; onAdded?: () => 
                       )}
                     </span>
                   )}
-                  {!p.bids && (
-                    <span>
-                      Bid{" "}
-                      <span className="stat-num text-foreground">
-                        {p.bid > 0 ? `${p.bid}%` : "no bid"}
-                      </span>
-                    </span>
-                  )}
                   {p.longTermValue !== null && (
                     <span>
                       Keep value{" "}
                       <span className="stat-num text-foreground">{p.longTermValue.toFixed(0)}</span>/100
                     </span>
                   )}
+                  {p.survivalDelta !== null && (
+                    <span className={p.survivalDelta > 0 ? "text-primary" : ""}>
+                      Survival {p.survivalDelta > 0 ? "+" : ""}
+                      {(p.survivalDelta * 100).toFixed(1)}%
+                    </span>
+                  )}
                   {p.titleDelta !== null && (
                     <span className={p.titleDelta > 0 ? "text-primary" : ""}>
                       Title {p.titleDelta > 0 ? "+" : ""}
-                      {(p.titleDelta * 100).toFixed(1)} pts · playoffs {(p.playoffDelta ?? 0) > 0 ? "+" : ""}
-                      {((p.playoffDelta ?? 0) * 100).toFixed(1)}
+                      {(p.titleDelta * 100).toFixed(1)}% · playoffs {(p.playoffDelta ?? 0) > 0 ? "+" : ""}
+                      {((p.playoffDelta ?? 0) * 100).toFixed(1)}%
                     </span>
                   )}
                   {p.suggestedDrop && <span>Drop {p.suggestedDrop}</span>}
                 </div>
-                {p.bids && (
-                  <div className="mt-2 rounded-lg bg-muted/30 p-2">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-md border border-border px-2 py-1">
-                        Passive{" "}
-                        <span className="stat-num text-foreground">${p.bids.passive}</span>
-                      </span>
-                      <span className="rounded-md bg-primary px-2 py-1 text-primary-foreground">
-                        Optimal <span className="stat-num">${p.bids.optimal}</span>
-                      </span>
-                      <span className="rounded-md border border-border px-2 py-1">
-                        Aggressive{" "}
-                        <span className="stat-num text-foreground">${p.bids.aggressive}</span>
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{p.bids.reason}</p>
-                  </div>
-                )}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-md border border-border px-2 py-1">
+                    Passive <span className="stat-num text-foreground">${p.bidRec.passive}</span>
+                  </span>
+                  <span className="rounded-md bg-primary px-2 py-1 text-primary-foreground">
+                    Bid <span className="stat-num">${p.bidRec.recommended}</span>
+                  </span>
+                  <span className="rounded-md border border-border px-2 py-1">
+                    Aggressive <span className="stat-num text-foreground">${p.bidRec.aggressive}</span>
+                  </span>
+                  <span className="text-muted-foreground">max ${p.bidRec.ceiling}</span>
+                </div>
               </div>
               <Button
                 size="sm"
