@@ -1244,6 +1244,9 @@ export const getGameDayFn = createServerFn({ method: "POST" })
         leagueId: z.string().uuid().optional(),
         refresh: z.boolean().optional(),
         games: z.boolean().optional(),
+        /** Scoreboard only; player rows are fetched when a card is opened. */
+        summaries: z.boolean().optional(),
+
       })
       .parse(d ?? {}),
   )
