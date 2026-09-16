@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { listStrategyRules, updateStrategyRule } from "@/lib/rules.functions";
 import {
   adminResyncLeague,
   adminViewAsUser,
@@ -622,6 +623,7 @@ function AdminPage() {
           <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="quality">Data quality</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="rules">Rules</TabsTrigger>
           <TabsTrigger value="errors">Errors</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4"><OverviewTab /></TabsContent>
@@ -629,9 +631,71 @@ function AdminPage() {
         <TabsContent value="data" className="mt-4"><DataTab /></TabsContent>
         <TabsContent value="quality" className="mt-4"><QualityTab /></TabsContent>
         <TabsContent value="notifications" className="mt-4"><NotificationsTab /></TabsContent>
+        <TabsContent value="rules" className="mt-4"><RulesTab /></TabsContent>
         <TabsContent value="errors" className="mt-4"><ErrorsTab /></TabsContent>
       </Tabs>
     </main>
+  );
+}
+
+/** The strategy rules behind every recommendation: toggle, reweight, reword. */
+function RulesTab() {
+  const load = useServerFn(listStrategyRules);
+  const save = useServerFn(updateStrategyRule);
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["admin", "rules"], queryFn: () => load() });
+  const mutation = useMutation({
+    mutationFn: (input: {
+      id: string;
+      enabled?: boolean;
+      weight?: number;
+      rule?: string;
+      rationale?: string;
+    }) => save({ data: input }),
+    onSuccess: () => {
+      toast.success("Rule saved.");
+      void qc.invalidateQueries({ queryKey: ["admin", "rules"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (q.isLoading) return <Loader2 className="size-4 animate-spin" aria-hidden="true" />;
+
+  return (
+    <div className="space-y-3">
+      {(q.data?.rules ?? []).map((r) => (
+        <div key={r.id} className="rounded-xl bg-card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="eyebrow text-muted-foreground">{r.category}</p>
+              <p className="text-sm font-semibold">{r.rule}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{r.rationale}</p>
+            </div>
+            <Switch
+              checked={r.enabled}
+              onCheckedChange={(enabled) => mutation.mutate({ id: r.id, enabled })}
+              aria-label={`Enable ${r.rule}`}
+            />
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <Label htmlFor={`weight-${r.id}`} className="text-xs">
+              Weight
+            </Label>
+            <Input
+              id={`weight-${r.id}`}
+              className="h-8 w-24"
+              defaultValue={String(r.weight)}
+              onBlur={(e) => {
+                const weight = Number(e.target.value);
+                if (Number.isFinite(weight) && weight !== r.weight) {
+                  mutation.mutate({ id: r.id, weight });
+                }
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
