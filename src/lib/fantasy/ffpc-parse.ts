@@ -253,3 +253,24 @@ export function detectAllPlayWeeks(html: string): number[] {
   }
   return [...weeks].sort((a, b) => a - b);
 }
+
+/**
+ * leagueRulesFFPC.aspx lists each starting position and how many of them a
+ * team must start. That table is the source of truth for which positions a
+ * league can field.
+ */
+export function parseRosterSlots(html: string): string[] {
+  const slots: string[] = [];
+  const slotTable = findTable(html, "position", "starters") ?? findTable(html, "position", "start");
+  if (!slotTable) return slots;
+  const cPos = Math.max(0, columnIndex(slotTable, "position"));
+  const cCount = columnIndex(slotTable, "starters", "start", "number");
+  for (const row of slotTable.rows) {
+    const pos = (row[cPos] ?? "").toUpperCase().replace(/[^A-Z/]/g, "");
+    const count = cCount >= 0 ? toNumber(row[cCount]) : 0;
+    if (!pos || count <= 0) continue;
+    const slot = pos === "D/ST" || pos === "DST" ? "DEF" : pos === "PK" ? "K" : pos;
+    for (let i = 0; i < Math.min(count, 6); i++) slots.push(slot);
+  }
+  return slots;
+}
