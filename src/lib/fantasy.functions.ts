@@ -202,7 +202,6 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
     const regularWeeks = Number(bundle.league.settings?.["playoff_week_start"] ?? 15) - 1;
 
     // League type: Sleeper's own setting, plus future picks as a dynasty tell.
-    const { detectLeagueType, effectiveFormat } = await import("@/lib/fantasy/league-type");
     const sleeperSettings = bundle.league.settings as Record<string, unknown> | undefined;
     const detectedType = detectLeagueType({
       sleeperType: sleeperSettings?.["type"] == null ? null : Number(sleeperSettings["type"]),
