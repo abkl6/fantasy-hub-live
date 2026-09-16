@@ -14,14 +14,16 @@ describe("projection templates", () => {
   });
 
   it("maps kicker headings onto scoring keys", () => {
-    const mapped = mapHeaders("k", ["player", "pos", "team", "FG", "FGM", "XP", "XPM"]);
-    expect(Object.keys(mapped).length).toBeGreaterThan(0);
+    const header = templateHeaderRow("k").split(",");
+    const mapped = mapHeaders("k", header);
+    expect(mapped.length).toBeGreaterThan(0);
+    expect(mapped.every((m) => m.index >= 0 && m.key)).toBe(true);
   });
 
   it("gives every group an identifier, name, position, team and bye column", () => {
     for (const group of ["offense", "dst", "idp", "k"] as const) {
-      const cols = templateColumns(group).map((c) => c.key);
-      expect(cols.slice(0, 5)).toEqual(["id", "player", "position", "team", "bye"]);
+      const cols = templateColumns(group).map((c) => c.header);
+      expect(cols.slice(0, 5)).toEqual(["player_key", "name", "pos", "nfl_team", "bye"]);
     }
   });
 });
