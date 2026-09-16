@@ -330,6 +330,21 @@ function DataTab() {
             <RefreshCw className="size-4" aria-hidden="true" />
             Recompute
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              try {
+                const r = await refreshStrength({ data: {} });
+                toast.success(`Schedule strength worked out for ${r.teams} teams`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Could not work that out");
+              }
+            }}
+          >
+            <RefreshCw className="size-4" aria-hidden="true" />
+            Schedule strength
+          </Button>
         </div>
         <div className="mt-3 divide-y divide-border">
           {(q.data?.batches ?? []).map((b) => (
