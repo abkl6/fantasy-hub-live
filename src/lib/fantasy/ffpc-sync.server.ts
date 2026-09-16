@@ -22,23 +22,50 @@ const DEFAULT_PROJ: Record<string, number> = {
 
 export const FFPC_SYNC_PAUSED_NOTE = "sync paused — update manually";
 
-/** Reads the manager's FFPC token. Returns null when they haven't connected. */
-export async function ffpcToken(supabase: DB, userId?: string): Promise<string | null> {
+/**
+ * Reads the manager's FFPC token. FFPC issues one token per league, so the
+ * league's own token is preferred and the most recent one is the fallback.
+ * Returns null when they haven't connected.
+ */
+export async function ffpcToken(
+  supabase: DB,
+  userId?: string,
+  leagueExternalId?: string | null,
+): Promise<string | null> {
   const { decryptToken } = await import("./token-crypto.server");
   let query = supabase.from("platform_credentials").select("payload").eq("platform", "ffpc");
   if (userId) query = query.eq("user_id", userId);
   const { data } = await query.maybeSingle();
-  const payload = (data?.payload ?? {}) as Record<string, string>;
-  return decryptToken(payload["ltuid"] ?? null);
+  const payload = (data?.payload ?? {}) as Record<string, unknown>;
+  const byLeague = (payload["byLeague"] ?? {}) as Record<string, string>;
+  const stored =
+    (leagueExternalId ? byLeague[leagueExternalId] : null) ?? (payload["ltuid"] as string) ?? null;
+  return decryptToken(stored);
 }
 
-export async function saveFfpcToken(supabase: DB, userId: string, ltuid: string) {
+export async function saveFfpcToken(
+  supabase: DB,
+  userId: string,
+  ltuid: string,
+  leagueExternalId?: string | null,
+) {
   const { encryptToken } = await import("./token-crypto.server");
+  const { data: existing } = await supabase
+    .from("platform_credentials")
+    .select("payload")
+    .eq("platform", "ffpc")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const previous = (existing?.payload ?? {}) as Record<string, unknown>;
+  const byLeague = { ...((previous["byLeague"] ?? {}) as Record<string, string>) };
+  const encrypted = await encryptToken(ltuid);
+  if (leagueExternalId) byLeague[leagueExternalId] = encrypted;
+
   const { error } = await supabase.from("platform_credentials").upsert(
     {
       user_id: userId,
       platform: "ffpc",
-      payload: { ltuid: await encryptToken(ltuid) },
+      payload: { ltuid: encrypted, byLeague },
     },
     { onConflict: "user_id,platform" },
   );
