@@ -678,6 +678,7 @@ export async function ffpcLeagueBundle(
     externalId: leagueId,
     name: home.name,
     leagueType: home.leagueType,
+    hasEmpirePanel: home.hasEmpirePanel,
     season: home.season,
     currentWeek: week,
     teamCount,
