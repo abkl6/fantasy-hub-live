@@ -36,6 +36,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   applyMoveFn,
+  clearLeagueCache,
+
   evaluateTradeFn,
   getAnalysis,
   getDraftRecapFn,
