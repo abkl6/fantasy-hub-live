@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis, type Alert, type MoveSuggestion } from "./analysis.server";
+import type { Trajectory as PlayerTrajectory } from "./age-curve";
 import type { Slot } from "./engine";
 import { isMultiYear } from "./format";
 import { normalizeName } from "./names";
@@ -41,6 +42,8 @@ export interface ManagerHubPayload {
     share: number;
     /** True when he carries more than 15% of my week. */
     concentrated: boolean;
+    /** Value trajectory from any dynasty, keeper or empire league I own him in. */
+    trajectory: PlayerTrajectory | null;
   }[];
   /** Full standings per league, with my team flagged and dynasty values where relevant. */
   standings: {
@@ -132,8 +135,10 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
         (s) => s.name !== "Empty" && normalizeName(s.name) === normalizeName(player.name),
       );
       const points = starting ? player.proj : 0;
+      const trajectory = (player as { trajectory?: PlayerTrajectory | null }).trajectory ?? null;
       const current = exposureMap.get(key);
       if (current) {
+        if (!current.trajectory && trajectory) current.trajectory = trajectory;
         current.leagues += 1;
         current.leagueNames.push(analysis.league.name);
         current.projPoints += points;
@@ -150,6 +155,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
           projPoints: points,
           share: 0,
           concentrated: false,
+          trajectory,
         });
       }
     }

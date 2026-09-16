@@ -57,6 +57,8 @@ export interface TradeValueBook {
   age: (id: string | null, name: string, position: string) => number | null;
   /** Median age of the position in the current market table. */
   medianAge: (position: string) => number | null;
+  /** Rank within the position on the market table (1 = best). */
+  positionRank: (id: string | null, name: string, position: string) => number | null;
   pick: (season: number, round: number, slot: PickSlot) => number;
   lastRefreshed: string | null;
   covered: boolean;
@@ -87,7 +89,7 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
   const [{ data: values }, { data: picks }] = await Promise.all([
     supabase
       .from("player_trade_values")
-      .select("player_id, norm_name, position, value, age, fetched_at")
+      .select("player_id, norm_name, position, value, age, position_rank, fetched_at")
       .eq("format", format),
     supabase.from("pick_values").select("season, round, slot, value").eq("format", format),
   ]);
@@ -97,6 +99,8 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
   const ageById = new Map<string, number>();
   const ageByName = new Map<string, number>();
   const agesByPosition = new Map<string, number[]>();
+  const rankById = new Map<string, number>();
+  const rankByName = new Map<string, number>();
   let lastRefreshed: string | null = null;
 
   for (const row of values ?? []) {
@@ -105,6 +109,13 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
     if (row.player_id) byId.set(row.player_id, value);
     byName.set(`${row.norm_name}|${pos}`, value);
     byName.set(row.norm_name as string, Math.max(byName.get(row.norm_name as string) ?? 0, value));
+
+    const rank = row.position_rank == null ? null : Number(row.position_rank);
+    if (rank != null && Number.isFinite(rank) && rank > 0) {
+      if (row.player_id) rankById.set(row.player_id, rank);
+      rankByName.set(`${row.norm_name}|${pos}`, rank);
+      if (!rankByName.has(row.norm_name as string)) rankByName.set(row.norm_name as string, rank);
+    }
 
     const age = row.age == null ? null : Number(row.age);
     if (age != null && Number.isFinite(age) && age > 0) {
@@ -158,8 +169,15 @@ export async function loadTradeValues(supabase: DB, format: ValueFormat): Promis
     return ageByName.get(`${norm}|${position.toUpperCase()}`) ?? ageByName.get(norm) ?? null;
   };
 
+  const positionRank = (id: string | null, name: string, position: string) => {
+    if (id && rankById.has(id)) return rankById.get(id)!;
+    const norm = normalizeName(name);
+    return rankByName.get(`${norm}|${position.toUpperCase()}`) ?? rankByName.get(norm) ?? null;
+  };
+
   return {
     format,
+    positionRank,
     lastRefreshed,
     covered: byName.size > 0,
     market,

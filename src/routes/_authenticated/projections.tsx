@@ -11,6 +11,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { ProjectionAdjuster } from "@/components/ProjectionAdjuster";
+import { TrajectoryChip } from "@/components/TrajectoryChip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -167,6 +168,7 @@ function ProjectionsPage() {
                         yours
                       </Badge>
                     )}
+                    <TrajectoryChip className="ml-2" trajectory={row.trajectory} playerName={row.name} />
                   </td>
                   <td className="px-4 py-2">{row.position}</td>
                   <td className="px-4 py-2 text-muted-foreground">{row.nflTeam ?? "—"}</td>

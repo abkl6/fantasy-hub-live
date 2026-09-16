@@ -23,6 +23,8 @@ import { useCachedQuery } from "@/hooks/useCachedQuery";
 import type { TeamBadge as TeamBadgeValue } from "@/lib/fantasy/team-class";
 import { TeamBadge } from "@/components/TeamBadge";
 import { TradeBuilder } from "@/components/TradeBuilder";
+import { TrajectoryChip } from "@/components/TrajectoryChip";
+import type { Trajectory as PlayerTrajectory } from "@/lib/fantasy/age-curve";
 import { GameDayBoard } from "@/components/GameDayBoard";
 import { ManualUpkeep } from "@/components/ManualUpkeep";
 import { Badge } from "@/components/ui/badge";
@@ -455,6 +457,25 @@ function LeaguePage() {
                     .
                   </p>
                 )}
+                {data.dynastyOutlook && (
+                  <div className="mt-3 rounded-lg bg-secondary p-3 text-xs">
+                    <p>
+                      <span className="stat-num text-foreground">
+                        {Math.round(data.dynastyOutlook.pastPeakShare * 100)}%
+                      </span>{" "}
+                      of your value is in players at or past their position peak ·{" "}
+                      {data.dynastyOutlook.contentionWindow}
+                    </p>
+                    {data.dynastyOutlook.sellSoon.length > 0 && (
+                      <p className="mt-1 text-muted-foreground">
+                        Sell soon:{" "}
+                        {data.dynastyOutlook.sellSoon
+                          .map((s) => `${s.name} (${Math.round(s.change1 * 100)}% in a year)`)
+                          .join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <ul className="mt-3 space-y-1">
                   {data.dynasty.map((row) => (
                     <li
@@ -467,6 +488,7 @@ function LeaguePage() {
                         <span className="text-xs text-muted-foreground">
                           {row.age ? `${row.age} yrs` : "age unknown"}
                         </span>
+                        <TrajectoryChip trajectory={row.trajectory} playerName={row.name} />
                       </span>
                       <span className="text-xs text-muted-foreground">
                         Future <span className="stat-num text-foreground">{row.longTermValue}</span>{" "}
@@ -569,7 +591,7 @@ function PlayerList({
   players,
 }: {
   title: string;
-  players: { name: string; position: string; slot?: string; proj: number; status?: string; nflTeam?: string | null; byeWeek?: number | null }[];
+  players: { name: string; position: string; slot?: string; proj: number; status?: string; nflTeam?: string | null; byeWeek?: number | null; trajectory?: PlayerTrajectory | null }[];
 }) {
   return (
     <section className="rounded-xl bg-card p-5">
@@ -591,6 +613,7 @@ function PlayerList({
                 </Badge>
               )}
               {p.nflTeam && <span className="text-xs text-muted-foreground">{p.nflTeam}</span>}
+              <TrajectoryChip trajectory={p.trajectory} playerName={p.name} />
             </span>
             <span className="stat-num">{p.proj.toFixed(1)}</span>
           </li>

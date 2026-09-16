@@ -70,6 +70,8 @@ import {
   type ValueFormat,
 } from "./trade-value";
 import { leagueDynastyValues } from "./dynasty-value";
+import { tierFromRank, trajectoryFor, type Trajectory } from "./age-curve";
+import { loadAgeCurves } from "./age-curve.server";
 import {
   ageLane,
   partnerModes,
@@ -116,10 +118,22 @@ export interface LeagueRow {
   last_sync_error?: string | null;
 }
 
+/** Value now / +1yr / +2yr for one player, or null when the age is unknown. */
+export type PlayerTrajectory = Trajectory;
+
+/** One line about where a dynasty roster sits on the age curve. */
+export interface DynastyOutlook {
+  /** Share of team value tied up in players at or past their position peak. */
+  pastPeakShare: number;
+  contentionWindow: string;
+  sellSoon: { name: string; position: string; value: number; classification: string; change1: number }[];
+}
+
 export interface DynastyRow {
   name: string;
   position: string;
   age: number | null;
+  trajectory: PlayerTrajectory | null;
   /** Where the age came from: the market, years of experience, or nowhere. */
   ageSource: "age" | "experience" | "unknown";
   longTermValue: number;
@@ -219,8 +233,8 @@ export interface AnalysisPayload {
     vp: number;
   })[];
   grades: PositionGrade[];
-  lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
-  bench: { name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null }[];
+  lineup: { slot: string; name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null; trajectory: PlayerTrajectory | null }[];
+  bench: { name: string; position: string; proj: number; status: string; nflTeam: string | null; byeWeek: number | null; trajectory: PlayerTrajectory | null }[];
   suggestions: MoveSuggestion[];
   scoreboard: ScoreboardGame[];
   tradeCandidates: { id: string; name: string; position: string; proj: number; teamName: string; teamId: string }[];
@@ -253,6 +267,10 @@ export interface AnalysisPayload {
   mySurvival: SurvivalResult | null;
   /** Dynasty / keeper only: long-term value of my roster. */
   dynasty: DynastyRow[] | null;
+  /** Dynasty / keeper only: the age-curve read on my roster. */
+  dynastyOutlook: DynastyOutlook | null;
+  /** True when the league shows value trajectories (dynasty, keeper, empire). */
+  showTrajectories: boolean;
   /** True while the dynasty market is still being fetched after an import. */
   valuesPending: boolean;
   /** My team's badge and the trading posture that follows from it. */
@@ -330,6 +348,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   // Dynasty trade currency: market values plus each team's future pick stock.
   const values = await loadTradeValues(supabase, leagueValueFormat(slots));
+  const ageCurves = await loadAgeCurves(supabase, leagueValueFormat(slots));
   const { data: pickRows } = await supabase
     .from("team_draft_picks")
     .select("team_id, season, round, slot, count")
@@ -420,6 +439,33 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       unknownAgeById.set(row.teamId, row.unknownAgeCount);
     }
   }
+  /**
+   * Dynasty, keeper and empire leagues get a value trajectory per player.
+   * A player whose age nobody knows gets none — they show in the unknown-age
+   * notice instead of a made-up arrow.
+   */
+  const showTrajectories = isDynastyLeague || variant === "empire";
+  const trajectoryOf = (
+    name: string,
+    position: string,
+    id: string | null,
+    projSeason: number,
+  ): PlayerTrajectory | null => {
+    if (!showTrajectories) return null;
+    const own = ownAgeByName.get(normalizeName(name));
+    const age = values.age(id, name, position) ?? own?.age ?? null;
+    if (age == null) return null;
+    const value = values.player(id, name, position, projSeason);
+    if (!value) return null;
+    return trajectoryFor({
+      position,
+      age,
+      value,
+      tier: tierFromRank(values.positionRank(id, name, position), league.team_count ?? 12, position),
+      curve: ageCurves.curve(position),
+    });
+  };
+
   const laneOf = (p: EnginePlayer) => {
     const meta = ownAgeByName.get(normalizeName(p.name));
     const age = values.age(p.id, p.name, p.position) ?? meta?.age ?? null;
@@ -684,6 +730,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       ...formatMeta,
       mySurvival: null,
       dynasty: null,
+      dynastyOutlook: null,
+      showTrajectories: isMultiYear(format) || variant === "empire",
       myBadge: null,
       myStrategy: null,
     };
@@ -1154,12 +1202,44 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
           name: p.name,
           position: p.position,
           age,
+          trajectory: trajectoryOf(p.name, p.position, p.id, season),
           ageSource: longTerm.ageSource,
           longTermValue: longTerm.value,
           blendedValue: blendedValue(format, season, bestSeason, longTerm.value),
         };
       })
       .sort((a, b) => b.blendedValue - a.blendedValue);
+  }
+
+  // How much of my roster's value sits at or past its position peak, and who
+  // to move before the market notices.
+  let dynastyOutlook: DynastyOutlook | null = null;
+  if (showTrajectories && dynasty?.length) {
+    const withTrajectory = dynasty.filter((row) => row.trajectory);
+    const totalValue = withTrajectory.reduce((sum, row) => sum + (row.trajectory?.now ?? 0), 0);
+    const pastPeakValue = withTrajectory
+      .filter((row) => (row.trajectory?.age ?? 0) >= (row.trajectory?.peakAge ?? 99))
+      .reduce((sum, row) => sum + (row.trajectory?.now ?? 0), 0);
+    const pastPeakShare = totalValue > 0 ? pastPeakValue / totalValue : 0;
+    const contentionWindow =
+      pastPeakShare > 0.55
+        ? "Win now — this roster is built for the next season or two."
+        : pastPeakShare > 0.35
+          ? "Two to three seasons before this core needs replacing."
+          : "Young core — the window is three or more seasons out.";
+    const sellSoon = withTrajectory
+      .filter((row) => ["cliff", "declining"].includes(row.trajectory!.classification))
+      .filter((row) => row.trajectory!.now >= 1000)
+      .sort((a, b) => a.trajectory!.change1 - b.trajectory!.change1)
+      .slice(0, 3)
+      .map((row) => ({
+        name: row.name,
+        position: row.position,
+        value: row.trajectory!.now,
+        classification: row.trajectory!.classification,
+        change1: row.trajectory!.change1,
+      }));
+    dynastyOutlook = { pastPeakShare, contentionWindow, sellSoon };
   }
 
   const myTeamRow = teams.find((t) => t.id === mine.id)!;
@@ -1243,8 +1323,17 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         position: s.player?.position ?? "-",
         proj: s.player?.proj ?? 0,
         ...metaFor(s.player?.name ?? ""),
+        trajectory: s.player
+          ? trajectoryOf(s.player.name, s.player.position, s.player.id, s.player.proj * 17)
+          : null,
       })),
-    bench: best.bench.map((p) => ({ name: p.name, position: p.position, proj: p.proj, ...metaFor(p.name) })),
+    bench: best.bench.map((p) => ({
+      name: p.name,
+      position: p.position,
+      proj: p.proj,
+      ...metaFor(p.name),
+      trajectory: trajectoryOf(p.name, p.position, p.id, p.proj * 17),
+    })),
     suggestions: suggestions.slice(0, 12),
     scoreboard,
     tradeCandidates: engineTeams
@@ -1270,6 +1359,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     ...formatMeta,
     mySurvival,
     dynasty,
+    dynastyOutlook,
+    showTrajectories,
     myBadge,
     myStrategy,
   };

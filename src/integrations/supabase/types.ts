@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      age_curves: {
+        Row: {
+          created_at: string
+          fitted_at: string
+          format: string
+          id: string
+          points: Json
+          position: string
+          sample_size: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fitted_at?: string
+          format?: string
+          id?: string
+          points?: Json
+          position: string
+          sample_size?: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fitted_at?: string
+          format?: string
+          id?: string
+          points?: Json
+          position?: string
+          sample_size?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cron_keys: {
         Row: {
           created_at: string

@@ -11,6 +11,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { optimalLineup, slotAccepts, type EnginePlayer, type Slot } from "./engine";
 import { normalizeName } from "./names";
+import { tierFromRank, trajectoryFor } from "./age-curve";
+import { loadAgeCurves, type AgeCurveBook } from "./age-curve.server";
 import { loadLeague } from "./proposal.server";
 import { leagueScoring } from "./scoring";
 import { fairnessLabel } from "./trade-value";
@@ -30,6 +32,8 @@ interface Ctx {
   slots: Slot[];
   values: Awaited<ReturnType<typeof loadLeague>>["values"];
   seasonProj: Map<string, number>;
+  curves: AgeCurveBook | null;
+  teamCount: number;
 }
 
 function valueOf(ctx: Ctx, p: EnginePlayer) {
@@ -38,12 +42,26 @@ function valueOf(ctx: Ctx, p: EnginePlayer) {
   );
 }
 
-const assetOf = (ctx: Ctx, p: EnginePlayer): TradeFinderAsset => ({
-  name: p.name,
-  position: p.position,
-  proj: round1(p.proj),
-  value: valueOf(ctx, p),
-});
+const assetOf = (ctx: Ctx, p: EnginePlayer): TradeFinderAsset => {
+  const value = valueOf(ctx, p);
+  const age = ctx.curves ? ctx.values.age(p.id, p.name, p.position) : null;
+  return {
+    name: p.name,
+    position: p.position,
+    proj: round1(p.proj),
+    value,
+    trajectory:
+      ctx.curves && age != null && value > 0
+        ? trajectoryFor({
+            position: p.position,
+            age,
+            value,
+            tier: tierFromRank(ctx.values.positionRank(p.id, p.name, p.position), ctx.teamCount, p.position),
+            curve: ctx.curves.curve(p.position),
+          })
+        : null,
+  };
+};
 
 /** The starting slot a roster fills worst, ignoring kickers and defences. */
 function weakestSlot(roster: EnginePlayer[], slots: Slot[]) {
@@ -88,7 +106,14 @@ function offerMessage(
 export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<TradeFinderPayload> {
   const loaded = await loadLeague(supabase, leagueId);
   const slots = loaded.slots as Slot[];
-  const ctx: Ctx = { slots, values: loaded.values, seasonProj: loaded.seasonProj };
+  const curves = loaded.isDynasty ? await loadAgeCurves(supabase, loaded.values.format) : null;
+  const ctx: Ctx = {
+    slots,
+    values: loaded.values,
+    seasonProj: loaded.seasonProj,
+    curves,
+    teamCount: loaded.teams.length || 12,
+  };
 
   const scoring = leagueScoring(
     loaded.league.scoring_type,
