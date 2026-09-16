@@ -318,20 +318,25 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
     }
 
     if (best) {
-      // One simulation per partner: only the idea that actually gets shown.
+      // One coarse simulation per partner; the few ideas that get displayed
+      // are re-run at full accuracy below.
+      const after = distFor(bestRoster, slots, loaded.bestBall);
+      const dynasty = loaded.isDynasty
+        ? { valueByTeam, valueDelta: bestValueDelta }
+        : undefined;
+      rerun.set(team.id, { after, dynasty });
       const impact = recommendationImpact({
         teams: simTeams,
         config: loaded.simConfig,
         schedule: loaded.schedule,
         teamId: mine.id,
         baseline,
-        after: distFor(bestRoster, slots, loaded.bestBall),
-        iterations: 900,
+        after,
+        iterations: COARSE_ITERATIONS,
         seed: 7,
-        dynasty: loaded.isDynasty
-          ? { valueByTeam, valueDelta: bestValueDelta }
-          : undefined,
+        dynasty,
       });
+
       // How likely this manager is to say yes, read off what they have done
       // in this league before. A great offer they would never take is worth
       // less than a fair one they would.
