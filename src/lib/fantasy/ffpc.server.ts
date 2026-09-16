@@ -18,6 +18,7 @@ import {
   findTable,
   idFromLinks,
   parsePlayerCell,
+  parseRosterSlots,
   text,
   toNumber,
   type FfpcPlayer,
