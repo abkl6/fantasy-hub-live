@@ -238,6 +238,7 @@ function DataTab() {
   const upload = useServerFn(uploadProjectionBatch);
   const publish = useServerFn(setBatchPublished);
   const recompute = useServerFn(recomputeProjections);
+  const refreshStrength = useServerFn(refreshScheduleStrength);
   const saveSchedule = useServerFn(saveScheduleRow);
   const saveDefense = useServerFn(saveDefenseRank);
   const qc = useQueryClient();
@@ -336,7 +337,7 @@ function DataTab() {
             onClick={async () => {
               try {
                 const r = await refreshStrength({ data: {} });
-                toast.success(`Schedule strength worked out for ${r.teams} teams`);
+                toast.success(`Schedule strength worked out — ${r.rows} team ratings saved`);
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Could not work that out");
               }
