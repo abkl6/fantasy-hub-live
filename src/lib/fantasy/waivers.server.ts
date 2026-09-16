@@ -168,6 +168,10 @@ export async function buildWaiverBoard(
     source: resolveProjectionSource(league),
   });
 
+  const weeksRemaining = Math.max(
+    1,
+    (league.regular_season_weeks ?? 17) - (league.current_week ?? 1) + 1,
+  );
   const seasonWith = (
     set: typeof proj,
     p: {
@@ -175,16 +179,23 @@ export async function buildWaiverBoard(
       full_name?: string;
       position: string;
       proj_points_season: number | string;
+      proj_points_week?: number | string;
       stat_projections?: unknown;
     },
-  ) =>
-    set.season(
+  ) => {
+    const pos = p.position.toUpperCase();
+    const total = set.season(
       p.id ?? null,
       p.full_name ?? null,
-      p.position.toUpperCase(),
+      pos,
       Number(p.proj_points_season),
       p.stat_projections,
     );
+    if (total > 0) return total;
+    // Weekly-only sources carry no season total: build one from what is left.
+    const week = set.week(p.id ?? null, p.full_name ?? null, pos, Number(p.proj_points_week ?? 0));
+    return week > 0 ? week * weeksRemaining : 0;
+  };
 
   // A board full of zeros is useless: if the league's own source has no season
   // numbers, quietly read the app's instead and say so.
