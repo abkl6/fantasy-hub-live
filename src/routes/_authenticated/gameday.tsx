@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Suspense, lazy } from "react";
 
-import { GameDayBoard } from "@/components/GameDayBoard";
+// The live board is the heaviest view in the app; keep it out of the first load.
+const GameDayBoard = lazy(() =>
+  import("@/components/GameDayBoard").then((m) => ({ default: m.GameDayBoard })),
+);
+
 
 export const Route = createFileRoute("/_authenticated/gameday")({
   head: () => ({
