@@ -189,6 +189,11 @@ function LeaguePage() {
               current={data.league.projection_source}
               label={data.projectionLabel}
             />
+            <ScheduleStrengthToggle
+              leagueId={leagueId}
+              on={data.sosAdjust}
+              active={data.sosActive}
+            />
           </div>
         </div>
         <Button variant="outline" onClick={() => hardRefresh()} disabled={isFetching}>
