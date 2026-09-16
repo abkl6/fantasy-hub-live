@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
+import { importFfpcLeague, previewFfpcLeague } from "@/lib/ffpc.functions";
 import {
   createManualLeague,
   findSleeperLeagues,
@@ -89,6 +90,7 @@ function ConnectPage() {
           <TabsTrigger value="sleeper">Sleeper</TabsTrigger>
           <TabsTrigger value="espn">ESPN</TabsTrigger>
           <TabsTrigger value="yahoo">Yahoo</TabsTrigger>
+          <TabsTrigger value="ffpc">FFPC</TabsTrigger>
           <TabsTrigger value="wizard">Manual league</TabsTrigger>
           <TabsTrigger value="manual">Screenshot</TabsTrigger>
         </TabsList>
@@ -103,6 +105,9 @@ function ConnectPage() {
         </TabsContent>
         <TabsContent value="yahoo" className="mt-6">
           <YahooPanel />
+        </TabsContent>
+        <TabsContent value="ffpc" className="mt-6">
+          <FfpcPanel />
         </TabsContent>
         <TabsContent value="manual" className="mt-6">
           <ManualPanel />
@@ -685,6 +690,106 @@ function ManualPanel() {
         {createLeague.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
         Create league and add roster
       </Button>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- FFPC
+
+function FfpcPanel() {
+  const navigate = useNavigate();
+  const preview = useServerFn(previewFfpcLeague);
+  const doImport = useServerFn(importFfpcLeague);
+
+  const [url, setUrl] = useState("");
+  const [myTeam, setMyTeam] = useState<string | null>(null);
+
+  const look = useMutation({
+    mutationFn: () => preview({ data: { url: url.trim() } }),
+    onSuccess: (res) => setMyTeam(res.myTeamExternalId ?? null),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that league."),
+  });
+
+  const importer = useMutation({
+    mutationFn: (leagueId: string) =>
+      doImport({ data: { leagueId, myTeamExternalId: myTeam ?? null } }),
+    onSuccess: (res) => {
+      toast.success(`${res.name} imported.`);
+      navigate({ to: "/league/$leagueId", params: { leagueId: res.leagueId } });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed."),
+  });
+
+  const found = look.data;
+
+  return (
+    <section className="rounded-xl bg-card p-6">
+      <h2 className="text-2xl font-bold">Connect FFPC</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Open your league on myffpc.com and paste the whole address from your browser. The private
+        part of that link is stored securely and never shown again.
+      </p>
+
+      <div className="mt-5 space-y-2">
+        <Label htmlFor="ffpc-url">League link</Label>
+        <Input
+          id="ffpc-url"
+          placeholder="https://myffpc.com/LeagueHome.aspx?leagueID=..."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          autoComplete="off"
+        />
+      </div>
+
+      <Button
+        className="mt-4"
+        disabled={url.trim().length < 10 || look.isPending}
+        onClick={() => look.mutate()}
+      >
+        {look.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        Find league
+      </Button>
+
+      {found ? (
+        <div className="mt-6 space-y-4">
+          <div>
+            <p className="text-lg font-semibold">{found.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {found.leagueType} · {found.season} · week {found.currentWeek} · {found.contestLabel}
+              {found.allPlayWeeks.length ? ` · all-play weeks ${found.allPlayWeeks.join(", ")}` : ""}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Which team is yours?</Label>
+            <div className="divide-y divide-border rounded-xl bg-secondary">
+              {found.teams.map((t) => (
+                <button
+                  key={t.externalId}
+                  type="button"
+                  onClick={() => setMyTeam(t.externalId)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-medium">{t.name}</span>
+                  <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{t.record}</span>
+                    <span className="tabular-nums">{t.pointsFor.toFixed(1)}</span>
+                    {myTeam === t.externalId ? <Check className="h-4 w-4 text-primary" /> : null}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            disabled={!myTeam || importer.isPending}
+            onClick={() => importer.mutate(found.leagueId)}
+          >
+            {importer.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Import league
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }
