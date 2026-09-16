@@ -6,6 +6,8 @@ import type { Database } from "@/integrations/supabase/types";
 import { buildAnalysis } from "./analysis.server";
 import { slotAccepts, type Slot } from "./engine";
 import { impactAddKey, impactScore, impactSwapKey, primaryImpactText } from "./impact";
+import { isStreamPosition, replacementLevels, valueOverReplacement } from "./rules";
+import { loadStrategyRules } from "./rules.server";
 import type {
   LineupCheckLeague,
   LineupCheckPayload,
@@ -54,6 +56,7 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
     .order("created_at");
   if (error) throw new Error(error.message);
 
+  const book = await loadStrategyRules(supabase);
   const leagues: LineupCheckLeague[] = [];
 
   for (const row of leagueRows ?? []) {
@@ -78,6 +81,14 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
         impactRank: impactScore(found, analysis.teamClass, isDynasty),
       };
     };
+
+    // Swaps are judged on what the bench actually offers at that position,
+    // not on the raw projection.
+    const benchLevels = replacementLevels(
+      bench.map((p) => ({ id: p.name, position: p.position, proj: p.proj })),
+    );
+    const vorOf = (position: string, proj: number) =>
+      book.on("value-over-replacement") ? valueOverReplacement(proj, position, benchLevels) : proj;
 
     for (const starter of analysis.lineup) {
       if (starter.name === "Empty") continue;
@@ -128,6 +139,25 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
       }
 
       if (best && gain !== null && gain >= 3) {
+        // A kicker or defence is streamed, never chased: an upgrade there is
+        // noise unless the starter cannot play.
+        if (book.on("stream-k-def") && isStreamPosition(best.position)) {
+          issues.push({
+            id: `${row.id}:${starter.slot}:${starter.name}:upgrade`,
+            severity: "yellow",
+            kind: "upgrade",
+            starter: starter.name,
+            starterPosition: starter.position,
+            slot: starter.slot,
+            problem: `${best.name} projects ${gain} points higher`,
+            replacement: best.name,
+            replacementPosition: best.position,
+            gain,
+            ruleNote: book.why("stream-k-def"),
+            ...impactOf(best.name, starter.name),
+          });
+          continue;
+        }
         issues.push({
           id: `${row.id}:${starter.slot}:${starter.name}:upgrade`,
           severity: "yellow",
@@ -139,6 +169,10 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
           replacement: best.name,
           replacementPosition: best.position,
           gain,
+          ruleNote:
+            vorOf(best.position, best.proj) > 0
+              ? null
+              : book.why("value-over-replacement"),
           ...impactOf(best.name, starter.name),
         });
       }

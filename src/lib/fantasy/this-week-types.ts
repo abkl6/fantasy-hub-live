@@ -28,6 +28,8 @@ export interface ThisWeekItem {
   impactLabel: string | null;
   /** Sort key; bigger is better for this team. */
   impactRank: number;
+  /** One line naming the strategy rule that shaped this row. */
+  ruleNote?: string | null;
 }
 
 export interface ThisWeekLeague {
