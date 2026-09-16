@@ -221,6 +221,15 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
   };
 
   const ideas: TradeFinderIdea[] = [];
+  /** Kept so the displayed ideas can be re-simulated at full accuracy. */
+  const rerun = new Map<
+    string,
+    {
+      after: { mean: number; sd: number };
+      dynasty: { valueByTeam: Record<string, number>; valueDelta: number } | undefined;
+    }
+  >();
+
 
   for (const team of loaded.teams) {
     if (team.id === mine.id) continue;
