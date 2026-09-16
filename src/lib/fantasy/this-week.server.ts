@@ -69,7 +69,9 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
   const leagues: ThisWeekLeague[] = [];
 
   for (const row of leagueRows ?? []) {
-    const analysis = await buildAnalysis(supabase, row.id);
+    // Reuse the league's stored analysis; only a cold cache rebuilds it here.
+    const analysis = await leagueAnalysis(supabase, row.user_id, row.id);
+
     if (!analysis.myTeam) continue;
     const week = row.current_week;
     const items: ThisWeekItem[] = [];
