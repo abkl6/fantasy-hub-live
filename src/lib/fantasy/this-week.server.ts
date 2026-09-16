@@ -76,6 +76,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
       tab: ThisWeekItem["tab"],
       swap: string | null = null,
       replacement: string | null = null,
+      ruleNote: string | null = null,
     ) => {
       items.push({
         id: `${row.id}:${kind}:${id}`,
@@ -90,6 +91,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         tab,
         swap,
         replacement,
+        ruleNote,
         ...impactOf(replacement, swap),
       });
     };
@@ -211,6 +213,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         "moves",
         null,
         move.addName ?? null,
+        move.ruleNote ?? null,
       );
     }
 

@@ -25,6 +25,8 @@ import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
 import type { WaiverHubLeagueEntry, WaiverHubPayload, WaiverHubPlayer } from "./waiver-hub-types";
+import { applyBidRules } from "./rules";
+import { loadStrategyRules } from "./rules.server";
 
 export type * from "./waiver-hub-types";
 
@@ -83,6 +85,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
     supabase.from("players").select("*").order("id").range(from, to),
   );
 
+  const book = await loadStrategyRules(supabase);
   const byKey = new Map<string, WaiverHubPlayer>();
   const leagueSummaries: WaiverHubPayload["leagues"] = [];
   let week = 1;
@@ -235,6 +238,15 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
       }
       const cap = faabRemaining ?? faabBudget;
       suggestedBid = Math.max(1, Math.min(Math.round(cap), suggestedBid));
+      // Streamers go at the minimum, and part of the budget is always held back.
+      const capped = applyBidRules(book, {
+        position: fa.row.position.toUpperCase(),
+        bid: suggestedBid,
+        budget: faabBudget,
+        remaining: faabRemaining,
+        weeksLeft: Math.max(1, (league.regular_season_weeks ?? 17) - (league.current_week ?? 1) + 1),
+      });
+      suggestedBid = capped.bid;
 
       const entry: WaiverHubLeagueEntry = {
         leagueId: league.id,
@@ -250,6 +262,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
         urlLabel: link?.label ?? null,
         impactLabel: impactByName.get(normalizeName(fa.row.full_name))?.label ?? null,
         impactRank: impactByName.get(normalizeName(fa.row.full_name))?.rank ?? 0,
+        ruleNote: capped.note,
       };
 
       const key = `${normalizeName(fa.row.full_name)}::${fa.row.position.toUpperCase()}`;

@@ -19,6 +19,8 @@ export interface LineupIssue {
   /** "+1.8% title" — what the swap is worth to this team. */
   impactLabel: string | null;
   impactRank: number;
+  /** One line naming the strategy rule that shaped this row. */
+  ruleNote?: string | null;
 }
 
 export interface LineupCheckLeague {

@@ -220,6 +220,9 @@ function LeaguePage() {
             ))}
           </div>
           <p className="mt-2 text-sm text-muted-foreground">{data.classLine.reason}</p>
+          <Link to="/how-advice-works" className="mt-2 inline-block text-xs text-muted-foreground underline">
+            How advice works
+          </Link>
         </section>
       )}
 
@@ -1398,6 +1401,7 @@ function MoveCard({
     acceptanceReason?: string;
     partnerPointsDelta?: number;
     impactLabel?: string;
+    ruleNote?: string | null;
     impact?: {
       titleDelta: number;
       playoffDelta: number;
@@ -1502,6 +1506,9 @@ function MoveCard({
           {suggestion.rationale && (
             <p className="mt-1 text-xs text-muted-foreground">{suggestion.rationale}</p>
           )}
+          {suggestion.ruleNote ? (
+            <p className="mt-1 text-xs text-muted-foreground">Rule: {suggestion.ruleNote}</p>
+          ) : null}
         </div>
         <div className="text-right">
           <p className="eyebrow text-muted-foreground">Impact</p>

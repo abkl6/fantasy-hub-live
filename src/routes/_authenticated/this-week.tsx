@@ -79,6 +79,9 @@ function ItemRow({ item }: { item: ThisWeekItem }) {
             {item.impactLabel}
           </p>
         ) : null}
+        {item.ruleNote ? (
+          <p className="truncate text-[11px] text-muted-foreground">Rule: {item.ruleNote}</p>
+        ) : null}
       </div>
       {item.meta ? (
         <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{item.meta}</span>

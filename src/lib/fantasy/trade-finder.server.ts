@@ -27,6 +27,8 @@ import { loadLeague } from "./proposal.server";
 import { leagueScoring } from "./scoring";
 import { fairnessLabel } from "./trade-value";
 import type { TradeFinderAsset, TradeFinderIdea, TradeFinderPayload } from "./trade-finder-types";
+import { isStreamPosition } from "./rules";
+import { loadStrategyRules } from "./rules.server";
 
 export type * from "./trade-finder-types";
 
@@ -34,6 +36,8 @@ type DB = SupabaseClient<Database>;
 
 const BENCH_SLOT = new Set(["BN", "IR", "TAXI"]);
 /** Kickers and defences never drive a trade. */
+// Kickers and defences are streamed, never traded for — the strategy layer's
+// first rule, applied at the point candidates are chosen.
 const IGNORED = new Set(["K", "PK", "DEF", "DST"]);
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -183,6 +187,7 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
         ? "rebuilder"
         : "middle";
 
+  const book = await loadStrategyRules(supabase);
   const ideas: TradeFinderIdea[] = [];
 
   for (const team of loaded.teams) {
@@ -302,6 +307,16 @@ export async function buildTradeFinder(supabase: DB, leagueId: string): Promise<
   }
 
   ideas.sort((a, b) => b.impactRank - a.impactRank || b.fairness - a.fairness);
+  // The order is the team's class talking: say so on the idea it put first.
+  if (book.on("class-tiebreak") && ideas.length > 1) {
+    ideas[0] = { ...ideas[0]!, ruleNote: book.why("class-tiebreak") };
+  }
+  for (const idea of ideas) {
+    if (idea.ruleNote) continue;
+    if (book.on("stream-k-def") && [...idea.iGet, ...idea.iGive].some((a) => isStreamPosition(a.position))) {
+      idea.ruleNote = book.why("stream-k-def");
+    }
+  }
 
   return { ...base, teamClass: myClass, hasMyTeam: true, myTeamName: mine.name, ideas };
 }

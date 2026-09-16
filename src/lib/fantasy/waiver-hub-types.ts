@@ -19,6 +19,8 @@ export interface WaiverHubLeagueEntry {
   /** "+1.8% title" — simulated worth of the claim in that league. */
   impactLabel: string | null;
   impactRank: number;
+  /** One line naming the strategy rule that changed this bid. */
+  ruleNote?: string | null;
 }
 
 export interface WaiverHubPlayer {

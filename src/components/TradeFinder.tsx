@@ -58,6 +58,10 @@ function IdeaCard({ idea }: { idea: TradeFinderIdea }) {
         </div>
       </div>
 
+      {idea.ruleNote ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">Rule: {idea.ruleNote}</p>
+      ) : null}
+
       <div className="mt-3 flex gap-4">
         <AssetList label="You send" assets={idea.iGive} />
         <AssetList label="You get" assets={idea.iGet} />

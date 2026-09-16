@@ -1590,6 +1590,45 @@ export type Database = {
           },
         ]
       }
+      strategy_rules: {
+        Row: {
+          category: string
+          created_at: string
+          enabled: boolean
+          id: string
+          key: string
+          rationale: string
+          rule: string
+          sort_order: number
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          key: string
+          rationale: string
+          rule: string
+          sort_order?: number
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          key?: string
+          rationale?: string
+          rule?: string
+          sort_order?: number
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       team_draft_picks: {
         Row: {
           count: number
