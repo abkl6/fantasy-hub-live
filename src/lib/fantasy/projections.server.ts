@@ -135,6 +135,14 @@ export async function loadProjections(
     });
   }
 
+  // Opponent strength: only when this league has asked for it.
+  const { loadStrengthBook, neutralStrength } = await import("./sos.server");
+  const strength = opts.sos ? await loadStrengthBook(supabase, season) : neutralStrength();
+  const matchup = (playerId: string | null | undefined, position: string) => {
+    if (!strength.covered || !playerId) return 1;
+    return strength.multiplier(position, weekStats.get(playerId)?.opponent ?? null);
+  };
+
   const find = (playerId?: string | null, name?: string | null) => {
     if (playerId) {
       const hit = byId.get(playerId);
@@ -149,12 +157,15 @@ export async function loadProjections(
   return {
     count: byId.size,
     week: (playerId, name, position, base) => {
+      const m = matchup(playerId, position);
       const override = find(playerId, name);
-      if (override) return scoring ? scoring.scale(position, override.week) : override.week;
+      if (override) {
+        return round((scoring ? scoring.scale(position, override.week) : override.week) * m);
+      }
       const line = playerId ? weekStats.get(playerId) : undefined;
-      if (scoring && line?.stats) return round(scoring.score(position, line.stats));
+      if (scoring && line?.stats) return round(scoring.score(position, line.stats) * m);
       if (line && !line.stats) return 0; // bye week or no projected usage
-      return scoring ? scoring.scale(position, base) : base;
+      return round((scoring ? scoring.scale(position, base) : base) * m);
     },
     season: (playerId, name, position, base, stats) => {
       const override = find(playerId, name);
