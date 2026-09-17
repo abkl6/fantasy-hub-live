@@ -891,3 +891,21 @@ export const clearMyProjections = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/** Points every one of this member's leagues at the same projection set. */
+export const setProjectionSourceEverywhere = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ source: z.enum(["platform", "app", "user"]) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("leagues")
+      .update({ projection_source: data.source } as never)
+      .eq("user_id", context.userId)
+      .select("id");
+    if (error) throw new Error(error.message);
+    // Cached analysis was built on the old numbers.
+    await context.supabase.from("analysis_cache").delete().eq("user_id", context.userId);
+    return { updated: rows?.length ?? 0 };
+  });
