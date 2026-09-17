@@ -67,7 +67,7 @@ import {
 } from "@/lib/constraints.functions";
 import { normalizeName } from "@/lib/fantasy/names";
 import { logTrade } from "@/lib/platforms.functions";
-import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
+import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor, leagueInitials } from "@/lib/league-colors";
 import { rankWaivers } from "@/lib/fantasy/waiver-rank";
 import { isStreamedPosition } from "@/lib/fantasy/slot-fill";
 import type { SlotFill, StreamSuggestion } from "@/lib/fantasy/slot-fill";
