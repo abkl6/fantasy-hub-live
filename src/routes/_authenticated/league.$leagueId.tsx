@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SeasonPanel } from "@/components/SeasonPanel";
+import { BestballLeague } from "@/components/BestballLeague";
+import { getBestballFn } from "@/lib/bestball.functions";
+
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLeagueSwipe } from "@/components/LeagueStrip";
 
@@ -124,8 +127,32 @@ export const Route = createFileRoute("/_authenticated/league/$leagueId")({
     if (typeof search["with"] === "string") out.with = search["with"];
     return out;
   },
-  component: LeaguePage,
+  component: LeagueRoute,
 });
+
+/**
+ * Best ball tournaments have no opponents, waivers or trades, so they get
+ * their own entries board instead of the usual league page.
+ */
+function LeagueRoute() {
+  const { leagueId } = Route.useParams();
+  const bestball = useServerFn(getBestballFn);
+  const { data, isPending } = useQuery({
+    queryKey: ["bestball", leagueId],
+    queryFn: () => bestball({ data: { leagueId } }),
+    staleTime: 60_000,
+  });
+  if (isPending) {
+    return (
+      <main className="mx-auto max-w-6xl px-6 py-10">
+        <Skeleton className="h-40 w-full" />
+      </main>
+    );
+  }
+  if (data) return <BestballLeague payload={data} />;
+  return <LeaguePage />;
+}
+
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 

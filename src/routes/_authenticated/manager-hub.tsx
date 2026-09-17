@@ -541,13 +541,14 @@ function ManagerHub() {
 
         <section className="mt-6 rounded-xl bg-card p-5">
           <div className="flex items-center gap-2"><Activity className="size-5 text-primary" /><h2 className="text-xl font-bold">Player exposure</h2></div>
-          <p className="mt-1 text-xs text-muted-foreground">Players you own in more than one league, and how much of this week's projected points ride on each of them.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Players you own in more than one league or best ball entry, and how much of this week's projected points ride on each of them.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
-            {!data.exposure.some((p) => p.leagues > 1) && <p className="py-4 text-sm text-muted-foreground">No player shows up in more than one of your leagues.</p>}
-            {data.exposure.filter((player) => player.leagues > 1).slice(0, 12).map((player) => <div key={`${player.name}-${player.position}`} className="rounded-lg bg-secondary/30 p-3">
+            {!data.exposure.some((p) => p.leagues > 1 || p.entries > 0) && <p className="py-4 text-sm text-muted-foreground">No player shows up in more than one of your leagues.</p>}
+            {data.exposure.filter((player) => player.leagues > 1 || player.entries > 0).slice(0, 12).map((player) => <div key={`${player.name}-${player.position}`} className="rounded-lg bg-secondary/30 p-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0"><p className="truncate text-sm font-semibold">{player.name} <span className="text-xs font-normal text-muted-foreground">{player.position}{player.nflTeam ? ` · ${player.nflTeam}` : ""}</span></p><p className="truncate text-xs text-muted-foreground">{player.leagueNames.join(" · ")}</p></div>
-                <div className="shrink-0 text-right"><p className="font-display font-bold tabular-nums">{(player.share * 100).toFixed(1)}%</p><p className="text-[10px] text-muted-foreground tabular-nums">{player.leagues}/{player.totalLeagues} leagues · {player.projPoints.toFixed(1)} pts</p></div>
+                <div className="min-w-0"><p className="truncate text-sm font-semibold">{player.name} <span className="text-xs font-normal text-muted-foreground">{player.position}{player.nflTeam ? ` · ${player.nflTeam}` : ""}</span></p><p className="truncate text-xs text-muted-foreground">{[...player.leagueNames, ...player.tournaments].join(" · ")}</p></div>
+                <div className="shrink-0 text-right"><p className="font-display font-bold tabular-nums">{(player.share * 100).toFixed(1)}%</p><p className="text-[10px] text-muted-foreground tabular-nums">{player.leagues}/{player.totalLeagues} leagues · {player.projPoints.toFixed(1)} pts{player.entries ? ` · ${player.entries}/${player.totalEntries} entries (${(player.entryShare * 100).toFixed(0)}%)` : ""}</p></div>
+
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"><div className={`h-full rounded-full ${player.concentrated ? "bg-destructive" : "bg-primary"}`} style={{ width: `${Math.min(100, player.share * 100 * 4)}%` }} /></div>

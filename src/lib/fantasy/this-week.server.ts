@@ -48,6 +48,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
   const { data: leagueRows, error } = await supabase
     .from("leagues")
     .select("id, name, platform, color, current_week, last_confirmed_at, user_id")
+    .not("platform", "in", "(underdog,draftkings)")
     .order("created_at");
   if (error) throw new Error(error.message);
 

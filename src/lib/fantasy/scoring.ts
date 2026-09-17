@@ -75,7 +75,18 @@ const PRESETS: Record<string, ScoringRules> = {
    * four-point passing touchdowns.
    */
   ffpc: { rec: 1, bonus_rec_te: 0.5, pass_td: 4 },
+  /** Underdog best ball: half a point a catch, four-point passing TDs. */
+  underdog: { rec: 0.5, pass_td: 4 },
+  /** DraftKings best ball: full PPR, four-point passing TDs, yardage bonuses. */
+  draftkings: {
+    rec: 1,
+    pass_td: 4,
+    bonus_pass_300: 3,
+    bonus_rush_100: 3,
+    bonus_rec_100: 3,
+  },
 };
+
 
 /** What an FFPC league is scored as when its rules page cannot be read. */
 export const FFPC_DEFAULT_SCORING = "ffpc";
@@ -178,8 +189,13 @@ export function scoreStats(stats: StatLine, rules: ScoringRules, position?: stri
   if (pos === "TE" && rules['bonus_rec_te']) total += (stats['rec'] ?? 0) * rules['bonus_rec_te'];
   if (pos === "RB" && rules['bonus_rec_rb']) total += (stats['rec'] ?? 0) * rules['bonus_rec_rb'];
   if (pos === "WR" && rules['bonus_rec_wr']) total += (stats['rec'] ?? 0) * rules['bonus_rec_wr'];
+  // Milestone bonuses (DraftKings best ball and similar rule sets).
+  if (rules['bonus_pass_300'] && (stats['pass_yd'] ?? 0) >= 300) total += rules['bonus_pass_300'];
+  if (rules['bonus_rush_100'] && (stats['rush_yd'] ?? 0) >= 100) total += rules['bonus_rush_100'];
+  if (rules['bonus_rec_100'] && (stats['rec_yd'] ?? 0) >= 100) total += rules['bonus_rec_100'];
   return total;
 }
+
 
 /**
  * Per-position scaling factor from baseline projections to this league's

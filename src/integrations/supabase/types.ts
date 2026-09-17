@@ -112,6 +112,114 @@ export type Database = {
           },
         ]
       }
+      bestball_entries: {
+        Row: {
+          created_at: string
+          draft_id: string | null
+          draft_slot: number | null
+          entry_id: string
+          id: string
+          league_id: string
+          tournament: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          draft_id?: string | null
+          draft_slot?: number | null
+          entry_id: string
+          id?: string
+          league_id: string
+          tournament: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          draft_id?: string | null
+          draft_slot?: number | null
+          entry_id?: string
+          id?: string
+          league_id?: string
+          tournament?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bestball_entries_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bestball_entry_players: {
+        Row: {
+          created_at: string
+          entry_id: string
+          id: string
+          league_id: string
+          nfl_team: string | null
+          norm_name: string
+          pick_number: number | null
+          player_id: string | null
+          player_name: string
+          position: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          id?: string
+          league_id: string
+          nfl_team?: string | null
+          norm_name: string
+          pick_number?: number | null
+          player_id?: string | null
+          player_name: string
+          position: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          id?: string
+          league_id?: string
+          nfl_team?: string | null
+          norm_name?: string
+          pick_number?: number | null
+          player_id?: string | null
+          player_name?: string
+          position?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bestball_entry_players_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "bestball_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bestball_entry_players_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bestball_entry_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calibration_log: {
         Row: {
           actual: number | null
