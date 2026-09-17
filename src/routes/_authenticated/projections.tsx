@@ -849,3 +849,33 @@ function TradeValuesPanel() {
     </div>
   );
 }
+
+/** Switches every league this member owns over to their uploaded numbers. */
+function UseMyProjectionsEverywhere() {
+  const apply = useServerFn(setProjectionSourceEverywhere);
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: () => apply({ data: { source: "user" as const } }),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ["analysis"] });
+      queryClient.invalidateQueries({ queryKey: ["gameday"] });
+      toast.success(
+        `Now using your projections in ${r.updated} ${r.updated === 1 ? "league" : "leagues"}`,
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not switch your leagues"),
+  });
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate()}
+    >
+      {mutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />}
+      Use my projections in all leagues
+    </Button>
+  );
+}
