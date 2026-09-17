@@ -26,6 +26,7 @@ import {
 } from "./ffpc-parse";
 import { parseLeagueSettings, type FfpcLeagueSettings } from "./ffpc-settings";
 import { normalizeName } from "./names";
+import { filterSlotCodesByObserved } from "./slots";
 
 const HOST = "https://myffpc.com";
 
@@ -665,9 +666,10 @@ export async function ffpcLeagueBundle(
     // are the fallback, but the failure is worth an admin Errors entry.
     parseWarnings.push("leagueRulesFFPC.aspx: could not be read; kept League Home settings.");
   }
-  const rosterSlots = rules.rosterSlots.length
-    ? rules.rosterSlots
-    : ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "K", "DEF"];
+  // FFPC's usual lineup is only a starting point when the rules page could not
+  // be read; the real rosters below then decide which spots exist at all, so a
+  // league that starts no kicker or defence never gets one invented for it.
+  const FFPC_TYPICAL_SLOTS = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "K", "DEF"];
 
   const week = options.week ?? home.currentWeek;
 
@@ -713,6 +715,23 @@ export async function ffpcLeagueBundle(
         /* keep whatever Rosters.aspx gave us */
       }
     }
+  }
+
+  const observedPositions = [
+    ...[...rosters.values()].flat().map((p) => p.position ?? ""),
+    ...home.myRoster.map((p) => p.position ?? ""),
+  ].filter(Boolean);
+  const rosterSlots = rules.rosterSlots.length
+    ? rules.rosterSlots
+    : (filterSlotCodesByObserved(
+        FFPC_TYPICAL_SLOTS,
+        observedPositions,
+        home.teams.length,
+      ) as string[]);
+  if (!rules.rosterSlots.length && rosterSlots.length < FFPC_TYPICAL_SLOTS.length) {
+    parseWarnings.push(
+      `Lineup spots guessed from rosters: ${rosterSlots.join(", ")} — confirm them on the league page.`,
+    );
   }
 
   let transactions: FfpcTransaction[] = [];

@@ -10,8 +10,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import {
+  DEFAULT_CODES,
   DEFAULT_SLOTS,
   expandSlots,
+  filterSlotCodesByObserved,
   inferEligibility,
   resolvedKey,
   slotLabel,
@@ -77,6 +79,27 @@ async function persist(
 }
 
 /**
+ * A league whose platform never told us its lineup gets one worked out from
+ * what its teams actually roster, so positions nobody holds (often kicker and
+ * defence) never become starting spots.
+ */
+async function guessSlotsFromRosters(supabase: DB, leagueId: string): Promise<LeagueSlot[]> {
+  const { data: spots } = await supabase
+    .from("roster_spots")
+    .select("position, team_id")
+    .eq("league_id", leagueId);
+  if (!spots?.length) return [...DEFAULT_SLOTS];
+  const teamCount = new Set(spots.map((s) => s.team_id)).size;
+  const codes = filterSlotCodesByObserved(
+    DEFAULT_CODES,
+    spots.map((s) => String(s.position ?? "")),
+    teamCount,
+  );
+  const slots = slotsFromCodes(codes, "inferred");
+  return slots.length ? slots : [...DEFAULT_SLOTS];
+}
+
+/**
  * The league's slots, filling them in from the platform's slot list the first
  * time they are asked for.
  */
@@ -99,7 +122,7 @@ export async function loadLeagueSlots(supabase: DB, leagueId: string): Promise<L
   const codes = Array.isArray(league.roster_slots) ? (league.roster_slots as unknown[]) : [];
   const slots = codes.length
     ? slotsFromCodes(codes as (string | number)[])
-    : [...DEFAULT_SLOTS];
+    : await guessSlotsFromRosters(supabase, leagueId);
   await persist(supabase, league.user_id, leagueId, slots).catch(() => {
     // A league that cannot store its slots still works off the derived list.
   });

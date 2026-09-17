@@ -6,6 +6,7 @@ import { parseRosterSlots } from "./ffpc-parse";
 import {
   ESPN_SLOT_IDS,
   expandSlots,
+  filterSlotCodesByObserved,
   inferEligibility,
   positionsFromSlots,
   resolvedKey,
@@ -120,5 +121,44 @@ describe("FFPC rules page", () => {
     expect(slots.find((s) => s.key === "FLEX")!.eligible).toEqual(["RB", "WR", "TE"]);
     expect(positionsFromSlots(slots)).toEqual(["QB", "RB", "WR", "TE", "K", "DEF"]);
     expect(keys(slots)).toHaveLength(11);
+  });
+});
+
+describe("leagues that do not start a kicker or defence", () => {
+  const typical = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "K", "DEF"];
+
+  function rosterPositions(teams: number, perTeam: string[]): string[] {
+    const out: string[] = [];
+    for (let t = 0; t < teams; t += 1) out.push(...perTeam);
+    return out;
+  }
+
+  it("drops K and DEF when nobody rosters them", () => {
+    const observed = rosterPositions(18, ["QB", "QB", "RB", "RB", "RB", "WR", "WR", "WR", "TE"]);
+    const codes = filterSlotCodesByObserved(typical, observed, 18);
+    expect(codes).toEqual(["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX"]);
+    const slots = slotsFromCodes(codes);
+    expect(positionsFromSlots(slots)).toEqual(["QB", "RB", "WR", "TE"]);
+    expect(positionsFromSlots(slots)).not.toContain("K");
+    expect(positionsFromSlots(slots)).not.toContain("DEF");
+  });
+
+  it("keeps K and DEF when teams really do roster them", () => {
+    const observed = rosterPositions(12, ["QB", "RB", "RB", "WR", "WR", "TE", "K", "DEF"]);
+    expect(filterSlotCodesByObserved(typical, observed, 12)).toEqual(typical);
+  });
+
+  it("keeps the standard lineup when no rosters are known yet", () => {
+    expect(filterSlotCodesByObserved(typical, [], 12)).toEqual(typical);
+  });
+
+  it("reads a sentence-style FFPC starting lineup", () => {
+    const html = `<div><p>Starting Lineup: 1 QB, 2 RB, 3 WR, 2 TE, 1 FLEX (RB/WR/TE)</p></div>`;
+    const codes = parseRosterSlots(html);
+    const slots = slotsFromCodes(codes);
+    expect(codes).toHaveLength(9);
+    expect(slots.find((s) => s.key === "WR")!.count).toBe(3);
+    expect(slots.find((s) => s.key === "FLEX")!.eligible).toEqual(["RB", "WR", "TE"]);
+    expect(positionsFromSlots(slots)).toEqual(["QB", "RB", "WR", "TE"]);
   });
 });

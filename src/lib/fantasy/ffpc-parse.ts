@@ -262,7 +262,7 @@ export function detectAllPlayWeeks(html: string): number[] {
 export function parseRosterSlots(html: string): string[] {
   const slots: string[] = [];
   const slotTable = findTable(html, "position", "starters") ?? findTable(html, "position", "start");
-  if (!slotTable) return slots;
+  if (!slotTable) return parseRosterSlotsFromText(html);
   const cPos = Math.max(0, columnIndex(slotTable, "position"));
   const cCount = columnIndex(slotTable, "starters", "start", "number");
   for (const row of slotTable.rows) {
@@ -276,6 +276,36 @@ export function parseRosterSlots(html: string): string[] {
     const base = pos === "D/ST" || pos === "DST" ? "DEF" : pos === "PK" ? "K" : pos;
     const slot = eligibility && eligibility !== base ? `${base} (${eligibility})` : base;
     for (let i = 0; i < Math.min(count, 6); i++) slots.push(slot);
+  }
+  return slots;
+}
+
+/**
+ * Some FFPC rules pages write the lineup as a sentence rather than a table,
+ * e.g. "Starting Lineup: 1 QB, 2 RB, 3 WR, 2 TE, 1 FLEX (RB/WR/TE)".
+ */
+export function parseRosterSlotsFromText(html: string): string[] {
+  const body = text(html);
+  const start = body.search(/start(?:ing)?\s+(?:lineup|roster|requirements)/i);
+  if (start < 0) return [];
+  const segment = body.slice(start, start + 400);
+  const slots: string[] = [];
+  const re = /(\d{1,2})\s*(?:x\s*)?([A-Za-z/]{1,12})(\s*\(([^)]{1,40})\))?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(segment))) {
+    const count = Number(m[1]);
+    const rawPos = (m[2] ?? "").toUpperCase().replace(/[^A-Z/]/g, "");
+    if (!rawPos || count <= 0 || count > 6) continue;
+    const base =
+      rawPos === "D/ST" || rawPos === "DST" || rawPos === "DEFENSE"
+        ? "DEF"
+        : rawPos === "PK"
+          ? "K"
+          : rawPos;
+    if (!POSITIONS.has(base) && !/FLEX/.test(base)) continue;
+    const eligibility = (m[4] ?? "").toUpperCase().replace(/[^A-Z/]/g, "");
+    const slot = eligibility && eligibility !== base ? `${base} (${eligibility})` : base;
+    for (let i = 0; i < count; i++) slots.push(slot);
   }
   return slots;
 }
