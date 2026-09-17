@@ -668,6 +668,43 @@ export async function buildWaiverBoard(
     bestAtPosition.set(p.position, Math.max(bestAtPosition.get(p.position) ?? 0, p.projWeek));
   }
 
+  // The best simulated gain on this board is the yardstick every price is read
+  // against, so the player at the top of the list also carries the top bid.
+  const primaryImpact = (v: { titleDelta: number; survivalDelta: number | null }) =>
+    survivalLeague ? (v.survivalDelta ?? 0) : v.titleDelta;
+  const topImpact = Math.max(0, ...[...impacts.values()].map(primaryImpact));
+  const weeksLeftNow = Math.max(
+    1,
+    (league.regular_season_weeks ?? 17) - (league.current_week ?? 1) + 1,
+  );
+
+  /**
+   * Chop leagues: the most any rival can rationally pay for the same help,
+   * given how close they are to the cut and what is left in their budget.
+   */
+  const rivalFloorFor = (gain: number | null) => {
+    if (!survivalLeague || !gain || gain <= 0 || !mine) return null;
+    let best = 0;
+    for (const t of teams) {
+      if (t.id === mine.id) continue;
+      const odds = rivalSurvival.get(t.id);
+      if (odds == null) continue;
+      const remaining = (t as { faab_remaining?: number | null }).faab_remaining;
+      best = Math.max(
+        best,
+        willingToPay(
+          faabBudget,
+          remaining == null ? null : Number(remaining),
+          odds,
+          gain,
+          teams.length,
+          weeksLeftNow,
+        ),
+      );
+    }
+    return best > 0 ? best : null;
+  };
+
   // Contenders inside the last four weeks weight the weeks 15-17 run double.
   const playoffWeight = playoffScheduleWeight(book, {
     currentWeek: league.current_week ?? 1,
