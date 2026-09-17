@@ -410,6 +410,8 @@ export async function buildWaiverBoard(
       : null;
   let strategy: StrategyMode | null = null;
   let strategyNote: string | null = null;
+  /** Chop leagues: how likely each rival is to survive the coming week. */
+  const rivalSurvival = new Map<string, number>();
   /** What adding one player does to this week's lineup and survival odds. */
   let scoreAdd:
     | ((p: EnginePlayer) => { pointsGain: number; survivalDelta: number | null })
