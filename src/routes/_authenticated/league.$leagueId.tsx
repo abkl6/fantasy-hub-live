@@ -130,7 +130,13 @@ function LeaguePage() {
   const { leagueId } = Route.useParams();
   const search = Route.useSearch();
   const analyze = useServerFn(getAnalysis);
-  const [tab, setTab] = useState(search.tab === "lineup" ? "lineup" : "moves");
+  // The tab lives in the URL so the league strip can carry it between leagues.
+  const navigate = useNavigate();
+  const tab = LEAGUE_TABS.includes(search.tab ?? "") ? (search.tab as string) : "moves";
+  const setTab = (next: string) => {
+    navigate({ to: "/league/$leagueId", params: { leagueId }, search: { tab: next }, replace: true });
+  };
+  const swipe = useLeagueSwipe(tab);
 
   const forceRef = useRef(false);
   const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
