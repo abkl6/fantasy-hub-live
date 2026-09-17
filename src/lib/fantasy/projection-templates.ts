@@ -254,3 +254,62 @@ export function detectGroup(header: string[]): TemplateGroup | null {
   if (header.some((h) => offense.has(loose(h)))) return "offense";
   return null;
 }
+
+/**
+ * Recognises a schedule grid: a team column followed by one column per week
+ * (nfl_team, Wk1, Wk2, …). These files carry opponents, not stat lines.
+ */
+export function detectOpponentGrid(header: string[]): boolean {
+  const names = header.map(clean);
+  const hasTeam = names.some((h) => h === "nfl team" || h === "team" || h === "nfl_team");
+  const weekCols = names.filter((h) => /^wk\s?\d{1,2}$/.test(h) || /^week\s?\d{1,2}$/.test(h));
+  return hasTeam && weekCols.length >= 4;
+}
+
+export interface OpponentGridRow {
+  nflTeam: string;
+  opponents: { week: number; opponent: string | null }[];
+}
+
+/**
+ * Parses a schedule grid into per-team, per-week opponents. "BYE", empty or
+ * dash cells mean no game that week. Anything in parentheses is stripped, so
+ * "BUF (Sun)" still reads as BUF.
+ */
+export function parseOpponentGrid(csv: string): OpponentGridRow[] {
+  const lines = csv.split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const splitRow = (line: string) => {
+    const out: string[] = [];
+    let cur = "";
+    let quoted = false;
+    for (const ch of line) {
+      if (ch === '"') quoted = !quoted;
+      else if (ch === "," && !quoted) { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out.map((c) => c.trim());
+  };
+  const header = splitRow(lines[0]!).map(clean);
+  const teamIdx = header.findIndex((h) => h === "nfl team" || h === "team" || h === "nfl_team");
+  const weekCols = header
+    .map((h, i) => ({ m: /^(?:wk|week)\s?(\d{1,2})$/.exec(h), i }))
+    .filter((c) => c.m)
+    .map((c) => ({ week: Number(c.m![1]), i: c.i }));
+  if (teamIdx < 0 || !weekCols.length) return [];
+
+  const rows: OpponentGridRow[] = [];
+  for (const line of lines.slice(1)) {
+    const cells = splitRow(line);
+    const team = (cells[teamIdx] ?? "").toUpperCase().trim();
+    if (!/^[A-Z]{2,4}$/.test(team)) continue;
+    const opponents = weekCols.map(({ week, i }) => {
+      const raw = (cells[i] ?? "").replace(/\([^)]*\)/g, "").trim().toUpperCase();
+      const opponent = !raw || raw === "BYE" || raw === "-" || raw === "--" ? null : raw;
+      return { week, opponent };
+    });
+    rows.push({ nflTeam: team, opponents });
+  }
+  return rows;
+}

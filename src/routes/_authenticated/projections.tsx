@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   bulkUpsertBaseline,
   uploadMyProjections,
+  uploadOpponentGrid,
   projectionTemplate,
   clearMyProjections,
   importPlatformProjections,
@@ -318,6 +319,46 @@ function BaselineEditor({ row, onDone }: { row: BaselineRow; onDone: () => void 
 /** A member's own weekly stat projections, used by leagues set to "My projections". */
 type UploadGroup = "offense" | "dst" | "idp" | "k";
 
+interface PendingFile {
+  name: string;
+  csv: string;
+  kind: "stats" | "opponents" | "unknown";
+  group: UploadGroup | null;
+}
+
+interface FileOutcome {
+  name: string;
+  ok: boolean;
+  summary: string;
+  detail?: string;
+  canSave: boolean;
+}
+
+/** Reads every CSV out of a picked file — a .zip unpacks into one entry per CSV inside. */
+async function readPickedFiles(fileList: FileList): Promise<PendingFile[]> {
+  const { detectGroup, detectOpponentGrid } = await import("@/lib/fantasy/projection-templates");
+  const classify = (name: string, csv: string): PendingFile => {
+    const header = (csv.split(/\r?\n/)[0] ?? "").split(",");
+    if (detectOpponentGrid(header)) return { name, csv, kind: "opponents", group: null };
+    const group = detectGroup(header);
+    return { name, csv, kind: group ? "stats" : "unknown", group };
+  };
+  const out: PendingFile[] = [];
+  for (const file of Array.from(fileList)) {
+    if (file.name.toLowerCase().endsWith(".zip")) {
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(file);
+      for (const entry of Object.values(zip.files)) {
+        if (entry.dir || !entry.name.toLowerCase().endsWith(".csv")) continue;
+        out.push(classify(entry.name.split("/").pop() ?? entry.name, await entry.async("string")));
+      }
+    } else {
+      out.push(classify(file.name, await file.text()));
+    }
+  }
+  return out;
+}
+
 const GROUP_CHOICES: { value: UploadGroup; label: string }[] = [
   { value: "offense", label: "Offence (QB, RB, WR, TE)" },
   { value: "dst", label: "Team defence" },
@@ -327,13 +368,81 @@ const GROUP_CHOICES: { value: UploadGroup; label: string }[] = [
 
 function MyProjectionsUpload() {
   const upload = useServerFn(uploadMyProjections);
+  const uploadGrid = useServerFn(uploadOpponentGrid);
   const clear = useServerFn(clearMyProjections);
   const template = useServerFn(projectionTemplate);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [csv, setCsv] = useState("");
+  const [files, setFiles] = useState<PendingFile[]>([]);
   const [group, setGroup] = useState<UploadGroup>("offense");
 
+  const runAll = async (apply: boolean, targets: PendingFile[]): Promise<FileOutcome[]> => {
+    const outcomes: FileOutcome[] = [];
+    for (const f of targets) {
+      try {
+        if (f.kind === "opponents") {
+          const r = await uploadGrid({ data: { csv: f.csv, apply } });
+          outcomes.push({
+            name: f.name,
+            ok: true,
+            canSave: !apply,
+            summary: apply
+              ? `Season schedule replaced: ${r.teams} teams, ${r.weeks.length} weeks (${r.byes} byes).`
+              : `Schedule grid: ${r.teams} teams, weeks ${r.weeks[0]}–${r.weeks[r.weeks.length - 1]}, ${r.byes} byes.`,
+          });
+        } else if (f.kind === "stats") {
+          const r = await upload({ data: { csv: f.csv, apply } });
+          const preview = r.preview
+            .slice(0, 3)
+            .map((p) => `${p.name} ${p.points.toFixed(1)}`)
+            .join(" · ");
+          outcomes.push({
+            name: f.name,
+            ok: true,
+            canSave: !apply && r.matchedCount > 0,
+            summary: apply
+              ? `Saved ${r.rowsWritten} ${r.mode === "weekly" ? "weekly lines" : "season totals"} for ${r.matchedCount} ${r.groupLabel.toLowerCase()} players.`
+              : `${r.groupLabel}: ${r.matchedCount} players matched (${r.mode === "weekly" ? "week by week" : "season totals"})${r.unmatchedCount ? `, ${r.unmatchedCount} names not recognised` : ""}.`,
+            detail:
+              `${r.unrecognised.length ? `Ignored columns: ${r.unrecognised.join(", ")}. ` : ""}` +
+              `${r.unmatched.length ? `Not recognised: ${r.unmatched.slice(0, 12).join(", ")}${r.unmatched.length > 12 ? "…" : ""}. ` : ""}` +
+              `${preview ? `Sanity check: ${preview}` : ""}`,
+          });
+        } else {
+          outcomes.push({
+            name: f.name,
+            ok: false,
+            canSave: false,
+            summary: "Columns not recognised — this file was skipped.",
+          });
+        }
+      } catch (e) {
+        outcomes.push({
+          name: f.name,
+          ok: false,
+          canSave: false,
+          summary: e instanceof Error ? e.message : "Could not read that file.",
+        });
+      }
+    }
+    return outcomes;
+  };
+
+  const run = useMutation({
+    mutationFn: (apply: boolean) => runAll(apply, files),
+    onSuccess: (outcomes, apply) => {
+      if (apply) {
+        const saved = outcomes.filter((o) => o.ok).length;
+        toast.success(`Saved ${saved} of ${outcomes.length} files.`);
+        void queryClient.invalidateQueries();
+        if (saved === outcomes.length) {
+          setOpen(false);
+          setFiles([]);
+        }
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that file."),
+  });
 
   const download = useMutation({
     mutationFn: () => template({ data: { group } }),
@@ -349,25 +458,14 @@ function MyProjectionsUpload() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not build that template."),
   });
 
-  const run = useMutation({
-    mutationFn: (apply: boolean) => upload({ data: { csv, apply, group } }),
-    onSuccess: (result) => {
-      if (result.applied) {
-        toast.success(`Saved projections for ${result.matchedCount} players.`);
-        void queryClient.invalidateQueries();
-        setOpen(false);
-      }
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that file."),
-  });
-
   const wipe = useMutation({
     mutationFn: () => clear({}),
     onSuccess: () => toast.success("Your uploaded projections were removed."),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove those."),
   });
 
-  const result = run.data;
+  const outcomes = run.data;
+  const checkable = files.filter((f) => f.kind !== "unknown");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -381,23 +479,21 @@ function MyProjectionsUpload() {
         <DialogHeader>
           <DialogTitle>Upload my own projections</DialogTitle>
           <DialogDescription>
-            Download the template for the group you&apos;re projecting, fill in a season total per
-            player, and upload it. Week-by-week files work too — just keep the week column. Only
-            leagues set to &quot;My projections&quot; use these.
+            Pick CSV files — or one zip holding several — and each is recognised automatically:
+            offence, team defence, individual defenders, kickers, or a season schedule grid.
+            Week-by-week files and season totals both work. Only leagues set to &quot;My
+            projections&quot; use these.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="proj-group">Group</Label>
+              <Label htmlFor="proj-group">Blank template</Label>
               <select
                 id="proj-group"
                 className="mt-1 h-9 w-full rounded-md bg-secondary px-3 text-sm"
                 value={group}
-                onChange={(e) => {
-                  setGroup(e.target.value as UploadGroup);
-                  run.reset();
-                }}
+                onChange={(e) => setGroup(e.target.value as UploadGroup)}
               >
                 {GROUP_CHOICES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -406,67 +502,71 @@ function MyProjectionsUpload() {
                 ))}
               </select>
             </div>
-            <div className="self-end text-xs text-muted-foreground">
-              Season totals are stored whole. Each league splits them into weeks itself — evenly, or
-              shaped by the schedule when that league has schedule adjustment on.
+            <div className="self-end">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => download.mutate()}
+                disabled={download.isPending}
+              >
+                Download the {GROUP_CHOICES.find((c) => c.value === group)?.label.toLowerCase()} template
+              </Button>
             </div>
           </div>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => download.mutate()}
-            disabled={download.isPending}
-          >
-            Download the {GROUP_CHOICES.find((c) => c.value === group)?.label.toLowerCase()} template
-          </Button>
           <Input
             type="file"
-            accept=".csv,text/csv"
+            multiple
+            accept=".csv,.zip,text/csv,application/zip"
             onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setCsv(await file.text());
-              run.reset();
+              const list = e.target.files;
+              if (!list?.length) return;
+              try {
+                setFiles(await readPickedFiles(list));
+                run.reset();
+              } catch {
+                toast.error("Could not open that file — is it a CSV or a zip of CSVs?");
+              }
             }}
           />
-          {csv && !result && (
+          {files.length > 0 && (
+            <ul className="space-y-1 text-sm">
+              {files.map((f) => (
+                <li key={f.name} className="flex items-center justify-between gap-2">
+                  <span className="truncate">{f.name}</span>
+                  <Badge variant={f.kind === "unknown" ? "destructive" : "secondary"}>
+                    {f.kind === "opponents"
+                      ? "schedule grid"
+                      : f.kind === "stats"
+                        ? (GROUP_CHOICES.find((c) => c.value === f.group)?.label ?? "stats")
+                        : "not recognised"}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+          {checkable.length > 0 && !outcomes && (
             <Button onClick={() => run.mutate(false)} disabled={run.isPending}>
-              Check the file
+              {run.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+              Check {checkable.length} {checkable.length === 1 ? "file" : "files"}
             </Button>
           )}
-          {result && (
+          {outcomes && (
             <div className="space-y-3 text-sm">
-              <p>
-                {result.matchedCount} {result.groupLabel.toLowerCase()} players matched (
-                {result.mode === "weekly" ? "week by week" : "season totals"})
-                {result.unmatchedCount > 0 ? `, ${result.unmatchedCount} names not recognised` : ""}.
-              </p>
-              {result.unmatched.length > 0 && (
-                <p className="text-muted-foreground">Not recognised: {result.unmatched.join(", ")}</p>
-              )}
-              <p className="text-muted-foreground">
-                Columns read: {result.recognised.join(", ") || "none"}
-                {result.unrecognised.length > 0
-                  ? ` · ignored: ${result.unrecognised.join(", ")}`
-                  : ""}
-              </p>
-              {result.preview.length > 0 && (
-                <div className="text-muted-foreground">
-                  <p>Check these look right before saving:</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {result.preview.map((row) => (
-                      <li key={`${row.name}-${row.points}`}>
-                        {row.name} ({row.position}) — {row.points.toFixed(1)} pts
-                      </li>
-                    ))}
-                  </ul>
+              {outcomes.map((o) => (
+                <div key={o.name} className="space-y-0.5">
+                  <p className={o.ok ? "" : "text-destructive"}>
+                    <span className="font-medium">{o.name}</span> — {o.summary}
+                  </p>
+                  {o.detail && <p className="text-xs text-muted-foreground">{o.detail}</p>}
                 </div>
+              ))}
+              {outcomes.some((o) => o.canSave) && (
+                <Button onClick={() => run.mutate(true)} disabled={run.isPending}>
+                  {run.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                  Save all
+                </Button>
               )}
-              <Button onClick={() => run.mutate(true)} disabled={run.isPending || !result.matchedCount}>
-                Save {result.rowsWritten} {result.mode === "weekly" ? "weekly lines" : "season totals"}
-              </Button>
-
             </div>
           )}
           <div className="flex items-center justify-between">

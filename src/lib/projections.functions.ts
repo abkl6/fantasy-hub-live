@@ -440,6 +440,7 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const iName = headerIndex(header, HEADERS.name);
     const iPos = headerIndex(header, HEADERS.position);
     const iWeek = header.findIndex((h) => h === "week");
+    const iOpp = header.findIndex((h) => h === "opponent" || h === "opp");
     if (iName < 0) throw new Error('The file needs a "name" or "player" column.');
 
     const detected = detectGroup(rawHeader);
@@ -490,40 +491,59 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const source = `user:${context.userId}`;
     const recognised = statCols.map((c) => rawHeader[c.i] ?? "").filter(Boolean);
     const unrecognised = rawHeader.filter(
-      (h, i) => h && !statCols.some((c) => c.i === i) && i !== iName && i !== iPos && i !== iWeek,
+      (h, i) =>
+        h && !statCols.some((c) => c.i === i) && i !== iName && i !== iPos && i !== iWeek && i !== iOpp,
     );
     const seenPos = new Set<string>();
     const preview: { name: string; position: string; points: number }[] = [];
     const weekOut: Record<string, unknown>[] = [];
     const seasonOut: Record<string, unknown>[] = [];
     const unmatched: string[] = [];
+    const unmatchedSeen = new Set<string>();
+    const previewSeen = new Set<string>();
+    const matchedSeen = new Set<string>();
     let matchedCount = 0;
 
     for (const raw of rows.slice(1)) {
       const name = (raw[iName] ?? "").trim();
       if (!name || !normalizeName(name)) continue;
       const hit = index.find(name, iPos >= 0 ? (raw[iPos] ?? "").trim() : null);
-      if (!hit) { unmatched.push(name); continue; }
+      if (!hit) {
+        // Weekly files repeat every player on every week — report each once.
+        if (!unmatchedSeen.has(name)) { unmatchedSeen.add(name); unmatched.push(name); }
+        continue;
+      }
 
       const stats: Record<string, number> = {};
       for (const col of statCols) {
         const n = Number(raw[col.i]);
         if (Number.isFinite(n) && n !== 0) stats[col.key] = n;
       }
-      matchedCount++;
+      // Weekly files hold one row per player per week — count players once.
+      matchedSeen.add(hit.id);
+      matchedCount = matchedSeen.size;
       seenPos.add(hit.position.toUpperCase());
       const points = Math.round(scoreStats(stats, BASELINE_RULES, hit.position) * 100) / 100;
-      preview.push({ name: hit.full_name ?? name, position: hit.position.toUpperCase(), points });
+      if (!previewSeen.has(hit.id)) {
+        previewSeen.add(hit.id);
+        preview.push({ name: hit.full_name ?? name, position: hit.position.toUpperCase(), points });
+      }
 
       if (iWeek >= 0) {
         const week = Number(raw[iWeek]);
         if (!Number.isFinite(week) || week < 1 || week > 18) continue;
+        // A file that names its own opponent column wins over the stored
+        // schedule — these uploads often carry fresher fixtures.
+        const fileOpp = iOpp >= 0 ? (raw[iOpp] ?? "").trim().toUpperCase() : "";
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
         weekOut.push({
           player_id: hit.id,
           season,
           week,
-          opponent: games.find((g) => g.week === week)?.opponent ?? null,
+          opponent:
+            fileOpp && !["BYE", "-", "--"].includes(fileOpp)
+              ? fileOpp
+              : (games.find((g) => g.week === week)?.opponent ?? null),
           stats,
           src_points: points,
           source,
@@ -590,6 +610,9 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
           });
         if (error) throw new Error(error.message);
       }
+
+      // Fresh numbers in — every cached screen built on the old ones must go.
+      await context.supabase.from("analysis_cache").delete().eq("user_id", context.userId);
     }
 
     return {
@@ -608,6 +631,78 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     };
   });
 
+
+/**
+ * A schedule grid (one row per NFL team, one column per week) replaces the
+ * stored fixture list for the season. These files often travel with stat-line
+ * projection packs and carry the freshest fixtures, which schedule adjustment
+ * and Game Day both read.
+ */
+export const uploadOpponentGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        csv: z.string().min(1).max(500_000),
+        season: z.number().int().min(2020).max(2100).optional(),
+        apply: z.boolean().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (!(await callerIsAdmin(context))) {
+      throw new Error("Only an admin can replace the season schedule.");
+    }
+    const season = data.season ?? new Date().getFullYear();
+    const { parseOpponentGrid, detectOpponentGrid } = await import(
+      "@/lib/fantasy/projection-templates"
+    );
+    const header = (data.csv.split(/\r?\n/)[0] ?? "").split(",");
+    if (!detectOpponentGrid(header)) {
+      throw new Error(
+        "That file is not a schedule grid — it needs a team column and one column per week (Wk1, Wk2, …).",
+      );
+    }
+    const grid = parseOpponentGrid(data.csv);
+    if (!grid.length) throw new Error("No team rows were found in that file.");
+
+    const rows = grid.flatMap((team) =>
+      team.opponents.map((o) => ({
+        season,
+        week: o.week,
+        nfl_team: team.nflTeam,
+        opponent: o.opponent,
+      })),
+    );
+
+    if (data.apply) {
+      const weeks = [...new Set(rows.map((r) => r.week))];
+      for (const week of weeks) {
+        const { error: delErr } = await context.supabase
+          .from("nfl_schedule")
+          .delete()
+          .eq("season", season)
+          .eq("week", week);
+        if (delErr) throw new Error(delErr.message);
+      }
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await context.supabase
+          .from("nfl_schedule")
+          .insert(rows.slice(i, i + 500) as never);
+        if (error) throw new Error(error.message);
+      }
+      await context.supabase.from("analysis_cache").delete().eq("user_id", context.userId);
+    }
+
+    return {
+      applied: !!data.apply,
+      season,
+      teams: grid.length,
+      rows: rows.length,
+      byes: rows.filter((r) => r.opponent === null).length,
+      weeks: [...new Set(rows.map((r) => r.week))].sort((a, b) => a - b),
+    };
+  });
 
 // ------------------------------------------------- templates & schedule strength
 
