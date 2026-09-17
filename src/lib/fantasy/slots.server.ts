@@ -99,7 +99,7 @@ export async function loadLeagueSlots(supabase: DB, leagueId: string): Promise<L
   const codes = Array.isArray(league.roster_slots) ? (league.roster_slots as unknown[]) : [];
   const slots = codes.length
     ? slotsFromCodes(codes as (string | number)[])
-    : [...DEFAULT_SLOTS];
+    : await guessSlotsFromRosters(supabase, leagueId);
   await persist(supabase, league.user_id, leagueId, slots).catch(() => {
     // A league that cannot store its slots still works off the derived list.
   });
