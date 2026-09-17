@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { LineupSpotsCard } from "@/components/LineupSpotsCard";
 import { SlotConfirmBanner } from "@/components/SlotConfirmBanner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -248,6 +249,8 @@ function LeaguePage() {
       <ScoringGapBanner leagueId={leagueId} />
 
       <SlotConfirmBanner leagueId={leagueId} slots={data.slotsNeedConfirmation} onSaved={hardRefresh} />
+
+      <LineupSpotsCard leagueId={leagueId} onSaved={hardRefresh} />
 
       {data.classLine && (
         <section className="mt-6 rounded-xl bg-card p-5">
