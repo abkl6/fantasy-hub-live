@@ -363,6 +363,9 @@ export function parseLeagueHome(html: string, leagueId: string) {
   const settings = parseLeagueSettings(html);
 
   return {
+    // The page states which league it is; a request for one league that comes
+    // back as another must never be written.
+    leagueIdOnPage: infoMatch?.[1] ?? null,
     name: name || `FFPC league ${leagueId}`,
     leagueType: text(infoMatch?.[2] ?? "") || "FFPC",
     isBestBall,
@@ -650,6 +653,12 @@ export async function ffpcLeagueBundle(
   }
   const homeHtml = firstHtml;
   const home = parseLeagueHome(homeHtml, leagueId);
+  if (home.leagueIdOnPage && home.leagueIdOnPage !== leagueId) {
+    throw new FfpcParseError(
+      "LeagueHome.aspx",
+      "The saved FFPC link opens a different league. Paste this league's own address again.",
+    );
+  }
   if (!home.teams.length) {
     throw new FfpcParseError(
       "LeagueHome.aspx",
