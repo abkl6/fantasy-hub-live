@@ -46,20 +46,18 @@ export async function buildLeagueStrip(supabase: DB): Promise<LeagueStripPayload
     .in("league_id", ids);
   const teams = teamRows ?? [];
 
-  // "This week" is already cached for the whole account, so reading it here
-  // costs nothing extra in the common case.
+  // To-do counts piggyback on whatever "This week" last worked out. The strip
+  // must stay instant, so it never kicks off that computation itself.
   let todos: ThisWeekPayload | null = null;
   try {
-    const { cached, allLeaguesInputsHash } = await import("./cache.server");
-    const { buildThisWeek } = await import("./this-week.server");
-    const { data: me } = await supabase.auth.getUser();
-    const userId = me.user?.id;
-    const hash = await allLeaguesInputsHash(supabase);
-    todos = userId
-      ? await cached<ThisWeekPayload>(supabase, { userId, kind: "this-week" }, hash, () =>
-          buildThisWeek(supabase),
-        )
-      : null;
+    const { data: cachedRow } = await supabase
+      .from("analysis_cache")
+      .select("payload")
+      .eq("kind", "this-week")
+      .order("computed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    todos = (cachedRow?.payload as ThisWeekPayload | undefined) ?? null;
   } catch {
     // A to-do badge is a nicety; never let it take the strip down.
     todos = null;
