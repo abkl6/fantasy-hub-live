@@ -912,12 +912,16 @@ export async function buildWaiverBoard(
       };
     });
 
-  const rows = rankWaivers(mapped, {
-    sort: opts.sort ?? "impact",
+  const sortKey = opts.sort ?? "impact";
+  const ranked = rankWaivers(mapped, {
+    sort: sortKey,
     survival: survivalLeague,
     showInjured: true,
     strategy,
   }).slice(0, opts.limit ?? 60);
+  // Prices follow the order of the board, never contradict it. Only when the
+  // member is reading the board by impact, which is what the prices describe.
+  const rows = sortKey === "impact" ? enforceBidOrder(ranked) : ranked;
 
   const estimated = spots.filter((s) => s.is_auto).length;
   const rosterSize = mine ? spots.filter((s) => s.team_id === mine.id).length : 0;
