@@ -59,15 +59,26 @@ export const listProjections = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const season = data.season ?? new Date().getFullYear();
     const userSource = `user:${context.userId}`;
-    const [{ data: players, error }, { data: overrides }] = await Promise.all([
-      context.supabase
-        .from("players")
-        .select("id, full_name, position, nfl_team, bye_week, status, proj_points_week, proj_points_season")
-        .order("proj_points_season", { ascending: false }),
-      context.supabase
-        .from("player_projection_overrides")
-        .select("player_id, proj_points_week, proj_points_season"),
-    ]);
+    const [{ data: players, error }, { data: overrides }, { data: uploadSeason }, { data: uploadWeeks }] =
+      await Promise.all([
+        context.supabase
+          .from("players")
+          .select("id, full_name, position, nfl_team, bye_week, status, proj_points_week, proj_points_season")
+          .order("proj_points_season", { ascending: false }),
+        context.supabase
+          .from("player_projection_overrides")
+          .select("player_id, proj_points_week, proj_points_season"),
+        context.supabase
+          .from("player_season_projections")
+          .select("player_id, src_points")
+          .eq("season", season)
+          .eq("source", userSource),
+        context.supabase
+          .from("player_week_stats")
+          .select("player_id, src_points")
+          .eq("season", season)
+          .eq("source", userSource),
+      ]);
     if (error) throw new Error(error.message);
 
     const mine = new Map(
@@ -77,6 +88,22 @@ export const listProjections = createServerFn({ method: "POST" })
       ]),
     );
 
+    // The caller's own uploaded file: season totals stay whole, weekly files add up.
+    const uploaded = new Map<string, { season: number; weeks: number }>();
+    for (const row of uploadSeason ?? []) {
+      uploaded.set(row.player_id, { season: Number(row.src_points), weeks: 0 });
+    }
+    for (const row of uploadWeeks ?? []) {
+      const prev = uploaded.get(row.player_id) ?? { season: 0, weeks: 0 };
+      uploaded.set(row.player_id, {
+        season: prev.season + Number(row.src_points),
+        weeks: prev.weeks + 1,
+      });
+    }
+    const hasUpload = uploaded.size > 0;
+    const source: "app" | "user" = data.source ?? (hasUpload ? "user" : "app");
+    const useUpload = source === "user" && hasUpload;
+
     const search = data.search?.trim().toLowerCase();
     const position = data.position && data.position !== "ALL" ? data.position.toUpperCase() : null;
 
@@ -84,9 +111,11 @@ export const listProjections = createServerFn({ method: "POST" })
       .filter((p) => (position ? p.position.toUpperCase() === position : true))
       .filter((p) => (search ? p.full_name.toLowerCase().includes(search) : true))
       .filter((p) => (data.adjustedOnly ? mine.has(p.id) : true))
-      .slice(0, data.limit ?? 100)
       .map((p) => {
         const own = mine.get(p.id);
+        const up = useUpload ? uploaded.get(p.id) : undefined;
+        const appSeason = Number(p.proj_points_season);
+        const appWeek = Number(p.proj_points_week);
         return {
           id: p.id,
           name: p.full_name,
@@ -94,13 +123,16 @@ export const listProjections = createServerFn({ method: "POST" })
           nflTeam: p.nfl_team,
           byeWeek: p.bye_week,
           status: p.status,
-          baseWeek: Number(p.proj_points_week),
-          baseSeason: Number(p.proj_points_season),
+          baseWeek: up ? up.season / (up.weeks > 0 ? up.weeks : 17) : appWeek,
+          baseSeason: up ? up.season : appSeason,
           myWeek: own ? own.week : null,
           mySeason: own ? own.season : null,
+          basis: up ? ("user" as const) : ("app" as const),
           trajectory: null as Trajectory | null,
         };
-      });
+      })
+      .sort((a, b) => (useUpload ? b.baseSeason - a.baseSeason : 0))
+      .slice(0, data.limit ?? 100);
 
     // Market value trajectory for the rows we are about to show.
     const { loadAgeCurves } = await import("@/lib/fantasy/age-curve.server");
