@@ -478,6 +478,7 @@ export async function buildWaiverBoard(
     }));
     const weeksLeft = Math.max(1, league.regular_season_weeks - league.current_week + 1);
     const survivalBase = survivalLeague ? simulateGuillotine(survivalInputs, weeksLeft, 1200, 7) : null;
+    for (const r of survivalBase ?? []) rivalSurvival.set(r.id, r.surviveWeekOdds);
     const baseline = simulateSeason(simInputs, simConfig, schedule, 1500, 7);
     const baseMine = baseline.find((r) => r.id === mine.id)!;
 
