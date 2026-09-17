@@ -712,6 +712,8 @@ function LeaguePage() {
           <Section title="Draft">
             <DraftPanel leagueId={leagueId} />
           </Section>
+          </>
+          )}
         </TabsContent>
       </Tabs>
     </main>
