@@ -598,6 +598,10 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
           });
         if (error) throw new Error(error.message);
       }
+
+      // Fresh numbers in — every cached screen built on the old ones must go.
+      const { clearCache } = await import("@/lib/fantasy/cache.server");
+      await clearCache(context.supabase, context.userId);
     }
 
     return {
