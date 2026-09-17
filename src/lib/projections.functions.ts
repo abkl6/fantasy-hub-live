@@ -119,7 +119,8 @@ export const listProjections = createServerFn({ method: "POST" })
       .filter((p) => (data.adjustedOnly ? mine.has(p.id) : true))
       .map((p) => {
         const own = mine.get(p.id);
-        const up = useUpload ? uploaded.get(p.id) : undefined;
+        const file = uploaded.get(p.id);
+        const up = useUpload ? file : undefined;
         const appSeason = Number(p.proj_points_season);
         const appWeek = Number(p.proj_points_week);
         return {
