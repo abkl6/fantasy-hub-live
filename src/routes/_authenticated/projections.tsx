@@ -74,6 +74,7 @@ function ProjectionsPage() {
   const [adjustedOnly, setAdjustedOnly] = useState(false);
   const [open, setOpen] = useState<BaselineRow | null>(null);
   const [source, setSource] = useState<"auto" | "app" | "user">("auto");
+  const [compare, setCompare] = useState(false);
 
   const players = useQuery({
     queryKey: ["projections", search, position, adjustedOnly, source],
@@ -144,6 +145,9 @@ function ProjectionsPage() {
         <Button size="sm" variant={adjustedOnly ? "default" : "outline"} onClick={() => setAdjustedOnly((v) => !v)}>
           My adjustments {players.data ? `(${players.data.adjusted})` : ""}
         </Button>
+        <Button size="sm" variant={compare ? "default" : "outline"} onClick={() => setCompare((v) => !v)}>
+          Compare side by side
+        </Button>
         {(players.data?.adjusted ?? 0) > 0 && (
           <Button size="sm" variant="ghost" onClick={() => clearAll.mutate()} disabled={clearAll.isPending}>
             Reset all
@@ -185,6 +189,8 @@ function ProjectionsPage() {
         <p className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading players…
         </p>
+      ) : compare ? (
+        <CompareTable rows={players.data?.rows ?? []} />
       ) : (
         <div className="overflow-x-auto rounded-lg bg-secondary/30 border-border">
           <table className="w-full text-sm">
@@ -277,6 +283,78 @@ function ProjectionsPage() {
         </TabsContent>
       </Tabs>
     </main>
+  );
+}
+
+/** Your uploaded file and the app's own numbers, one against the other. */
+function CompareTable({ rows }: { rows: BaselineRow[] }) {
+  const withFile = rows.filter((r) => r.userSeason !== null);
+
+  if (!withFile.length) {
+    return (
+      <p className="rounded-lg bg-secondary/30 px-4 py-6 text-muted-foreground">
+        None of these players are in your uploaded file, so there is nothing to compare yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg bg-secondary/30 border-border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-left">
+          <tr>
+            <th className="px-4 py-2" />
+            <th className="px-4 py-2" />
+            <th className="px-4 py-2" />
+            <th className="px-4 py-2 text-center" colSpan={2}>
+              Mine
+            </th>
+            <th className="px-4 py-2 text-center" colSpan={2}>
+              App
+            </th>
+            <th className="px-4 py-2 text-right">Difference</th>
+          </tr>
+          <tr className="text-xs text-muted-foreground">
+            <th className="px-4 pb-3">Player</th>
+            <th className="px-4 pb-3">Pos</th>
+            <th className="px-4 pb-3">Team</th>
+            <th className="px-4 pb-3 text-right">Per week</th>
+            <th className="px-4 pb-3 text-right">Season</th>
+            <th className="px-4 pb-3 text-right">Per week</th>
+            <th className="px-4 pb-3 text-right">Season</th>
+            <th className="px-4 pb-3 text-right">Season</th>
+          </tr>
+        </thead>
+        <tbody>
+          {withFile.map((row) => {
+            const gap = round1((row.userSeason ?? 0) - row.appSeason);
+            return (
+              <tr key={row.id} className="border-t border-border">
+                <td className="px-4 py-2 font-medium">{row.name}</td>
+                <td className="px-4 py-2">{row.position}</td>
+                <td className="px-4 py-2 text-muted-foreground">{row.nflTeam ?? "—"}</td>
+                <td className="px-4 py-2 text-right font-mono">{round1(row.userWeek ?? 0)}</td>
+                <td className="px-4 py-2 text-right font-mono">{round1(row.userSeason ?? 0)}</td>
+                <td className="px-4 py-2 text-right font-mono text-muted-foreground">
+                  {round1(row.appWeek)}
+                </td>
+                <td className="px-4 py-2 text-right font-mono text-muted-foreground">
+                  {round1(row.appSeason)}
+                </td>
+                <td
+                  className={`px-4 py-2 text-right font-mono ${
+                    gap > 0 ? "text-emerald-500" : gap < 0 ? "text-destructive" : "text-muted-foreground"
+                  }`}
+                >
+                  {gap > 0 ? "+" : ""}
+                  {gap}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
