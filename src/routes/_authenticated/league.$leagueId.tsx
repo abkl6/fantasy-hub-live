@@ -1801,6 +1801,10 @@ function PlayoffPanel({
           <Shield className="size-5 text-primary" />
           Projected seeds
         </h2>
+        <p className="text-xs text-muted-foreground">
+          Same run as the odds at the top of this page
+          {minutesAgo != null ? ` · updated ${minutesAgo} min ago` : ""}.
+        </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-muted-foreground">
