@@ -6,6 +6,8 @@ import { Check, ImageUp, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { ManualLeagueWizard } from "@/components/ManualLeagueWizard";
+import { BestballImport } from "@/components/BestballImport";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -91,9 +93,18 @@ function ConnectPage() {
           <TabsTrigger value="espn">ESPN</TabsTrigger>
           <TabsTrigger value="yahoo">Yahoo</TabsTrigger>
           <TabsTrigger value="ffpc">FFPC</TabsTrigger>
+          <TabsTrigger value="underdog">Underdog</TabsTrigger>
+          <TabsTrigger value="draftkings">DraftKings</TabsTrigger>
           <TabsTrigger value="wizard">Manual league</TabsTrigger>
           <TabsTrigger value="manual">Screenshot</TabsTrigger>
         </TabsList>
+        <TabsContent value="underdog" className="mt-6">
+          <BestballImport site="underdog" />
+        </TabsContent>
+        <TabsContent value="draftkings" className="mt-6">
+          <BestballImport site="draftkings" />
+        </TabsContent>
+
         <TabsContent value="wizard" className="mt-6">
           <ManualLeagueWizard />
         </TabsContent>

@@ -1,5 +1,8 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { getBestballExposureFn } from "@/lib/bestball.functions";
+
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -107,7 +110,37 @@ function GamesPage() {
     refetchInterval: pollInterval() || false,
   });
 
-  const playersByTeam = useMemo(() => collectPlayers(data?.matchups ?? []), [data?.matchups]);
+  const bestballFn = useServerFn(getBestballExposureFn);
+  const { data: bestball } = useQuery({
+    queryKey: ["bestball", "exposure"],
+    queryFn: () => bestballFn(),
+    staleTime: 10 * 60_000,
+  });
+
+  const playersByTeam = useMemo(() => {
+    const byTeam = collectPlayers(data?.matchups ?? []);
+    // Best ball entries have no lineup, so every drafted player is listed once.
+    for (const player of bestball?.players ?? []) {
+      const team = teamKey(player.nflTeam);
+      if (!team) continue;
+      const list = byTeam.get(team) ?? [];
+      list.push({
+        key: `bestball:${player.name}:${player.position}`,
+        name: player.name,
+        position: player.position,
+        livePoints: 0,
+        gameState: "pre",
+        isStarter: false,
+        against: false,
+        leagueId: "",
+        leagueName: `Best ball · ${player.entries} ${player.entries === 1 ? "entry" : "entries"}`,
+        color: null,
+      });
+      byTeam.set(team, list);
+    }
+    return byTeam;
+  }, [data?.matchups, bestball]);
+
 
   const games = useMemo(() => {
     const all = data?.games ?? [];

@@ -34,6 +34,7 @@ export async function buildLeagueStrip(supabase: DB): Promise<LeagueStripPayload
   const { data: leagueRows, error } = await supabase
     .from("leagues")
     .select("id, name, color, abbrev, strip_order, open_count, current_week")
+    .not("platform", "in", "(underdog,draftkings)")
     .order("created_at");
   if (error) throw new Error(error.message);
   const leagues = leagueRows ?? [];

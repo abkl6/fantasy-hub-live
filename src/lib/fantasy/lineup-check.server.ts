@@ -53,6 +53,7 @@ export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload
   const { data: leagueRows, error } = await supabase
     .from("leagues")
     .select("id, name, platform, color, external_id, current_week")
+    .not("platform", "in", "(underdog,draftkings)")
     .order("created_at");
   if (error) throw new Error(error.message);
 

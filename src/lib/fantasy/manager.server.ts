@@ -44,7 +44,15 @@ export interface ManagerHubPayload {
     concentrated: boolean;
     /** Value trajectory from any dynasty, keeper or empire league I own him in. */
     trajectory: PlayerTrajectory | null;
+    /** How many of my best ball entries hold him. */
+    entries: number;
+    /** How many best ball entries I have in total. */
+    totalEntries: number;
+    /** Those entries as a share (0-1) of all my entries. */
+    entryShare: number;
+    tournaments: string[];
   }[];
+
   /** Full standings per league, with my team flagged and dynasty values where relevant. */
   standings: {
     leagueId: string;
@@ -77,6 +85,7 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
   const { data: leagueRows, error } = await supabase
     .from("leagues")
     .select("id, user_id, last_confirmed_at")
+    .not("platform", "in", "(underdog,draftkings)")
     .order("created_at");
   if (error) throw new Error(error.message);
   const ownerByLeague = new Map((leagueRows ?? []).map((l) => [l.id, l.user_id]));
@@ -156,8 +165,42 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
           share: 0,
           concentrated: false,
           trajectory,
+          entries: 0,
+          totalEntries: 0,
+          entryShare: 0,
+          tournaments: [],
         });
       }
+    }
+  }
+
+  // Best ball entries sit alongside managed leagues in the same list.
+  const { bestballExposure } = await import("./bestball.server");
+  const bestball = await bestballExposure(supabase);
+  for (const row of bestball.players) {
+    const key = `${normalizeName(row.name)}::${row.position}`;
+    const current = exposureMap.get(key);
+    if (current) {
+      current.entries = row.entries;
+      current.tournaments = row.tournaments;
+    } else {
+      exposureMap.set(key, {
+        name: row.name,
+        position: row.position,
+        nflTeam: row.nflTeam,
+        leagues: 0,
+        totalLeagues: leagues.length,
+        status: "Active",
+        leagueNames: [],
+        projPoints: 0,
+        share: 0,
+        concentrated: false,
+        trajectory: null,
+        entries: row.entries,
+        totalEntries: bestball.totalEntries,
+        entryShare: 0,
+        tournaments: row.tournaments,
+      });
     }
   }
 
@@ -169,9 +212,18 @@ export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> 
         projPoints: Math.round(player.projPoints * 10) / 10,
         share,
         concentrated: share > 0.15,
+        totalEntries: bestball.totalEntries,
+        entryShare: bestball.totalEntries ? player.entries / bestball.totalEntries : 0,
       };
     })
-    .sort((a, b) => b.share - a.share || b.leagues - a.leagues || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        b.share - a.share ||
+        b.entryShare - a.entryShare ||
+        b.leagues - a.leagues ||
+        a.name.localeCompare(b.name),
+    );
+
 
   const standings = (
     await Promise.all(

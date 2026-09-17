@@ -84,7 +84,11 @@ function median(values: number[]) {
 }
 
 export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
-  const { data: leagueRows, error } = await supabase.from("leagues").select("*").order("created_at");
+  const { data: leagueRows, error } = await supabase
+    .from("leagues")
+    .select("*")
+    .not("platform", "in", "(underdog,draftkings)")
+    .order("created_at");
   if (error) throw new Error(error.message);
 
   const players = await fetchAllRows((from, to) =>
