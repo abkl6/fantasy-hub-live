@@ -205,6 +205,11 @@ function ProjectionsPage() {
                         yours
                       </Badge>
                     )}
+                    {row.basis === "user" && (
+                      <Badge className="ml-2" variant="outline">
+                        my file
+                      </Badge>
+                    )}
                     <TrajectoryChip className="ml-2" trajectory={row.trajectory} playerName={row.name} />
                   </td>
                   <td className="px-4 py-2">{row.position}</td>
