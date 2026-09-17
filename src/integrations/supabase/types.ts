@@ -479,6 +479,7 @@ export type Database = {
       }
       leagues: {
         Row: {
+          abbrev: string | null
           all_play_weeks: Json
           class_override: string | null
           color: string | null
@@ -497,6 +498,7 @@ export type Database = {
           last_synced_at: string | null
           league_type: string
           name: string
+          open_count: number
           platform: string
           playoff_byes: number
           playoff_seed_type: string | null
@@ -514,6 +516,7 @@ export type Database = {
           season: number
           settings_source: Json
           sos_adjust: boolean
+          strip_order: number | null
           sync_paused: boolean
           team_count: number
           third_place_game: boolean
@@ -527,6 +530,7 @@ export type Database = {
           weekly_high_label: string | null
         }
         Insert: {
+          abbrev?: string | null
           all_play_weeks?: Json
           class_override?: string | null
           color?: string | null
@@ -545,6 +549,7 @@ export type Database = {
           last_synced_at?: string | null
           league_type?: string
           name: string
+          open_count?: number
           platform?: string
           playoff_byes?: number
           playoff_seed_type?: string | null
@@ -562,6 +567,7 @@ export type Database = {
           season?: number
           settings_source?: Json
           sos_adjust?: boolean
+          strip_order?: number | null
           sync_paused?: boolean
           team_count?: number
           third_place_game?: boolean
@@ -575,6 +581,7 @@ export type Database = {
           weekly_high_label?: string | null
         }
         Update: {
+          abbrev?: string | null
           all_play_weeks?: Json
           class_override?: string | null
           color?: string | null
@@ -593,6 +600,7 @@ export type Database = {
           last_synced_at?: string | null
           league_type?: string
           name?: string
+          open_count?: number
           platform?: string
           playoff_byes?: number
           playoff_seed_type?: string | null
@@ -610,6 +618,7 @@ export type Database = {
           season?: number
           settings_source?: Json
           sos_adjust?: boolean
+          strip_order?: number | null
           sync_paused?: boolean
           team_count?: number
           third_place_game?: boolean

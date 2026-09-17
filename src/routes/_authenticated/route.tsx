@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LeagueStrip } from "@/components/LeagueStrip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,7 +71,7 @@ function AuthenticatedLayout() {
   if (bare) return <Outlet />;
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 md:pl-20">
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link to={homeRoute()} className="font-display text-lg font-bold tracking-wider">
@@ -126,6 +127,8 @@ function AuthenticatedLayout() {
           </DropdownMenu>
         </div>
       </header>
+
+      <LeagueStrip />
 
       <Outlet />
 

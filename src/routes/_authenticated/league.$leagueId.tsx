@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useLeagueSwipe } from "@/components/LeagueStrip";
+
+/** The tabs this page offers; the strip keeps the user on the same one. */
+const LEAGUE_TABS = ["lineup", "moves", "league", "live"];
 import { LineupSpotsCard } from "@/components/LineupSpotsCard";
 import { SlotConfirmBanner } from "@/components/SlotConfirmBanner";
 import { useServerFn } from "@tanstack/react-start";
@@ -63,7 +67,7 @@ import {
 } from "@/lib/constraints.functions";
 import { normalizeName } from "@/lib/fantasy/names";
 import { logTrade } from "@/lib/platforms.functions";
-import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor } from "@/lib/league-colors";
+import { LEAGUE_COLOR_KEYS, LEAGUE_COLOR_LABELS, leagueColor, leagueInitials } from "@/lib/league-colors";
 import { rankWaivers } from "@/lib/fantasy/waiver-rank";
 import { isStreamedPosition } from "@/lib/fantasy/slot-fill";
 import type { SlotFill, StreamSuggestion } from "@/lib/fantasy/slot-fill";
@@ -130,7 +134,13 @@ function LeaguePage() {
   const { leagueId } = Route.useParams();
   const search = Route.useSearch();
   const analyze = useServerFn(getAnalysis);
-  const [tab, setTab] = useState(search.tab === "lineup" ? "lineup" : "moves");
+  // The tab lives in the URL so the league strip can carry it between leagues.
+  const navigate = useNavigate();
+  const tab = LEAGUE_TABS.includes(search.tab ?? "") ? (search.tab as string) : "moves";
+  const setTab = (next: string) => {
+    navigate({ to: "/league/$leagueId", params: { leagueId }, search: { tab: next }, replace: true });
+  };
+  const swipe = useLeagueSwipe(tab);
 
   const forceRef = useRef(false);
   const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
@@ -189,13 +199,18 @@ function LeaguePage() {
   const suggestions = data.suggestions ?? [];
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-6xl px-6 py-10" {...swipe}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-primary">Week {data.league.current_week}</p>
           <div className="mt-2 flex items-center gap-3">
             <h1 className="text-2xl font-bold">{data.league.name}</h1>
             <LeagueColorPicker leagueId={leagueId} current={(data.league as { color?: string | null }).color ?? null} />
+            <LeagueAbbrevEditor
+              leagueId={leagueId}
+              name={data.league.name}
+              current={(data.league as { abbrev?: string | null }).abbrev ?? null}
+            />
           </div>
           <div className="mt-1">
             <CacheStatus
@@ -2584,6 +2599,62 @@ function ProjectionSourcePicker({
       <option value="app">App projections</option>
       <option value="user">My projections</option>
     </select>
+  );
+}
+
+/** The two or three letters shown on this league's strip tile. */
+function LeagueAbbrevEditor({
+  leagueId,
+  name,
+  current,
+}: {
+  leagueId: string;
+  name: string;
+  current: string | null;
+}) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(current ?? "");
+
+  const mutation = useMutation({
+    mutationFn: (abbrev: string) => save({ data: { leagueId, abbrev } }),
+    onSuccess: () => {
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["league-strip"] });
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      toast.success("Short name saved");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the short name"),
+  });
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        title="Change the short name used on the league strip"
+        className="rounded bg-secondary px-2 py-0.5 text-[11px] font-bold tracking-wide text-muted-foreground hover:text-foreground"
+      >
+        {(current ?? "").trim() || leagueInitials(name)}
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        value={value}
+        autoFocus
+        maxLength={4}
+        aria-label="Short name for the league strip"
+        onChange={(e) => setValue(e.target.value.toUpperCase())}
+        className="w-16 rounded bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+      />
+      <Button size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => mutation.mutate(value)}>
+        Save
+      </Button>
+    </span>
   );
 }
 

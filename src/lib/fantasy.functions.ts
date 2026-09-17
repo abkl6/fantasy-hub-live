@@ -627,6 +627,7 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
         leagueType: z.enum(LEAGUE_TYPES).optional(),
         variant: z.enum(LEAGUE_VARIANTS).optional(),
         color: z.string().max(20).optional(),
+        abbrev: z.string().max(4).nullable().optional(),
         projectionSource: z.enum(["platform", "app", "user"]).optional(),
         sosAdjust: z.boolean().optional(),
         contestFormat: z.enum(["h2h", "points", "hybrid"]).optional(),
@@ -696,6 +697,8 @@ export const updateLeagueSettings = createServerFn({ method: "POST" })
     if (data.scoringType !== undefined) patch["scoring_type"] = data.scoringType;
     if (data.format !== undefined) patch["format"] = data.format;
     if (data.color !== undefined) patch["color"] = data.color;
+    // Blank means "work it out from the league name".
+    if (data.abbrev !== undefined) patch["abbrev"] = data.abbrev?.trim().toUpperCase() || null;
     if (data.projectionSource !== undefined) patch["projection_source"] = data.projectionSource;
     if (data.sosAdjust !== undefined) patch["sos_adjust"] = data.sosAdjust;
 
