@@ -1769,8 +1769,15 @@ function SetBestLineupButton({ leagueId, onApplied }: { leagueId: string; onAppl
  * Reads the playoff picture off the league analysis, so the seeds table always
  * matches the odds shown at the top of the page.
  */
-function PlayoffPanel({ data }: { data: PlayoffData | null | undefined }) {
+function PlayoffPanel({
+  data,
+  lastUpdated,
+}: {
+  data: PlayoffData | null | undefined;
+  lastUpdated: number | null;
+}) {
   if (!data) return <p className="text-sm text-muted-foreground">Could not load playoff picture.</p>;
+  const minutesAgo = lastUpdated ? Math.max(0, Math.round((Date.now() - lastUpdated) / 60000)) : null;
 
   return (
     <div className="space-y-6">
