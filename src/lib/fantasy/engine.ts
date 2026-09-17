@@ -210,6 +210,24 @@ export interface SimTeamResult {
   powerRank: number;
   /** Projected end-of-season victory points, when the league uses them. */
   projVp?: number;
+  /** How many seasons were played out to produce these numbers. */
+  iterations?: number;
+  /** Share of seasons finishing on each win total; index = wins. */
+  winCounts?: number[];
+  /** Share of seasons ending at each stage of the season. */
+  finish?: FinishShares;
+  /** Share of seasons finishing on each playoff seed; index 0 = top seed. */
+  seedCounts?: number[];
+}
+
+/** Where a season ended for a team; every share is 0-1 and they sum to 1. */
+export interface FinishShares {
+  missed: number;
+  wildCard: number;
+  bye: number;
+  semifinal: number;
+  final: number;
+  champion: number;
 }
 
 export interface ScheduleGame {
@@ -269,6 +287,10 @@ export function simulateSeason(
     divisions?: Record<string, string>;
     /** Only this team's odds matter: other teams' bracket runs are skipped. */
     focusTeam?: string;
+    /** Also return win, finish and seed spreads for every team. */
+    distributions?: boolean;
+    /** Results locked in by the reader: these games always end this way. */
+    forced?: { week: number; teamId: string; win: boolean }[];
 
   },
   schedule: ScheduleGame[] = [],
@@ -329,8 +351,23 @@ export function simulateSeason(
 
   // Only this team's odds are wanted: the bracket can be skipped in every
   // season where it misses the field.
+  const wantSpread = config.distributions === true;
   const focusIndex =
-    config.focusTeam !== undefined ? teams.findIndex((t) => t.id === config.focusTeam) : -1;
+    config.focusTeam !== undefined && !wantSpread
+      ? teams.findIndex((t) => t.id === config.focusTeam)
+      : -1;
+
+  // Games the reader has already decided the outcome of: week -> team -> win.
+  const forced = new Map<string, boolean>();
+  for (const f of config.forced ?? []) forced.set(`${f.week}:${f.teamId}`, f.win);
+
+  // Win totals run from what is already banked to a clean sweep of the rest.
+  const maxWins =
+    Math.ceil(Math.max(0, ...teams.map((t) => t.wins + t.ties * 0.5))) + weeksLeft + 1;
+  const winCounts = wantSpread ? new Float64Array(n * (maxWins + 1)) : null;
+  const seedCounts = wantSpread ? new Float64Array(n * bracketSize) : null;
+  const finishCounts = wantSpread ? new Float64Array(n * 6) : null;
+  const FINISH_MISSED = 0, FINISH_WILD = 1, FINISH_BYE = 2, FINISH_SEMI = 3, FINISH_FINAL = 4, FINISH_CHAMP = 5;
 
   const byWeek = new Map<number, ScheduleGame[]>();
   for (const g of schedule) {
@@ -393,7 +430,11 @@ export function simulateSeason(
           const a = index.get(g.homeTeamId);
           const b = index.get(g.awayTeamId);
           if (a === undefined || b === undefined) continue;
-          const aWins = scores[a]! >= scores[b]!;
+          let aWins = scores[a]! >= scores[b]!;
+          const forcedHome = forced.get(`${week}:${g.homeTeamId}`);
+          const forcedAway = forced.get(`${week}:${g.awayTeamId}`);
+          if (forcedHome !== undefined) aWins = forcedHome;
+          else if (forcedAway !== undefined) aWins = !forcedAway;
           if (aWins) wins[a] = wins[a]! + 1;
           else wins[b] = wins[b]! + 1;
           if (useVp) {
@@ -437,6 +478,25 @@ export function simulateSeason(
 
     for (const i of seeds) madePlayoffs[i] = madePlayoffs[i]! + 1;
 
+    if (winCounts) {
+      for (let i = 0; i < n; i++) {
+        const bucket = Math.max(0, Math.min(maxWins, Math.round(wins[i]!)));
+        winCounts[i * (maxWins + 1) + bucket] = winCounts[i * (maxWins + 1) + bucket]! + 1;
+      }
+    }
+    if (seedCounts) {
+      for (let place = 0; place < seeds.length; place++) {
+        const i = seeds[place]!;
+        seedCounts[i * bracketSize + place] = seedCounts[i * bracketSize + place]! + 1;
+      }
+    }
+    const inField = new Set(seeds);
+    if (finishCounts) {
+      for (let i = 0; i < n; i++) {
+        if (!inField.has(i)) finishCounts[i * 6 + FINISH_MISSED] = finishCounts[i * 6 + FINISH_MISSED]! + 1;
+      }
+    }
+
     // When only one team's odds are wanted, a season it sits out cannot change
     // them, so the bracket is skipped entirely.
     if (focusIndex >= 0 && !seeds.includes(focusIndex)) continue;
@@ -445,15 +505,35 @@ export function simulateSeason(
     let field = [...seeds];
     // Byes: the top seeds sit out round one and meet the survivors.
     const byes = Math.max(0, Math.min(config.byes ?? 0, Math.max(0, field.length - 2)));
+    const rested = new Set<number>();
+    // Where a knocked-out team lands depends on how many teams were still in.
+    const bucketFor = (loser: number, fieldSize: number) =>
+      fieldSize <= 2
+        ? FINISH_FINAL
+        : fieldSize <= 4
+          ? FINISH_SEMI
+          : rested.has(loser)
+            ? FINISH_BYE
+            : FINISH_WILD;
+    const knockOut = (loser: number, fieldSize: number) => {
+      if (!finishCounts) return;
+      const bucket = bucketFor(loser, fieldSize);
+      finishCounts[loser * 6 + bucket] = finishCounts[loser * 6 + bucket]! + 1;
+    };
+
     if (byes > 0 && field.length > byes + 1) {
       const resting = field.slice(0, byes);
+      for (const i of resting) rested.add(i);
       let playing = field.slice(byes);
       const next: number[] = [];
       const half = Math.floor(playing.length / 2);
+      const size = field.length;
       for (let i = 0; i < half; i++) {
         const a = playing[i]!;
         const b = playing[playing.length - 1 - i]!;
-        next.push(draw(a) >= draw(b) ? a : b);
+        const aWins = draw(a) >= draw(b);
+        next.push(aWins ? a : b);
+        knockOut(aWins ? b : a, size);
       }
       if (playing.length % 2 === 1) next.push(playing[half]!);
       playing = next;
@@ -462,15 +542,21 @@ export function simulateSeason(
     while (field.length > 1) {
       const next: number[] = [];
       const half = Math.floor(field.length / 2);
+      const size = field.length;
       for (let i = 0; i < half; i++) {
         const a = field[i]!;
         const b = field[field.length - 1 - i]!;
-        next.push(draw(a) >= draw(b) ? a : b);
+        const aWins = draw(a) >= draw(b);
+        next.push(aWins ? a : b);
+        knockOut(aWins ? b : a, size);
       }
       if (field.length % 2 === 1) next.push(field[half]!);
       field = next;
     }
-    if (field.length === 1) wonTitle[field[0]!] = wonTitle[field[0]!]! + 1;
+    if (field.length === 1) {
+      wonTitle[field[0]!] = wonTitle[field[0]!]! + 1;
+      if (finishCounts) finishCounts[field[0]! * 6 + FINISH_CHAMP] = finishCounts[field[0]! * 6 + FINISH_CHAMP]! + 1;
+    }
   }
 
   const results = teams.map((t, i) => ({
@@ -488,6 +574,27 @@ export function simulateSeason(
     projPointsPerWeek: Math.round(t.mean * 10) / 10,
     powerRank: 0,
     ...(useVp ? { projVp: Math.round(((totalVp[i] ?? 0) / runs) * 10) / 10 } : {}),
+    ...(wantSpread
+      ? {
+          iterations: runs,
+          winCounts: Array.from(
+            winCounts!.subarray(i * (maxWins + 1), (i + 1) * (maxWins + 1)),
+            (c) => c / runs,
+          ),
+          seedCounts: Array.from(
+            seedCounts!.subarray(i * bracketSize, (i + 1) * bracketSize),
+            (c) => c / runs,
+          ),
+          finish: {
+            missed: finishCounts![i * 6]! / runs,
+            wildCard: finishCounts![i * 6 + 1]! / runs,
+            bye: finishCounts![i * 6 + 2]! / runs,
+            semifinal: finishCounts![i * 6 + 3]! / runs,
+            final: finishCounts![i * 6 + 4]! / runs,
+            champion: finishCounts![i * 6 + 5]! / runs,
+          },
+        }
+      : {}),
   }));
 
   [...results]
