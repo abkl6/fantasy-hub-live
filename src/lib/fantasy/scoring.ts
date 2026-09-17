@@ -70,7 +70,15 @@ const PRESETS: Record<string, ScoringRules> = {
   half_ppr: { rec: 0.5 },
   standard: { rec: 0 },
   te_premium: { rec: 1, bonus_rec_te: 0.5 },
+  /**
+   * FFPC house rules: a point a catch, a point and a half for tight ends,
+   * four-point passing touchdowns.
+   */
+  ffpc: { rec: 1, bonus_rec_te: 0.5, pass_td: 4 },
 };
+
+/** What an FFPC league is scored as when its rules page cannot be read. */
+export const FFPC_DEFAULT_SCORING = "ffpc";
 
 /** Aliases used by ESPN / Yahoo / hand-entered rule sets. */
 export const STAT_ALIASES: Record<string, string> = {

@@ -151,6 +151,8 @@ export interface LeagueRow {
   /** True when a platform read failed and the stored copy is being kept. */
   sync_paused?: boolean;
   last_sync_error?: string | null;
+  /** Where each setting came from; scoring reads "assumed" when guessed. */
+  settings_source?: Record<string, string> | null;
 }
 
 /** Value now / +1yr / +2yr for one player, or null when the age is unknown. */

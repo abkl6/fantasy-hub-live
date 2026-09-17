@@ -54,12 +54,14 @@ import {
 import { loadStrategyRules } from "./rules.server";
 import {
   bidRecommendation,
+  enforceBidOrder,
   isInjuredStatus,
   rankWaivers,
   type BidRecommendation,
   type RankableRow,
   type WaiverSort,
 } from "./waiver-rank";
+import { willingToPay } from "./faab";
 import { buildFaabPlan, paceBid, type FaabPlan } from "./faab-plan";
 import {
   buildFills,
@@ -408,6 +410,8 @@ export async function buildWaiverBoard(
       : null;
   let strategy: StrategyMode | null = null;
   let strategyNote: string | null = null;
+  /** Chop leagues: how likely each rival is to survive the coming week. */
+  const rivalSurvival = new Map<string, number>();
   /** What adding one player does to this week's lineup and survival odds. */
   let scoreAdd:
     | ((p: EnginePlayer) => { pointsGain: number; survivalDelta: number | null })
@@ -474,6 +478,7 @@ export async function buildWaiverBoard(
     }));
     const weeksLeft = Math.max(1, league.regular_season_weeks - league.current_week + 1);
     const survivalBase = survivalLeague ? simulateGuillotine(survivalInputs, weeksLeft, 1200, 7) : null;
+    for (const r of survivalBase ?? []) rivalSurvival.set(r.id, r.surviveWeekOdds);
     const baseline = simulateSeason(simInputs, simConfig, schedule, 1500, 7);
     const baseMine = baseline.find((r) => r.id === mine.id)!;
 
@@ -663,6 +668,43 @@ export async function buildWaiverBoard(
     bestAtPosition.set(p.position, Math.max(bestAtPosition.get(p.position) ?? 0, p.projWeek));
   }
 
+  // The best simulated gain on this board is the yardstick every price is read
+  // against, so the player at the top of the list also carries the top bid.
+  const primaryImpact = (v: { titleDelta: number; survivalDelta: number | null }) =>
+    survivalLeague ? (v.survivalDelta ?? 0) : v.titleDelta;
+  const topImpact = Math.max(0, ...[...impacts.values()].map(primaryImpact));
+  const weeksLeftNow = Math.max(
+    1,
+    (league.regular_season_weeks ?? 17) - (league.current_week ?? 1) + 1,
+  );
+
+  /**
+   * Chop leagues: the most any rival can rationally pay for the same help,
+   * given how close they are to the cut and what is left in their budget.
+   */
+  const rivalFloorFor = (gain: number | null) => {
+    if (!survivalLeague || !gain || gain <= 0 || !mine) return null;
+    let best = 0;
+    for (const t of teams) {
+      if (t.id === mine.id) continue;
+      const odds = rivalSurvival.get(t.id);
+      if (odds == null) continue;
+      const remaining = (t as { faab_remaining?: number | null }).faab_remaining;
+      best = Math.max(
+        best,
+        willingToPay(
+          faabBudget,
+          remaining == null ? null : Number(remaining),
+          odds,
+          gain,
+          teams.length,
+          weeksLeftNow,
+        ),
+      );
+    }
+    return best > 0 ? best : null;
+  };
+
   // Contenders inside the last four weeks weight the weeks 15-17 run double.
   const playoffWeight = playoffScheduleWeight(book, {
     currentWeek: league.current_week ?? 1,
@@ -717,9 +759,9 @@ export async function buildWaiverBoard(
 
   const bidFor = (position: string, perWeek: number) => {
     const raw = bidRecommendation({
-      budget: myFaabRemaining ?? faabBudget,
+      budget: faabBudget,
+      remaining: myFaabRemaining,
       perWeek,
-      bestAtPositionPerWeek: bestAtPosition.get(position) ?? perWeek,
       winningBids,
     });
     const capped = applyBidRules(book, {
@@ -795,10 +837,15 @@ export async function buildWaiverBoard(
     .filter((p) => (search ? p.name.toLowerCase().includes(search) : true))
     .map((p) => {
       const impact = impacts.get(p.id) ?? null;
+      const gain = impact ? primaryImpact(impact) : null;
       const raw = bidRecommendation({
-        budget: myFaabRemaining ?? faabBudget,
+        budget: faabBudget,
+        remaining: myFaabRemaining,
         perWeek: p.projWeek,
-        bestAtPositionPerWeek: bestAtPosition.get(p.position) ?? p.projWeek,
+        impact: gain,
+        topImpact,
+        lineupGain: impact ? impact.lineupGain : null,
+        rivalFloor: rivalFloorFor(gain),
         winningBids,
       });
       // Rules can only ever lower a bid: streamers go at the minimum and the
@@ -865,12 +912,16 @@ export async function buildWaiverBoard(
       };
     });
 
-  const rows = rankWaivers(mapped, {
-    sort: opts.sort ?? "impact",
+  const sortKey = opts.sort ?? "impact";
+  const ranked = rankWaivers(mapped, {
+    sort: sortKey,
     survival: survivalLeague,
     showInjured: true,
     strategy,
   }).slice(0, opts.limit ?? 60);
+  // Prices follow the order of the board, never contradict it. Only when the
+  // member is reading the board by impact, which is what the prices describe.
+  const rows = sortKey === "impact" ? enforceBidOrder(ranked) : ranked;
 
   const estimated = spots.filter((s) => s.is_auto).length;
   const rosterSize = mine ? spots.filter((s) => s.team_id === mine.id).length : 0;
