@@ -74,6 +74,7 @@ function ProjectionsPage() {
   const [adjustedOnly, setAdjustedOnly] = useState(false);
   const [open, setOpen] = useState<BaselineRow | null>(null);
   const [source, setSource] = useState<"auto" | "app" | "user">("auto");
+  const [compare, setCompare] = useState(false);
 
   const players = useQuery({
     queryKey: ["projections", search, position, adjustedOnly, source],
@@ -188,6 +189,8 @@ function ProjectionsPage() {
         <p className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading players…
         </p>
+      ) : compare ? (
+        <CompareTable rows={players.data?.rows ?? []} />
       ) : (
         <div className="overflow-x-auto rounded-lg bg-secondary/30 border-border">
           <table className="w-full text-sm">
