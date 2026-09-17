@@ -19,6 +19,7 @@ import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedHowAdviceWorksRouteImport } from './routes/_authenticated/how-advice-works'
 import { Route as AuthenticatedLineupCheckRouteImport } from './routes/_authenticated/lineup-check'
 import { Route as AuthenticatedManagerHubRouteImport } from './routes/_authenticated/manager-hub'
+import { Route as AuthenticatedPremiumRouteImport } from './routes/_authenticated/premium'
 import { Route as AuthenticatedProjectionGuideRouteImport } from './routes/_authenticated/projection-guide'
 import { Route as AuthenticatedProjectionsRouteImport } from './routes/_authenticated/projections'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -88,6 +89,11 @@ const AuthenticatedLineupCheckRoute =
 const AuthenticatedManagerHubRoute = AuthenticatedManagerHubRouteImport.update({
   id: '/manager-hub',
   path: '/manager-hub',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPremiumRoute = AuthenticatedPremiumRouteImport.update({
+  id: '/premium',
+  path: '/premium',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProjectionGuideRoute =
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/how-advice-works': typeof AuthenticatedHowAdviceWorksRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
+  '/premium': typeof AuthenticatedPremiumRoute
   '/projection-guide': typeof AuthenticatedProjectionGuideRoute
   '/projections': typeof AuthenticatedProjectionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -234,6 +241,7 @@ export interface FileRoutesByTo {
   '/how-advice-works': typeof AuthenticatedHowAdviceWorksRoute
   '/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/manager-hub': typeof AuthenticatedManagerHubRoute
+  '/premium': typeof AuthenticatedPremiumRoute
   '/projection-guide': typeof AuthenticatedProjectionGuideRoute
   '/projections': typeof AuthenticatedProjectionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/_authenticated/how-advice-works': typeof AuthenticatedHowAdviceWorksRoute
   '/_authenticated/lineup-check': typeof AuthenticatedLineupCheckRoute
   '/_authenticated/manager-hub': typeof AuthenticatedManagerHubRoute
+  '/_authenticated/premium': typeof AuthenticatedPremiumRoute
   '/_authenticated/projection-guide': typeof AuthenticatedProjectionGuideRoute
   '/_authenticated/projections': typeof AuthenticatedProjectionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -298,6 +307,7 @@ export interface FileRouteTypes {
     | '/how-advice-works'
     | '/lineup-check'
     | '/manager-hub'
+    | '/premium'
     | '/projection-guide'
     | '/projections'
     | '/settings'
@@ -328,6 +338,7 @@ export interface FileRouteTypes {
     | '/how-advice-works'
     | '/lineup-check'
     | '/manager-hub'
+    | '/premium'
     | '/projection-guide'
     | '/projections'
     | '/settings'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/_authenticated/how-advice-works'
     | '/_authenticated/lineup-check'
     | '/_authenticated/manager-hub'
+    | '/_authenticated/premium'
     | '/_authenticated/projection-guide'
     | '/_authenticated/projections'
     | '/_authenticated/settings'
@@ -466,6 +478,13 @@ declare module '@tanstack/react-router' {
       path: '/manager-hub'
       fullPath: '/manager-hub'
       preLoaderRoute: typeof AuthenticatedManagerHubRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/premium': {
+      id: '/_authenticated/premium'
+      path: '/premium'
+      fullPath: '/premium'
+      preLoaderRoute: typeof AuthenticatedPremiumRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/projection-guide': {
@@ -612,6 +631,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHowAdviceWorksRoute: typeof AuthenticatedHowAdviceWorksRoute
   AuthenticatedLineupCheckRoute: typeof AuthenticatedLineupCheckRoute
   AuthenticatedManagerHubRoute: typeof AuthenticatedManagerHubRoute
+  AuthenticatedPremiumRoute: typeof AuthenticatedPremiumRoute
   AuthenticatedProjectionGuideRoute: typeof AuthenticatedProjectionGuideRoute
   AuthenticatedProjectionsRoute: typeof AuthenticatedProjectionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -631,6 +651,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHowAdviceWorksRoute: AuthenticatedHowAdviceWorksRoute,
   AuthenticatedLineupCheckRoute: AuthenticatedLineupCheckRoute,
   AuthenticatedManagerHubRoute: AuthenticatedManagerHubRoute,
+  AuthenticatedPremiumRoute: AuthenticatedPremiumRoute,
   AuthenticatedProjectionGuideRoute: AuthenticatedProjectionGuideRoute,
   AuthenticatedProjectionsRoute: AuthenticatedProjectionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
