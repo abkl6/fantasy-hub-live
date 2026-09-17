@@ -195,7 +195,8 @@ export interface SlotPlan {
 }
 
 export async function loadSlotPlan(supabase: DB, leagueId: string): Promise<SlotPlan> {
-  const slots = await loadLeagueSlots(supabase, leagueId);
+  // Works out anything the platform left unsaid, then leaves it alone.
+  const slots = await inferUnknownSlots(supabase, leagueId);
   const positions: string[] = [];
   for (const slot of slots) {
     for (const p of slot.eligible) if (!positions.includes(p)) positions.push(p);
