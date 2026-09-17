@@ -103,6 +103,21 @@ function median(values: number[]) {
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
+/**
+ * A cross-section of today's market can make old stars look like proof that
+ * value grows with age — the ageing ones we still see are the survivors. No
+ * curve is allowed to rise past its position's known peak.
+ */
+export function clampAfterPeak(position: string, points: CurvePoint[]): CurvePoint[] {
+  const peak = HAND_SET[position.toUpperCase()]?.peak ?? 27;
+  let ceiling = Infinity;
+  return points.map((p) => {
+    if (p.age <= peak) return p;
+    ceiling = Math.min(ceiling, p.value);
+    return { age: p.age, value: Math.min(p.value, ceiling) };
+  });
+}
+
 function normalisePeak(points: CurvePoint[]): CurvePoint[] {
   const peak = points.reduce((best, p) => Math.max(best, p.value), 0) || 1;
   return points.map((p) => ({ age: p.age, value: Math.round((p.value / peak) * 1000) / 1000 }));
@@ -179,8 +194,9 @@ export function fitCurve(
     .filter((r) => r.age != null && Number.isFinite(r.age) && r.age >= MIN_AGE - 2 && r.age <= MAX_AGE + 4 && r.value > 0)
     .map((r) => ({ age: r.age as number, value: r.value }));
   if (usable.length < 20) return null;
-  const points = fitSpline(usable, knotFor(position));
-  if (!points) return null;
+  const fitted = fitSpline(usable, knotFor(position));
+  if (!fitted) return null;
+  const points = normalisePeak(clampAfterPeak(position, fitted));
   return {
     position: position.toUpperCase(),
     points,
@@ -451,7 +467,7 @@ export function classifyTrajectory(change1: number): TrajectoryClass {
  * player would otherwise be labelled uncertain.
  */
 export function isUncertain(change1: number, sd: number): boolean {
-  const reach = Math.max(0.02, sd * 0.5);
+  const reach = Math.max(0.015, Math.min(0.04, sd * 0.25));
   return THRESHOLDS.some((t) => Math.abs(change1 - t) < reach);
 }
 
