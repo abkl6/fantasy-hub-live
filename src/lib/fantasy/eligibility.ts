@@ -6,13 +6,15 @@
  * come from the same place: the roster slots the platform reported.
  */
 
-import { FLEX_ELIGIBLE } from "./engine";
+import { SLOT_CODES, canonicalPosition } from "./slots";
+
+export { canonicalPosition };
 
 /** Slots that hold anyone, so they say nothing about eligibility. */
 const OPEN_SLOTS = new Set(["BN", "BE", "BENCH", "IR", "TAXI", "TX", "RES", "NA"]);
 
 /** Shown in this order wherever positions are listed. */
-const CANONICAL_ORDER = [
+export const CANONICAL_ORDER = [
   "QB",
   "RB",
   "WR",
@@ -33,14 +35,6 @@ const CANONICAL_ORDER = [
 /** Used when a league has no slots recorded yet. */
 export const DEFAULT_ELIGIBLE = ["QB", "RB", "WR", "TE", "K", "DEF"];
 
-/** DST and DEF, PK and K are the same thing wearing different labels. */
-export function canonicalPosition(position: string): string {
-  const p = position.trim().toUpperCase();
-  if (p === "DST" || p === "D/ST" || p === "D") return "DEF";
-  if (p === "PK") return "K";
-  return p;
-}
-
 /**
  * Every position that can fill at least one slot, with flex slots expanded.
  * Unknown platform slots are read as their own position so a custom slot never
@@ -51,9 +45,12 @@ export function eligiblePositions(slots: unknown): string[] {
   const found = new Set<string>();
 
   for (const raw of list) {
-    const slot = raw.trim().toUpperCase();
+    const cell = raw.trim().toUpperCase();
+    // A spot may state its own eligibility in brackets: "FLEX (RB/WR/TE)".
+    const inBrackets = cell.match(/\(([^)]*)\)/)?.[1]?.trim();
+    const slot = inBrackets || cell.replace(/\([^)]*\)/, "").trim();
     if (!slot || OPEN_SLOTS.has(slot)) continue;
-    const flex = FLEX_ELIGIBLE[slot];
+    const flex = SLOT_CODES[slot];
     if (flex) {
       for (const pos of flex) found.add(canonicalPosition(pos));
       continue;
@@ -92,7 +89,7 @@ export function isEligiblePosition(position: string, eligible: readonly string[]
   if (eligible.includes(p)) return true;
   // A league with a generic DL slot can still use a DE, and so on.
   for (const e of eligible) {
-    const group = FLEX_ELIGIBLE[e];
+    const group = SLOT_CODES[e];
     if (group?.map(canonicalPosition).includes(p)) return true;
   }
   return false;

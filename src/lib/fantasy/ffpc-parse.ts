@@ -266,10 +266,15 @@ export function parseRosterSlots(html: string): string[] {
   const cPos = Math.max(0, columnIndex(slotTable, "position"));
   const cCount = columnIndex(slotTable, "starters", "start", "number");
   for (const row of slotTable.rows) {
-    const pos = (row[cPos] ?? "").toUpperCase().replace(/[^A-Z/]/g, "");
+    // FFPC spells a flex out in brackets, e.g. "FLEX (RB/WR/TE)" — keep it,
+    // it is the league's own statement of what may fill the spot.
+    const cell = (row[cPos] ?? "").toUpperCase();
+    const eligibility = cell.match(/\(([^)]*)\)/)?.[1]?.replace(/[^A-Z/]/g, "") ?? "";
+    const pos = cell.replace(/\([^)]*\)/, "").replace(/[^A-Z/]/g, "");
     const count = cCount >= 0 ? toNumber(row[cCount]) : 0;
     if (!pos || count <= 0) continue;
-    const slot = pos === "D/ST" || pos === "DST" ? "DEF" : pos === "PK" ? "K" : pos;
+    const base = pos === "D/ST" || pos === "DST" ? "DEF" : pos === "PK" ? "K" : pos;
+    const slot = eligibility && eligibility !== base ? `${base} (${eligibility})` : base;
     for (let i = 0; i < Math.min(count, 6); i++) slots.push(slot);
   }
   return slots;

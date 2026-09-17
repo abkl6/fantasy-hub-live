@@ -21,6 +21,7 @@ import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
 import { classifyTeam, isWinNow, type TeamBadge } from "./team-class";
+import { loadSlotPlan } from "./slots.server";
 import {
   fairnessOf,
   fairnessLabel,
@@ -125,7 +126,6 @@ interface LoadedLeague {
   };
 }
 
-const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
 
 export async function loadLeague(supabase: DB, leagueId: string): Promise<LoadedLeague> {
   const { data: league, error } = await supabase.from("leagues").select("*").eq("id", leagueId).maybeSingle();
@@ -139,9 +139,7 @@ export async function loadLeague(supabase: DB, leagueId: string): Promise<Loaded
     supabase.from("team_draft_picks").select("team_id, season, round, slot, count").eq("league_id", leagueId),
   ]);
 
-  const slots = Array.isArray(league.roster_slots) && league.roster_slots.length
-    ? league.roster_slots.map(String)
-    : DEFAULT_SLOTS;
+  const slots = (await loadSlotPlan(supabase, leagueId)).keys;
   const format = asFormat((league as { format?: string }).format);
   const scoring = leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>);
   const proj = await loadProjections(supabase, {

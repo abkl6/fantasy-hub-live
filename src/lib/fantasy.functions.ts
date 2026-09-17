@@ -21,6 +21,7 @@ import { normalizeName, playerKey } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
 import { eligiblePositions } from "@/lib/fantasy/eligibility";
+import { loadSlotPlan, syncLeagueSlots } from "@/lib/fantasy/slots.server";
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
 };
@@ -313,6 +314,13 @@ export const importSleeperLeague = createServerFn({ method: "POST" })
       .select()
       .single();
     if (leagueError || !league) throw new Error(leagueError?.message ?? "Could not save the league.");
+
+    await syncLeagueSlots(
+      supabase,
+      userId,
+      league.id,
+      slots.length ? slots : ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"],
+    );
 
     const { data: canonical } = await supabase.from("players").select("id, full_name, position, proj_points_week");
     const canonicalMap = new Map(

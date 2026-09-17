@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { SlotConfirmBanner } from "@/components/SlotConfirmBanner";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
@@ -243,6 +244,8 @@ function LeaguePage() {
 
       <ScoringGapBanner leagueId={leagueId} />
 
+      <SlotConfirmBanner leagueId={leagueId} slots={data.slotsNeedConfirmation} onSaved={hardRefresh} />
+
       {data.classLine && (
         <section className="mt-6 rounded-xl bg-card p-5">
           <div className="flex flex-wrap items-center gap-2">
@@ -471,8 +474,8 @@ function LeaguePage() {
             <SetBestLineupButton leagueId={leagueId} onApplied={() => refetch()} />
           </div>
           <div className="grid gap-6 md:grid-cols-2">
-            <PlayerList title="Best starting lineup" players={data.lineup} />
-            <PlayerList title="Bench" players={data.bench} />
+            <PlayerList title="Best starting lineup" players={data.lineup} slotLabels={data.slotLabels} />
+            <PlayerList title="Bench" players={data.bench} slotLabels={data.slotLabels} />
           </div>
           {data.startSitLine ? (
             <p className="text-sm text-muted-foreground">{data.startSitLine}</p>
@@ -710,8 +713,10 @@ function TeamScore({
 function PlayerList({
   title,
   players,
+  slotLabels,
 }: {
   title: string;
+  slotLabels?: Record<string, string>;
   players: { name: string; position: string; slot?: string; proj: number; status?: string; nflTeam?: string | null; byeWeek?: number | null; trajectory?: PlayerTrajectory | null }[];
 }) {
   return (
@@ -721,7 +726,9 @@ function PlayerList({
         {players.map((p, i) => (
           <li key={`${p.name}-${i}`} className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2">
-              <span className="eyebrow text-muted-foreground">{p.slot ?? p.position}</span>
+              <span className="eyebrow text-muted-foreground">
+                {(p.slot && (slotLabels?.[p.slot] ?? p.slot)) ?? p.position}
+              </span>
               <span>{p.name}</span>
               {p.status && p.status !== "Active" && (
                 <Badge variant={statusTone[p.status] ?? "secondary"} className="text-[10px]">

@@ -427,6 +427,56 @@ export type Database = {
         }
         Relationships: []
       }
+      league_slots: {
+        Row: {
+          count: number
+          created_at: string
+          eligible_positions: string[]
+          id: string
+          label: string
+          league_id: string
+          slot_key: string
+          sort_order: number
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          eligible_positions?: string[]
+          id?: string
+          label: string
+          league_id: string
+          slot_key: string
+          sort_order?: number
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          eligible_positions?: string[]
+          id?: string
+          label?: string
+          league_id?: string
+          slot_key?: string
+          sort_order?: number
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_slots_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leagues: {
         Row: {
           all_play_weeks: Json

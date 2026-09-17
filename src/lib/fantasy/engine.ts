@@ -11,6 +11,8 @@
 
 import { EMPTY_IMPACT, type RecommendationImpact } from "./impact";
 import { correlatedVariance } from "./correlation";
+import { SLOT_CODES, canonicalPosition, eligibilityForCode } from "./slots";
+
 
 export type Slot = string;
 
@@ -44,32 +46,22 @@ export interface LeagueConfig {
   rosterSlots: Slot[];
 }
 
-export const FLEX_ELIGIBLE: Record<string, string[]> = {
-  FLEX: ["RB", "WR", "TE"],
-  WRRB_FLEX: ["RB", "WR"],
-  REC_FLEX: ["WR", "TE"],
-  SUPER_FLEX: ["QB", "RB", "WR", "TE"],
-  SUPERFLEX: ["QB", "RB", "WR", "TE"],
-  OP: ["QB", "RB", "WR", "TE"],
-  // Individual defensive players
-  IDP: ["DL", "LB", "DB"],
-  IDP_FLEX: ["DL", "LB", "DB"],
-  DP: ["DL", "LB", "DB"],
-  DL: ["DL", "DE", "DT"],
-  LB: ["LB", "OLB", "ILB"],
-  DB: ["DB", "CB", "S", "SS", "FS"],
-};
+/**
+ * Which positions each slot key accepts in this league, read from the
+ * league's own stored slots. Nothing here knows what a slot is "called".
+ */
+export type SlotEligibility = Record<string, readonly string[]>;
 
-
-export function slotAccepts(slot: Slot, position: string): boolean {
-  const s = slot.toUpperCase();
-  const p = position.toUpperCase();
-  if (s === p) return true;
-  if (s === "DST" && p === "DEF") return true;
-  if (s === "DEF" && p === "DST") return true;
-  if (s === "PK" && p === "K") return true;
-  const flex = FLEX_ELIGIBLE[s];
-  return flex ? flex.includes(p) : false;
+export function slotAccepts(
+  slot: Slot,
+  position: string,
+  eligibility?: SlotEligibility,
+): boolean {
+  const key = slot.trim().toUpperCase();
+  const pos = canonicalPosition(position);
+  const allowed = eligibility?.[key] ?? SLOT_CODES[key] ?? eligibilityForCode(key) ?? [];
+  if (!allowed.length) return false;
+  return allowed.map(canonicalPosition).includes(pos);
 }
 
 export interface LineupResult {
@@ -79,20 +71,26 @@ export interface LineupResult {
 }
 
 /** Greedy-by-scarcity optimal lineup: fill the most restrictive slots first. */
-export function optimalLineup(roster: EnginePlayer[], slots: Slot[]): LineupResult {
+export function optimalLineup(
+  roster: EnginePlayer[],
+  slots: Slot[],
+  eligibility?: SlotEligibility,
+): LineupResult {
   const pool = [...roster].sort((a, b) => b.proj - a.proj);
   const used = new Set<number>();
   const order = slots
     .map((slot, i) => ({
       slot,
       i,
-      breadth: pool.filter((p) => slotAccepts(slot, p.position)).length,
+      breadth: pool.filter((p) => slotAccepts(slot, p.position, eligibility)).length,
     }))
     .sort((a, b) => a.breadth - b.breadth);
 
   const filled: (EnginePlayer | null)[] = slots.map(() => null);
   for (const { slot, i } of order) {
-    const idx = pool.findIndex((p, pi) => !used.has(pi) && slotAccepts(slot, p.position));
+    const idx = pool.findIndex(
+      (p, pi) => !used.has(pi) && slotAccepts(slot, p.position, eligibility),
+    );
     if (idx >= 0) {
       used.add(idx);
       filled[i] = pool[idx]!;
@@ -104,6 +102,7 @@ export function optimalLineup(roster: EnginePlayer[], slots: Slot[]): LineupResu
   const total = starters.reduce((sum, s) => sum + (s.player?.proj ?? 0), 0);
   return { starters, bench, total };
 }
+
 
 /**
  * How wildly a position swings week to week when nothing more specific is
