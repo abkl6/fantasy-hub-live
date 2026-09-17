@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { TradeBuilder } from "@/components/TradeBuilder";
 import { TradeFinder } from "@/components/TradeFinder";
+import { PremiumGate } from "@/components/PremiumGate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listLeagues } from "@/lib/fantasy.functions";
@@ -73,7 +74,12 @@ function TradeDeskPage() {
                 <TradeBuilder key={leagueId} leagueId={leagueId} />
               </TabsContent>
               <TabsContent value="finder" className="mt-4">
-                <TradeFinder key={leagueId} leagueId={leagueId} />
+                <PremiumGate
+                  title="Trade Finder is part of Premium"
+                  what="It reads every rival roster, finds the packages that help both sides, and prices them by the title-odds change."
+                >
+                  <TradeFinder key={leagueId} leagueId={leagueId} />
+                </PremiumGate>
               </TabsContent>
             </Tabs>
           )}
