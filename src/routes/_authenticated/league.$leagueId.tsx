@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useLeagueSwipe } from "@/components/LeagueStrip";
+
+/** The tabs this page offers; the strip keeps the user on the same one. */
+const LEAGUE_TABS = ["lineup", "moves", "league", "live"];
 import { LineupSpotsCard } from "@/components/LineupSpotsCard";
 import { SlotConfirmBanner } from "@/components/SlotConfirmBanner";
 import { useServerFn } from "@tanstack/react-start";
