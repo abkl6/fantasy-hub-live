@@ -23,6 +23,12 @@ export interface BaselineRow {
   baseSeason: number;
   myWeek: number | null;
   mySeason: number | null;
+  /** The app's own baseline, always, whichever set is being shown. */
+  appWeek: number;
+  appSeason: number;
+  /** The caller's uploaded file, or null when they didn't include him. */
+  userWeek: number | null;
+  userSeason: number | null;
   /** Which set the shown base number came from. */
   basis: "app" | "user";
   /** Dynasty market trajectory; null when the market knows no age. */
