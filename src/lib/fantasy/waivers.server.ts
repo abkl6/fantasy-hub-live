@@ -759,9 +759,9 @@ export async function buildWaiverBoard(
 
   const bidFor = (position: string, perWeek: number) => {
     const raw = bidRecommendation({
-      budget: myFaabRemaining ?? faabBudget,
+      budget: faabBudget,
+      remaining: myFaabRemaining,
       perWeek,
-      bestAtPositionPerWeek: bestAtPosition.get(position) ?? perWeek,
       winningBids,
     });
     const capped = applyBidRules(book, {
