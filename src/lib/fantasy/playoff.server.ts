@@ -22,6 +22,8 @@ export interface PlayoffTeam {
   pointsFor: number;
   mean: number;
   sd: number;
+  /** Victory points, for leagues seeded on them. */
+  vp?: number;
 }
 
 export interface PlayoffScenario {
@@ -75,7 +77,15 @@ export interface PlayoffPayload {
 
 export function buildPlayoffPicture(
   teams: PlayoffTeam[],
-  config: { playoffTeams: number; regularSeasonWeeks: number; currentWeek: number },
+  config: {
+    playoffTeams: number;
+    regularSeasonWeeks: number;
+    currentWeek: number;
+    /** Leagues scored on victory points seed on them, not on wins. */
+    victoryPoints?: boolean;
+    /** Team id to division name; division winners are seeded first. */
+    divisions?: Record<string, string>;
+  },
   schedule: ScheduleGame[],
   simResults: { id: string; name: string; isMine: boolean; playoffOdds: number; titleOdds: number; projWins: number; projLosses: number; powerRank: number }[],
 ): PlayoffPayload {
@@ -83,9 +93,37 @@ export function buildPlayoffPicture(
   const weeksLeft = Math.max(0, config.regularSeasonWeeks - (config.currentWeek - 1));
   const playoffTeams = Math.min(n, Math.max(2, config.playoffTeams));
 
-  // Sort by projected wins descending for seed projection.
-  const seeds: SeedProjection[] = [...simResults]
-    .sort((a, b) => b.projWins - a.projWins || b.titleOdds - a.titleOdds)
+  // Seeds follow the league's own seeding rule: victory points where the
+  // league uses them, otherwise projected wins, with division winners lifted
+  // above everyone else — the same order the simulation itself seeds by.
+  const inputById = new Map(teams.map((t) => [t.id, t]));
+  const rankMetric = (id: string, projWins: number) =>
+    config.victoryPoints ? Number(inputById.get(id)?.vp ?? 0) : projWins;
+  const divisions = config.divisions ?? {};
+  const hasDivisions = new Set(Object.values(divisions)).size >= 2;
+
+  const byMerit = [...simResults].sort(
+    (a, b) =>
+      rankMetric(b.id, b.projWins) - rankMetric(a.id, a.projWins) ||
+      b.projWins - a.projWins ||
+      b.titleOdds - a.titleOdds,
+  );
+
+  let ordered = byMerit;
+  if (hasDivisions) {
+    const seen = new Set<string>();
+    const winners: typeof byMerit = [];
+    for (const r of byMerit) {
+      const division = divisions[r.id];
+      if (!division || seen.has(division)) continue;
+      seen.add(division);
+      winners.push(r);
+    }
+    const winnerIds = new Set(winners.map((r) => r.id));
+    ordered = [...winners, ...byMerit.filter((r) => !winnerIds.has(r.id))];
+  }
+
+  const seeds: SeedProjection[] = ordered
     .map((r, i) => ({
       teamId: r.id,
       name: r.name,
@@ -252,7 +290,22 @@ export function buildPlayoffPicture(
   };
 }
 
+/**
+ * The playoff picture is a view of the league analysis, not its own model.
+ * It delegates so the seeds table can never disagree with the odds shown at
+ * the top of the league page: one simulation, one set of numbers.
+ */
 export async function loadPlayoffPicture(
+  supabase: DB,
+  leagueId: string,
+): Promise<PlayoffPayload> {
+  const { buildAnalysis } = await import("./analysis.server");
+  const analysis = await buildAnalysis(supabase, leagueId);
+  return analysis.playoff;
+}
+
+/** Kept for tests and tooling that want the picture without the full analysis. */
+export async function loadPlayoffPictureStandalone(
   supabase: DB,
   leagueId: string,
 ): Promise<PlayoffPayload> {

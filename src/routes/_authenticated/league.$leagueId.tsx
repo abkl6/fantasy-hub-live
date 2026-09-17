@@ -44,7 +44,7 @@ import {
   getAnalysis,
   getDraftRecapFn,
   getLeagueMeta,
-  getPlayoffPictureFn,
+  
   getScoringGapFn,
   getTrendsFn,
   getWaiverBoard,
@@ -121,6 +121,9 @@ export const Route = createFileRoute("/_authenticated/league/$leagueId")({
 });
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
+
+type AnalysisData = Awaited<ReturnType<typeof getAnalysis>>;
+type PlayoffData = AnalysisData["playoff"];
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)} pts`;
 
 function LeaguePage() {
@@ -661,7 +664,7 @@ function LeaguePage() {
           </Section>
 
           <Section title="Playoff picture">
-            <PlayoffPanel leagueId={leagueId} />
+            <PlayoffPanel data={data.playoff} lastUpdated={lastUpdated} />
           </Section>
 
           <Section title="Trends">
@@ -1762,16 +1765,19 @@ function SetBestLineupButton({ leagueId, onApplied }: { leagueId: string; onAppl
   );
 }
 
-function PlayoffPanel({ leagueId }: { leagueId: string }) {
-  const load = useServerFn(getPlayoffPictureFn);
-  const { data, isLoading } = useQuery({
-    queryKey: ["playoff", leagueId],
-    queryFn: () => load({ data: { leagueId } }),
-    refetchOnWindowFocus: false,
-  });
-
-  if (isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+/**
+ * Reads the playoff picture off the league analysis, so the seeds table always
+ * matches the odds shown at the top of the page.
+ */
+function PlayoffPanel({
+  data,
+  lastUpdated,
+}: {
+  data: PlayoffData | null | undefined;
+  lastUpdated: number | null;
+}) {
   if (!data) return <p className="text-sm text-muted-foreground">Could not load playoff picture.</p>;
+  const minutesAgo = lastUpdated ? Math.max(0, Math.round((Date.now() - lastUpdated) / 60000)) : null;
 
   return (
     <div className="space-y-6">
@@ -1795,6 +1801,10 @@ function PlayoffPanel({ leagueId }: { leagueId: string }) {
           <Shield className="size-5 text-primary" />
           Projected seeds
         </h2>
+        <p className="text-xs text-muted-foreground">
+          Same run as the odds at the top of this page
+          {minutesAgo != null ? ` · updated ${minutesAgo} min ago` : ""}.
+        </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-muted-foreground">
