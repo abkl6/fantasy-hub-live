@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { SeasonPanel } from "@/components/SeasonPanel";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLeagueSwipe } from "@/components/LeagueStrip";
 
 /** The tabs this page offers; the strip keeps the user on the same one. */
-const LEAGUE_TABS = ["lineup", "waivers", "trade", "league", "live"];
+const LEAGUE_TABS = ["lineup", "waivers", "trade", "season", "league", "live"];
 import { LineupSpotsCard } from "@/components/LineupSpotsCard";
 import { SlotConfirmBanner } from "@/components/SlotConfirmBanner";
 import { useServerFn } from "@tanstack/react-start";
@@ -402,6 +403,7 @@ function LeaguePage() {
           <TabsTrigger value="lineup">Lineup</TabsTrigger>
           <TabsTrigger value="waivers">Waivers</TabsTrigger>
           <TabsTrigger value="trade">Trade</TabsTrigger>
+          <TabsTrigger value="season">Season</TabsTrigger>
           <TabsTrigger value="league">League</TabsTrigger>
           <TabsTrigger value="live">Live</TabsTrigger>
         </TabsList>
@@ -526,11 +528,26 @@ function LeaguePage() {
           />
         </TabsContent>
 
-        <TabsContent value="league" className="mt-6 space-y-6">
+        <TabsContent value="season" className="mt-6">
           {!premium ? (
             <PremiumNote
               title="The Season tab is part of Premium"
-              what="Standings, projected seeds, playoff paths and the rest of the season view come with Premium."
+              what="See how your season could finish, where your record lands, how your chances have moved, and what happens if you win or lose the games left."
+            />
+          ) : !data.season ? (
+            <p className="text-sm text-muted-foreground">
+              Mark which team is yours in this league to see your season.
+            </p>
+          ) : (
+            <SeasonPanel leagueId={leagueId} season={data.season} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="league" className="mt-6 space-y-6">
+          {!premium ? (
+            <PremiumNote
+              title="The League tab is part of Premium"
+              what="Standings, projected seeds, playoff paths and the rest of the league view come with Premium."
             />
           ) : (
           <>

@@ -1466,3 +1466,47 @@ export const getScoringGapFn = createServerFn({ method: "POST" })
       },
     };
   });
+
+/**
+ * The Season tab's what-if: the same season run with some of my remaining
+ * games locked to a win or a loss. Each set of choices is stored, so flipping
+ * back and forth is instant.
+ */
+export const getSeasonScenarioFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leagueId: z.string().uuid(),
+        forced: z
+          .array(z.object({ week: z.number().int().min(1).max(25), win: z.boolean() }))
+          .max(25),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { leagueAnalysis, cached, hashParts, leagueInputsHash } = await import(
+      "./fantasy/cache.server"
+    );
+    const { runScenario } = await import("./fantasy/season.server");
+
+    const analysis = await leagueAnalysis(context.supabase, context.userId, data.leagueId);
+    const season = analysis.season;
+    if (!season) return null;
+
+    const forced = [...data.forced].sort((a, b) => a.week - b.week);
+    if (!forced.length) return season.outcome;
+
+    const hash = await leagueInputsHash(context.supabase, data.leagueId);
+    return cached(
+      context.supabase,
+      {
+        userId: context.userId,
+        leagueId: data.leagueId,
+        kind: "sim",
+        suffix: hashParts(["scenario", forced]),
+      },
+      hash,
+      async () => runScenario(season.sim, season.myTeamId, forced),
+    );
+  });

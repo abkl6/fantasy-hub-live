@@ -17,6 +17,8 @@ import {
   type SimTeamResult,
 } from "./engine";
 import { buildPlayoffPicture, type PlayoffPayload } from "./playoff.server";
+import { buildSeason } from "./season.server";
+import type { SeasonPayload } from "./season-types";
 import {
   asAllPlayWeeks,
   asContestFormat,
@@ -291,6 +293,8 @@ export interface AnalysisPayload {
   tradeCandidates: { id: string; name: string; position: string; proj: number; teamName: string; teamId: string }[];
   myTradeable: { id: string; name: string; position: string; proj: number }[];
   playoff: PlayoffPayload;
+  /** Season tab: the spread of finishes, win totals and seeds for my team. */
+  season: SeasonPayload | null;
   alerts: Alert[];
   format: LeagueFormat;
   formatLabel: string;
@@ -632,7 +636,13 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   };
 
 
-  const baseline = simulateSeason(simInputs, simConfig, schedule, 2500, 7);
+  const baseline = simulateSeason(
+    simInputs,
+    { ...simConfig, distributions: true },
+    schedule,
+    2500,
+    7,
+  );
   const baselineById = new Map(baseline.map((r) => [r.id, r]));
 
   // Guillotine leagues have no playoffs: the lowest scorer is cut each week,
@@ -847,6 +857,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       tradeCandidates: [],
       myTradeable: [],
       playoff: buildPlayoffPicture(simInputs, simConfig, schedule, standings),
+      season: null,
       alerts: [],
       ...formatMeta,
       mySurvival: null,
@@ -1686,6 +1697,27 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
 
   const playoff = buildPlayoffPicture(simInputs, simConfig, schedule, baseline);
 
+  // The Season tab reads the same run: finishes, win totals, seeds and the
+  // games left, plus the week-by-week trail of what the odds have been.
+  const season = await buildSeason(supabase, {
+    leagueId,
+    season: league.season,
+    currentWeek: league.current_week,
+    playoffTeams: league.playoff_teams,
+    myTeamId: mine.id,
+    myTeamName: mine.name,
+    currentRecord: recordOf(myTeamRow),
+    currentWins: myTeamRow.wins + myTeamRow.ties * 0.5,
+    simInputs,
+    simConfig,
+    schedule,
+    baseline,
+    teamNames: new Map(teams.map((t) => [t.id, t.name])),
+    rosterPlayerIds: spots
+      .filter((sp) => sp.team_id === mine.id && sp.player_id)
+      .map((sp) => sp.player_id as string),
+  }).catch(() => null);
+
   // Persist this week's snapshot for trend charts.
   await saveWeeklySnapshot(supabase, leagueId, league.current_week, baseline, standings);
 
@@ -1753,6 +1785,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       .sort((a, b) => b.proj - a.proj)
       .map((p) => ({ id: p.name, name: p.name, position: p.position, proj: p.proj })),
     playoff,
+    season,
     alerts,
     ...formatMeta,
     mySurvival,
