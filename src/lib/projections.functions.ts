@@ -499,13 +499,19 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const weekOut: Record<string, unknown>[] = [];
     const seasonOut: Record<string, unknown>[] = [];
     const unmatched: string[] = [];
+    const unmatchedSeen = new Set<string>();
+    const previewSeen = new Set<string>();
     let matchedCount = 0;
 
     for (const raw of rows.slice(1)) {
       const name = (raw[iName] ?? "").trim();
       if (!name || !normalizeName(name)) continue;
       const hit = index.find(name, iPos >= 0 ? (raw[iPos] ?? "").trim() : null);
-      if (!hit) { unmatched.push(name); continue; }
+      if (!hit) {
+        // Weekly files repeat every player on every week — report each once.
+        if (!unmatchedSeen.has(name)) { unmatchedSeen.add(name); unmatched.push(name); }
+        continue;
+      }
 
       const stats: Record<string, number> = {};
       for (const col of statCols) {
