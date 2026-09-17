@@ -837,10 +837,15 @@ export async function buildWaiverBoard(
     .filter((p) => (search ? p.name.toLowerCase().includes(search) : true))
     .map((p) => {
       const impact = impacts.get(p.id) ?? null;
+      const gain = impact ? primaryImpact(impact) : null;
       const raw = bidRecommendation({
-        budget: myFaabRemaining ?? faabBudget,
+        budget: faabBudget,
+        remaining: myFaabRemaining,
         perWeek: p.projWeek,
-        bestAtPositionPerWeek: bestAtPosition.get(p.position) ?? p.projWeek,
+        impact: gain,
+        topImpact,
+        lineupGain: impact ? impact.lineupGain : null,
+        rivalFloor: rivalFloorFor(gain),
         winningBids,
       });
       // Rules can only ever lower a bid: streamers go at the minimum and the
