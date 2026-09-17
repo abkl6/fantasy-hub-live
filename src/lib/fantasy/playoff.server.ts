@@ -252,7 +252,22 @@ export function buildPlayoffPicture(
   };
 }
 
+/**
+ * The playoff picture is a view of the league analysis, not its own model.
+ * It delegates so the seeds table can never disagree with the odds shown at
+ * the top of the league page: one simulation, one set of numbers.
+ */
 export async function loadPlayoffPicture(
+  supabase: DB,
+  leagueId: string,
+): Promise<PlayoffPayload> {
+  const { buildAnalysis } = await import("./analysis.server");
+  const analysis = await buildAnalysis(supabase, leagueId);
+  return analysis.playoff;
+}
+
+/** Kept for tests and tooling that want the picture without the full analysis. */
+export async function loadPlayoffPictureStandalone(
   supabase: DB,
   leagueId: string,
 ): Promise<PlayoffPayload> {
