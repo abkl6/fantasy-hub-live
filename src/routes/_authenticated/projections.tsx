@@ -71,10 +71,20 @@ function ProjectionsPage() {
   const [position, setPosition] = useState("ALL");
   const [adjustedOnly, setAdjustedOnly] = useState(false);
   const [open, setOpen] = useState<BaselineRow | null>(null);
+  const [source, setSource] = useState<"auto" | "app" | "user">("auto");
 
   const players = useQuery({
-    queryKey: ["projections", search, position, adjustedOnly],
-    queryFn: () => list({ data: { search, position, adjustedOnly, limit: 150 } }),
+    queryKey: ["projections", search, position, adjustedOnly, source],
+    queryFn: () =>
+      list({
+        data: {
+          search,
+          position,
+          adjustedOnly,
+          limit: 150,
+          ...(source === "auto" ? {} : { source }),
+        },
+      }),
   });
 
   const clearAll = useMutation({
