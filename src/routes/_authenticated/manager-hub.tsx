@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PremiumGate } from "@/components/PremiumGate";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Activity, ArrowRight, BellRing, ChevronDown, ChevronUp, Repeat2, ShieldAlert, Sparkles, Trash2, Trophy, Users } from "lucide-react";
@@ -462,9 +463,16 @@ function ManagerHub() {
       {!!data.reviews?.length && (
         <section className="mt-6 space-y-2">
           <h2 className="text-sm font-semibold text-muted-foreground">Week in review</h2>
-          {data.reviews.map((review) => (
-            <ReviewCard key={review.leagueId} review={review} />
-          ))}
+          <PremiumGate
+            title="The weekly recap is part of Premium"
+            what="It grades last week for every team: points left on the bench, the call that cost you most, and how each move you made worked out."
+          >
+            <>
+              {data.reviews.map((review) => (
+                <ReviewCard key={review.leagueId} review={review} />
+              ))}
+            </>
+          </PremiumGate>
         </section>
       )}
 
