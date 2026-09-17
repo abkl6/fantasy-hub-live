@@ -26,6 +26,7 @@ import {
 } from "./ffpc-parse";
 import { parseLeagueSettings, type FfpcLeagueSettings } from "./ffpc-settings";
 import { normalizeName } from "./names";
+import { filterSlotCodesByObserved } from "./slots";
 
 const HOST = "https://myffpc.com";
 
