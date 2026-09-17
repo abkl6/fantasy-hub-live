@@ -518,10 +518,15 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
         const n = Number(raw[col.i]);
         if (Number.isFinite(n) && n !== 0) stats[col.key] = n;
       }
-      matchedCount++;
+      // Weekly files hold one row per player per week — count players once.
+      matchedSeen.add(hit.id);
+      matchedCount = matchedSeen.size;
       seenPos.add(hit.position.toUpperCase());
       const points = Math.round(scoreStats(stats, BASELINE_RULES, hit.position) * 100) / 100;
-      preview.push({ name: hit.full_name ?? name, position: hit.position.toUpperCase(), points });
+      if (!previewSeen.has(hit.id)) {
+        previewSeen.add(hit.id);
+        preview.push({ name: hit.full_name ?? name, position: hit.position.toUpperCase(), points });
+      }
 
       if (iWeek >= 0) {
         const week = Number(raw[iWeek]);
