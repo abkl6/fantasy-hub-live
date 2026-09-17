@@ -22,6 +22,8 @@ export interface PlayoffTeam {
   pointsFor: number;
   mean: number;
   sd: number;
+  /** Victory points, for leagues seeded on them. */
+  vp?: number;
 }
 
 export interface PlayoffScenario {
