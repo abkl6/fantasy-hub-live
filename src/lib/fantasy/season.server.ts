@@ -229,16 +229,22 @@ async function buildHistory(supabase: DB, input: BuildInput): Promise<SeasonWeek
     markers: markers.get(s.week) ?? [],
   }));
 
-  // Always finish on this week, even before a snapshot has been written.
-  if (!rows.some((r) => r.week === input.currentWeek)) {
-    const mine = input.baseline.find((r) => r.id === input.myTeamId);
-    if (mine)
+  // This week always shows the figures just calculated, not the ones stored
+  // on the previous visit.
+  const mine = input.baseline.find((r) => r.id === input.myTeamId);
+  if (mine) {
+    const current = rows.find((r) => r.week === input.currentWeek);
+    if (current) {
+      current.titleOdds = mine.titleOdds;
+      current.playoffOdds = mine.playoffOdds;
+    } else {
       rows.push({
         week: input.currentWeek,
         titleOdds: mine.titleOdds,
         playoffOdds: mine.playoffOdds,
         markers: markers.get(input.currentWeek) ?? [],
       });
+    }
   }
 
   return rows.sort((a, b) => a.week - b.week);
