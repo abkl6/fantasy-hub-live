@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LeagueStrip } from "@/components/LeagueStrip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -126,6 +127,8 @@ function AuthenticatedLayout() {
           </DropdownMenu>
         </div>
       </header>
+
+      <LeagueStrip />
 
       <Outlet />
 
