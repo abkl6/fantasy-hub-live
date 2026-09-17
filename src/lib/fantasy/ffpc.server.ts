@@ -665,9 +665,10 @@ export async function ffpcLeagueBundle(
     // are the fallback, but the failure is worth an admin Errors entry.
     parseWarnings.push("leagueRulesFFPC.aspx: could not be read; kept League Home settings.");
   }
-  const rosterSlots = rules.rosterSlots.length
-    ? rules.rosterSlots
-    : ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "K", "DEF"];
+  // FFPC's usual lineup is only a starting point when the rules page could not
+  // be read; the real rosters below then decide which spots exist at all, so a
+  // league that starts no kicker or defence never gets one invented for it.
+  const FFPC_TYPICAL_SLOTS = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "K", "DEF"];
 
   const week = options.week ?? home.currentWeek;
 
