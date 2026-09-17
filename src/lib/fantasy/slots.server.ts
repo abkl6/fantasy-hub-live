@@ -12,6 +12,7 @@ import type { Database } from "@/integrations/supabase/types";
 import {
   DEFAULT_SLOTS,
   expandSlots,
+  filterSlotCodesByObserved,
   inferEligibility,
   resolvedKey,
   slotLabel,
@@ -74,6 +75,27 @@ async function persist(
     })) as never,
     { onConflict: "league_id,slot_key" },
   );
+}
+
+/**
+ * A league whose platform never told us its lineup gets one worked out from
+ * what its teams actually roster, so positions nobody holds (often kicker and
+ * defence) never become starting spots.
+ */
+async function guessSlotsFromRosters(supabase: DB, leagueId: string): Promise<LeagueSlot[]> {
+  const { data: spots } = await supabase
+    .from("roster_spots")
+    .select("position, team_id")
+    .eq("league_id", leagueId);
+  if (!spots?.length) return [...DEFAULT_SLOTS];
+  const teamCount = new Set(spots.map((s) => s.team_id)).size;
+  const codes = filterSlotCodesByObserved(
+    DEFAULT_CODES,
+    spots.map((s) => String(s.position ?? "")),
+    teamCount,
+  );
+  const slots = slotsFromCodes(codes, "inferred");
+  return slots.length ? slots : [...DEFAULT_SLOTS];
 }
 
 /**
