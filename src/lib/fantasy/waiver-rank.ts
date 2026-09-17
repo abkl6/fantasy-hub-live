@@ -132,10 +132,22 @@ const STARTER_WEEK_POINTS = 14;
 export interface BidCeilingInput {
   /** League FAAB budget. */
   budget: number;
+  /** What I still have to spend; the full budget when unknown. */
+  remaining?: number | null;
   /** This player's rest-of-season projected points per week. */
   perWeek: number;
-  /** The best available player at his position, points per week. */
-  bestAtPositionPerWeek: number;
+  /**
+   * What the simulation says adding him is worth: the change in survival odds
+   * in a chop league, otherwise the change in title odds. Same number the
+   * board is sorted by, so price and order can never disagree.
+   */
+  impact?: number | null;
+  /** The best impact on this board, used to read one player against the rest. */
+  topImpact?: number | null;
+  /** Points he adds to my best starting lineup this week. */
+  lineupGain?: number | null;
+  /** The strongest rival bid we expect to face, when we can estimate it. */
+  rivalFloor?: number | null;
   /** Winning bids seen in this league's transaction history. */
   winningBids: number[];
 }
