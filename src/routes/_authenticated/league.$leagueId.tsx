@@ -1762,15 +1762,11 @@ function SetBestLineupButton({ leagueId, onApplied }: { leagueId: string; onAppl
   );
 }
 
-function PlayoffPanel({ leagueId }: { leagueId: string }) {
-  const load = useServerFn(getPlayoffPictureFn);
-  const { data, isLoading } = useQuery({
-    queryKey: ["playoff", leagueId],
-    queryFn: () => load({ data: { leagueId } }),
-    refetchOnWindowFocus: false,
-  });
-
-  if (isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+/**
+ * Reads the playoff picture off the league analysis, so the seeds table always
+ * matches the odds shown at the top of the page.
+ */
+function PlayoffPanel({ data }: { data: PlayoffData | null | undefined }) {
   if (!data) return <p className="text-sm text-muted-foreground">Could not load playoff picture.</p>;
 
   return (
