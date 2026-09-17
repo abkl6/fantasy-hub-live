@@ -23,6 +23,8 @@ export interface BaselineRow {
   baseSeason: number;
   myWeek: number | null;
   mySeason: number | null;
+  /** Which set the shown base number came from. */
+  basis: "app" | "user";
   /** Dynasty market trajectory; null when the market knows no age. */
   trajectory: Trajectory | null;
 }
