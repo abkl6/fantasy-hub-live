@@ -235,6 +235,33 @@ export function inferEligibility(observed: readonly string[]): string[] {
     .map(([p]) => p);
 }
 
+/**
+ * Drops slot codes for positions nobody in the league actually rosters.
+ *
+ * Used when a platform page could not be read and we would otherwise assume a
+ * standard lineup: a league that starts no kicker or defence has none on any
+ * roster, so those spots must not be invented.
+ */
+export function filterSlotCodesByObserved(
+  codes: readonly (string | number)[],
+  observed: readonly string[],
+  teamCount: number,
+): (string | number)[] {
+  const counts = new Map<string, number>();
+  for (const raw of observed) {
+    const p = canonicalPosition(String(raw));
+    if (p) counts.set(p, (counts.get(p) ?? 0) + 1);
+  }
+  if (!counts.size) return [...codes];
+  const threshold = Math.max(2, Math.ceil(Math.max(1, teamCount) * 0.25));
+  const present = (p: string) => (counts.get(p) ?? 0) >= threshold;
+  return codes.filter((code) => {
+    const eligible = eligibilityForCode(String(code));
+    if (!eligible || !eligible.length) return true;
+    return eligible.some(present);
+  });
+}
+
 /** Used when a league has nothing stored yet. */
 export const DEFAULT_SLOTS: LeagueSlot[] = slotsFromCodes([
   "QB",
