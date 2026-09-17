@@ -35,6 +35,82 @@ describe("projection templates", () => {
       expect(cols.slice(0, 5)).toEqual(["player_key", "name", "pos", "nfl_team", "bye"]);
     }
   });
+
+  // Real-world weekly stat-line packs: one row per player per week, dense
+  // abbreviations, no template download involved.
+  const WEEKLY = {
+    off: "player_key,name,pos,nfl_team,week,opponent,pa_att,cmp,pa_yd,pa_td,int,ru_att,ru_yd,ru_td,ru_fd,rec,rec_yd,rec_td,rec_fd,fum_lost",
+    idp: "player_key,name,pos,nfl_team,week,opponent,TCK,SOLO,AST,SCK,INT,FR",
+    k: "player_key,name,pos,nfl_team,week,opponent,FG,FGA,FGM,XP,XPA,XPM,FG 0-29,FG 30-39,FG 40-49,FG 50+",
+    def: "player_key,name,pos,nfl_team,week,opponent,SCK,SAF,INT,FR,TD,FF,PA 0,1-6,7-13,14-20,21-27,28-34,35+,YA 0-199,200-49,250-99,300-49,350-99,400-49,450-99,500+",
+  };
+
+  it("recognises every weekly stat-line pack layout", () => {
+    expect(detectGroup(WEEKLY.off.split(","))).toBe("offense");
+    expect(detectGroup(WEEKLY.idp.split(","))).toBe("idp");
+    expect(detectGroup(WEEKLY.k.split(","))).toBe("k");
+    expect(detectGroup(WEEKLY.def.split(","))).toBe("dst");
+  });
+
+  it("maps every scoring column of the weekly offence pack", () => {
+    const mapped = new Map(mapHeaders("offense", WEEKLY.off.split(",")).map((m) => [m.key, m.index]));
+    for (const key of ["pass_yd", "pass_td", "pass_int", "rush_yd", "rush_td", "rec", "rec_yd", "rec_td", "fum_lost"]) {
+      expect(mapped.has(key), key).toBe(true);
+    }
+  });
+
+  it("maps the weekly defence pack's band columns in order", () => {
+    const mapped = new Map(mapHeaders("dst", WEEKLY.def.split(",")).map((m) => [m.key, m.index]));
+    const header = WEEKLY.def.split(",");
+    expect(header[mapped.get("pa_0")!]).toBe("PA 0");
+    expect(header[mapped.get("pa_35p")!]).toBe("35+");
+    expect(header[mapped.get("ya_500p")!]).toBe("500+");
+    for (const key of ["def_sack", "def_saf", "def_int", "def_fr", "def_td", "def_ff"]) {
+      expect(mapped.has(key), key).toBe(true);
+    }
+  });
+
+  it("maps the weekly kicker pack including distance bands", () => {
+    const mapped = new Map(mapHeaders("k", WEEKLY.k.split(",")).map((m) => [m.key, m.index]));
+    for (const key of ["fg_made", "fg_miss", "xp_made", "xp_miss", "fg_0_29", "fg_30_39", "fg_40_49", "fg_50p"]) {
+      expect(mapped.has(key), key).toBe(true);
+    }
+  });
+
+  it("maps the weekly defender pack", () => {
+    const mapped = new Map(mapHeaders("idp", WEEKLY.idp.split(",")).map((m) => [m.key, m.index]));
+    for (const key of ["idp_tkl", "idp_solo", "idp_ast", "idp_sack", "idp_int", "idp_fr"]) {
+      expect(mapped.has(key), key).toBe(true);
+    }
+  });
+
+  it("detects and parses a schedule grid, keeping byes as null", () => {
+    const grid = [
+      "nfl_team,Wk1,Wk2,Wk3,Wk4",
+      "BUF,MIA,NYJ,BYE,NE",
+      "MIA,BUF,NE,NYJ,--",
+    ].join("\n");
+    expect(detectOpponentGrid(grid.split("\n")[0]!.split(","))).toBe(true);
+    expect(detectOpponentGrid(WEEKLY.off.split(","))).toBe(false);
+    const rows = parseOpponentGrid(grid);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({
+      nflTeam: "BUF",
+      opponents: [
+        { week: 1, opponent: "MIA" },
+        { week: 2, opponent: "NYJ" },
+        { week: 3, opponent: null },
+        { week: 4, opponent: "NE" },
+      ],
+    });
+    expect(rows[1]!.opponents[3]!.opponent).toBeNull();
+  });
+
+  it("ignores parenthesised decorations on grid opponents", () => {
+    const rows = parseOpponentGrid("Team,Wk1,Wk2,Wk3,Wk4\nDAL,NYG (Sun 1pm),PHI,WAS,BYE\n");
+    expect(rows[0]!.opponents[0]!.opponent).toBe("NYG");
+    expect(rows[0]!.opponents[3]!.opponent).toBeNull();
+  });
 });
 
 describe("season totals split", () => {
