@@ -501,6 +501,7 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const unmatched: string[] = [];
     const unmatchedSeen = new Set<string>();
     const previewSeen = new Set<string>();
+    const matchedSeen = new Set<string>();
     let matchedCount = 0;
 
     for (const raw of rows.slice(1)) {
