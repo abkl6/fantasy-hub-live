@@ -14,6 +14,7 @@ import {
   ListChecks,
   Repeat2,
   ShieldCheck,
+  Sparkles,
   Users,
 } from "lucide-react";
 
@@ -98,6 +99,12 @@ function AuthenticatedLayout() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/trades">Trade history</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/premium">
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  Premium
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/settings">
