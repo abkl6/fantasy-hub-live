@@ -35,6 +35,7 @@ export async function ffpcToken(
   supabase: DB,
   userId?: string,
   leagueExternalId?: string | null,
+  options: { pinnedOnly?: boolean } = {},
 ): Promise<string | null> {
   const { decryptToken } = await import("./token-crypto.server");
   let query = supabase.from("platform_credentials").select("payload").eq("platform", "ffpc");
@@ -42,8 +43,11 @@ export async function ffpcToken(
   const { data } = await query.maybeSingle();
   const payload = (data?.payload ?? {}) as Record<string, unknown>;
   const byLeague = (payload["byLeague"] ?? {}) as Record<string, string>;
-  const stored =
-    (leagueExternalId ? byLeague[leagueExternalId] : null) ?? (payload["ltuid"] as string) ?? null;
+  const pinned = leagueExternalId ? (byLeague[leagueExternalId] ?? null) : null;
+  // A refresh must only ever use this league's own link. The most recent link
+  // is a fallback for a first import; reusing it later opens whichever league
+  // that link belongs to and would overwrite this one with another's data.
+  const stored = options.pinnedOnly ? pinned : (pinned ?? (payload["ltuid"] as string) ?? null);
   return decryptToken(stored);
 }
 
@@ -441,17 +445,16 @@ export async function refreshFfpcLeague(
     return { refreshed: false, reason: "not an FFPC league" };
   }
 
-  const ltuid = await ffpcToken(supabase, userId, league.external_id);
-  if (!ltuid) return { refreshed: false, reason: "FFPC is not connected." };
+  const ltuid = await ffpcToken(supabase, userId, league.external_id, { pinnedOnly: true });
+  if (!ltuid) {
+    return { refreshed: false, reason: "This league has no saved FFPC link of its own." };
+  }
 
   try {
     const bundle = await ffpcLeagueBundle(league.external_id, ltuid, {
       shallow: options.live === true,
     });
     await applyFfpcBundle(supabase, userId, leagueId, bundle, options);
-    // A link that worked for this league is pinned to it, so a later league's
-    // link can never be used against it.
-    await saveFfpcToken(supabase, userId, ltuid, league.external_id);
     // Queue the rebuild rather than running it inside this request.
     const { enqueueLeagueJobs } = await import("./jobs.server");
     await enqueueLeagueJobs(supabase, userId, leagueId).catch(() => {});
