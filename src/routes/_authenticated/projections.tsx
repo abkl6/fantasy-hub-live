@@ -144,6 +144,9 @@ function ProjectionsPage() {
         <Button size="sm" variant={adjustedOnly ? "default" : "outline"} onClick={() => setAdjustedOnly((v) => !v)}>
           My adjustments {players.data ? `(${players.data.adjusted})` : ""}
         </Button>
+        <Button size="sm" variant={compare ? "default" : "outline"} onClick={() => setCompare((v) => !v)}>
+          Compare side by side
+        </Button>
         {(players.data?.adjusted ?? 0) > 0 && (
           <Button size="sm" variant="ghost" onClick={() => clearAll.mutate()} disabled={clearAll.isPending}>
             Reset all
