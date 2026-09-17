@@ -147,20 +147,45 @@ export async function productionCurves(admin: DB, fittedAt: string): Promise<Map
 
 /** Share of a quarterback's fantasy points that comes from rushing. */
 export async function qbRushShares(admin: DB): Promise<Map<string, number>> {
-  const { data } = await admin
+  const { data: quarterbacks } = await admin
     .from("players")
-    .select("search_name, position, stat_projections")
+    .select("id, search_name, stat_projections")
     .eq("position", "QB")
     .limit(500);
 
-  const out = new Map<string, number>();
-  for (const row of data ?? []) {
+  const nameById = new Map<string, string>();
+  const totals = new Map<string, { pass: number; rush: number }>();
+
+  for (const row of quarterbacks ?? []) {
+    nameById.set(row.id, String(row.search_name));
     const stats = (row.stat_projections ?? {}) as Record<string, number>;
-    const passing = (Number(stats['pass_yds'] ?? 0) / 25) + Number(stats['pass_td'] ?? 0) * 4;
-    const rushing = (Number(stats['rush_yds'] ?? 0) / 10) + Number(stats['rush_td'] ?? 0) * 6;
-    const total = passing + rushing;
-    if (total <= 0) continue;
-    out.set(String(row.search_name), rushing / total);
+    const pass = Number(stats['pass_yds'] ?? 0) / 25 + Number(stats['pass_td'] ?? 0) * 4;
+    const rush = Number(stats['rush_yds'] ?? 0) / 10 + Number(stats['rush_td'] ?? 0) * 6;
+    if (pass + rush > 0) totals.set(String(row.search_name), { pass, rush });
+  }
+
+  // The players table often carries no stat line; the weekly projections do.
+  if (totals.size < 10 && nameById.size) {
+    const { data: weeks } = await admin
+      .from("player_week_stats")
+      .select("player_id, stats")
+      .in("player_id", [...nameById.keys()])
+      .limit(20000);
+    for (const row of weeks ?? []) {
+      const name = row.player_id ? nameById.get(row.player_id) : undefined;
+      if (!name) continue;
+      const s = (row.stats ?? {}) as Record<string, number>;
+      const pass = Number(s['pass_yd'] ?? s['pass_yds'] ?? 0) / 25 + Number(s['pass_td'] ?? 0) * 4;
+      const rush = Number(s['rush_yd'] ?? s['rush_yds'] ?? 0) / 10 + Number(s['rush_td'] ?? 0) * 6;
+      const cur = totals.get(name) ?? { pass: 0, rush: 0 };
+      totals.set(name, { pass: cur.pass + pass, rush: cur.rush + rush });
+    }
+  }
+
+  const out = new Map<string, number>();
+  for (const [name, t] of totals) {
+    const total = t.pass + t.rush;
+    if (total > 0) out.set(name, t.rush / total);
   }
   return out;
 }
