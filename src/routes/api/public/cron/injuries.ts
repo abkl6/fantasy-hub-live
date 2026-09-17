@@ -10,7 +10,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { authenticateCron } from "@/lib/cron-guard.server";
 import { gameWindow, nextKickoff } from "@/lib/fantasy/gamewindow";
 
 const THREE_HOURS = 3 * 60 * 60 * 1000;
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/public/cron/injuries")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const denied = await authenticateCronRequest(request);
+        const denied = await authenticateCron(request);
         if (denied) return denied;
 
         const force = new URL(request.url).searchParams.get("force") === "1";

@@ -48,7 +48,10 @@ export const getAdminOverview = createServerFn({ method: "GET" })
         context.supabase
           .from("leagues")
           .select("id, platform, user_id, last_synced_at, updated_at, last_sync_error"),
-        context.supabase.from("job_errors").select("id, created_at, platform").gte("created_at", dayAgo),
+        context.supabase
+          .from("job_errors")
+          .select("id, created_at, platform, source")
+          .gte("created_at", dayAgo),
         context.supabase.from("notification_log").select("id, created_at").gte("created_at", dayAgo),
       ]);
 
@@ -91,8 +94,23 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       return sorted.length ? sorted[Math.floor(sorted.length / 2)]! : 0;
     };
 
+    // Scheduled-job health: how many leagues have gone a day without a
+    // successful read, and how many scheduled runs were turned away.
+    const staleLeagues = (leagues ?? []).filter(
+      (l) => !l.last_synced_at || l.last_synced_at < dayAgo,
+    ).length;
+    const lastSyncAt = (leagues ?? [])
+      .map((l) => l.last_synced_at)
+      .filter((v): v is string => Boolean(v))
+      .sort()
+      .pop() ?? null;
+    const rejectedRuns24h = (errors ?? []).filter((e) => e.source === "cron-auth").length;
+
     return {
       users: (profiles ?? []).length,
+      staleLeagues,
+      lastSyncAt,
+      rejectedRuns24h,
       activeThisWeek: active.size,
       leagues: (leagues ?? []).length,
       errors24h: (errors ?? []).length,

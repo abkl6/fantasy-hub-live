@@ -377,6 +377,24 @@ export async function applyFfpcBundle(
       }
     }
 
+    // Winning bids from the transaction log: the league's own market prices,
+    // and the only way to know what rivals have left when FFPC doesn't publish
+    // their balance.
+    const { recordWinningBids } = await import("./faab-history.server");
+    const reportedTeamIds = new Set(
+      bundle.teams
+        .filter((t) => t.faabRemaining != null)
+        .map((t) => teamByExternal.get(t.externalId))
+        .filter((id): id is string => Boolean(id)),
+    );
+    await recordWinningBids(supabase, userId, leagueId, {
+      transactions: bundle.transactions,
+      currentWeek: bundle.currentWeek,
+      faabBudget: bundle.faabBudget,
+      teamByExternal,
+      reportedTeamIds,
+    }).catch(() => undefined);
+
     const { syncLeagueRosters } = await import("./rosters.server");
     await syncLeagueRosters(supabase, userId, leagueId);
   } else {
