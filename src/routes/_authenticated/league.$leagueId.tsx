@@ -199,13 +199,18 @@ function LeaguePage() {
   const suggestions = data.suggestions ?? [];
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-6xl px-6 py-10" {...swipe}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-primary">Week {data.league.current_week}</p>
           <div className="mt-2 flex items-center gap-3">
             <h1 className="text-2xl font-bold">{data.league.name}</h1>
             <LeagueColorPicker leagueId={leagueId} current={(data.league as { color?: string | null }).color ?? null} />
+            <LeagueAbbrevEditor
+              leagueId={leagueId}
+              name={data.league.name}
+              current={(data.league as { abbrev?: string | null }).abbrev ?? null}
+            />
           </div>
           <div className="mt-1">
             <CacheStatus
