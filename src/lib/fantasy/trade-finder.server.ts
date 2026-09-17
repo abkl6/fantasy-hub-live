@@ -80,6 +80,7 @@ const assetOf = (ctx: Ctx, p: EnginePlayer): TradeFinderAsset => {
             value,
             tier: tierFromRank(ctx.values.positionRank(p.id, p.name, p.position), ctx.teamCount, p.position),
             curve: ctx.curves.curve(p.position),
+            declineCurve: ctx.curves.declineCurve(p.position),
           })
         : null,
   };

@@ -273,6 +273,35 @@ export async function saveKtcValues(
   return { players: rows.length, picks: pickRows };
 }
 
+/** Copies today's market table into the dated history used to fit age curves. */
+export async function snapshotTradeValues(admin: DB) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: values } = await admin
+    .from("player_trade_values")
+    .select("norm_name, display_name, position, format, value, overall_rank, position_rank, age")
+    .limit(5000);
+
+  const rows = (values ?? []).map((v) => ({
+    snapshot_date: today,
+    norm_name: String(v.norm_name),
+    display_name: String(v.display_name ?? v.norm_name),
+    position: String(v.position).toUpperCase(),
+    format: String(v.format),
+    value: Number(v.value ?? 0),
+    overall_rank: v.overall_rank,
+    position_rank: v.position_rank,
+    age: v.age,
+  }));
+
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await admin
+      .from("trade_value_history")
+      .upsert(rows.slice(i, i + 500), { onConflict: "snapshot_date,norm_name,position,format" });
+    if (error) throw new Error(error.message);
+  }
+  return { snapshot: rows.length };
+}
+
 /** Full weekly refresh. Logs success or failure and never clears old values. */
 export async function refreshTradeValues(admin: DB, scope: "full" | "ir" = "full") {
   try {
@@ -293,6 +322,20 @@ export async function refreshTradeValues(admin: DB, scope: "full" | "ir" = "full
     }
 
     const saved = await saveKtcValues(admin, data, { onlyNames, scope });
+
+    // Weekly photograph of the market, so curves can later be fitted from how
+    // the same player actually moved year over year.
+    if (scope === "full") {
+      try {
+        await snapshotTradeValues(admin);
+      } catch (snapshotError) {
+        await admin.from("job_errors").insert({
+          source: "trade-values",
+          scope: "snapshot",
+          message: snapshotError instanceof Error ? snapshotError.message : "Snapshot failed",
+        });
+      }
+    }
 
     // Refit the market-implied age curves from the values we just stored. A
     // bad fit must never fail the refresh, so it is logged and swallowed.

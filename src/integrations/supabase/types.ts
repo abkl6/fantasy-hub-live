@@ -17,36 +17,48 @@ export type Database = {
       age_curves: {
         Row: {
           created_at: string
+          dispersion: Json
           fitted_at: string
           format: string
           id: string
+          kind: string
+          pair_count: number
           points: Json
           position: string
           sample_size: number
           source: string
           updated_at: string
+          variant: string
         }
         Insert: {
           created_at?: string
+          dispersion?: Json
           fitted_at?: string
           format?: string
           id?: string
+          kind?: string
+          pair_count?: number
           points?: Json
           position: string
           sample_size?: number
           source?: string
           updated_at?: string
+          variant?: string
         }
         Update: {
           created_at?: string
+          dispersion?: Json
           fitted_at?: string
           format?: string
           id?: string
+          kind?: string
+          pair_count?: number
           points?: Json
           position?: string
           sample_size?: number
           source?: string
           updated_at?: string
+          variant?: string
         }
         Relationships: []
       }
@@ -1178,6 +1190,62 @@ export type Database = {
           },
         ]
       }
+      player_production_seasons: {
+        Row: {
+          age: number | null
+          contract_end_year: number | null
+          created_at: string
+          display_name: string
+          fantasy_points: number
+          games: number | null
+          id: string
+          norm_name: string
+          player_id: string | null
+          position: string
+          season: number
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          age?: number | null
+          contract_end_year?: number | null
+          created_at?: string
+          display_name?: string
+          fantasy_points?: number
+          games?: number | null
+          id?: string
+          norm_name: string
+          player_id?: string | null
+          position: string
+          season: number
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          age?: number | null
+          contract_end_year?: number | null
+          created_at?: string
+          display_name?: string
+          fantasy_points?: number
+          games?: number | null
+          id?: string
+          norm_name?: string
+          player_id?: string | null
+          position?: string
+          season?: number
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_production_seasons_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_projection_overrides: {
         Row: {
           created_at: string
@@ -1374,8 +1442,12 @@ export type Database = {
           age: number | null
           bye_week: number | null
           created_at: string
+          draft_pick: number | null
+          draft_round: number | null
+          draft_year: number | null
           espn_id: string | null
           full_name: string
+          games_missed_2y: number
           id: string
           ir_since: string | null
           ktc_slug: string | null
@@ -1396,8 +1468,12 @@ export type Database = {
           age?: number | null
           bye_week?: number | null
           created_at?: string
+          draft_pick?: number | null
+          draft_round?: number | null
+          draft_year?: number | null
           espn_id?: string | null
           full_name: string
+          games_missed_2y?: number
           id?: string
           ir_since?: string | null
           ktc_slug?: string | null
@@ -1418,8 +1494,12 @@ export type Database = {
           age?: number | null
           bye_week?: number | null
           created_at?: string
+          draft_pick?: number | null
+          draft_round?: number | null
+          draft_year?: number | null
           espn_id?: string | null
           full_name?: string
+          games_missed_2y?: number
           id?: string
           ir_since?: string | null
           ktc_slug?: string | null
@@ -2221,6 +2301,48 @@ export type Database = {
           },
         ]
       }
+      trade_value_history: {
+        Row: {
+          age: number | null
+          created_at: string
+          display_name: string
+          format: string
+          id: string
+          norm_name: string
+          overall_rank: number | null
+          position: string
+          position_rank: number | null
+          snapshot_date: string
+          value: number
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string
+          display_name?: string
+          format?: string
+          id?: string
+          norm_name: string
+          overall_rank?: number | null
+          position: string
+          position_rank?: number | null
+          snapshot_date?: string
+          value?: number
+        }
+        Update: {
+          age?: number | null
+          created_at?: string
+          display_name?: string
+          format?: string
+          id?: string
+          norm_name?: string
+          overall_rank?: number | null
+          position?: string
+          position_rank?: number | null
+          snapshot_date?: string
+          value?: number
+        }
+        Relationships: []
+      }
       trade_value_refresh_log: {
         Row: {
           error: string | null
@@ -2251,6 +2373,66 @@ export type Database = {
           scope?: string
           source?: string
           status?: string
+        }
+        Relationships: []
+      }
+      trajectory_log: {
+        Row: {
+          actual_change: number | null
+          age: number | null
+          change1: number
+          classification: string
+          correct: boolean | null
+          created_at: string
+          display_name: string
+          format: string
+          graded: boolean
+          graded_at: string | null
+          id: string
+          norm_name: string
+          position: string
+          season: number
+          uncertain: boolean
+          value: number
+          week: number
+        }
+        Insert: {
+          actual_change?: number | null
+          age?: number | null
+          change1?: number
+          classification: string
+          correct?: boolean | null
+          created_at?: string
+          display_name?: string
+          format?: string
+          graded?: boolean
+          graded_at?: string | null
+          id?: string
+          norm_name: string
+          position: string
+          season: number
+          uncertain?: boolean
+          value?: number
+          week: number
+        }
+        Update: {
+          actual_change?: number | null
+          age?: number | null
+          change1?: number
+          classification?: string
+          correct?: boolean | null
+          created_at?: string
+          display_name?: string
+          format?: string
+          graded?: boolean
+          graded_at?: string | null
+          id?: string
+          norm_name?: string
+          position?: string
+          season?: number
+          uncertain?: boolean
+          value?: number
+          week?: number
         }
         Relationships: []
       }

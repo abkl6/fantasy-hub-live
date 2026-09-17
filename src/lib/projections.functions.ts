@@ -147,9 +147,11 @@ export const listProjections = createServerFn({ method: "POST" })
 
     // Market value trajectory for the rows we are about to show.
     const { loadAgeCurves } = await import("@/lib/fantasy/age-curve.server");
-    const [values, curves] = await Promise.all([
+    const { loadSituationBook } = await import("@/lib/fantasy/situation.server");
+    const [values, curves, situations] = await Promise.all([
       loadTradeValues(context.supabase, "sf"),
       loadAgeCurves(context.supabase, "sf"),
+      loadSituationBook(context.supabase, { season, throughWeek: 18 }),
     ]);
     for (const row of rows) {
       const age = values.age(row.id, row.name, row.position);
@@ -161,6 +163,8 @@ export const listProjections = createServerFn({ method: "POST" })
         value,
         tier: tierFromRank(values.positionRank(row.id, row.name, row.position), 12, row.position),
         curve: curves.curve(row.position),
+        declineCurve: curves.declineCurve(row.position),
+        situation: situations.features(row.id, row.name),
       });
     }
 

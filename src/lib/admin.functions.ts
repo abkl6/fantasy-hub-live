@@ -837,3 +837,116 @@ export const applyCalibrationNow = createServerFn({ method: "POST" })
     const adjusted = await applyCalibration(supabaseAdmin, data.season, data.week);
     return { graded: graded.graded, ...adjusted };
   });
+
+// -------------------------------------------------------------- trajectories
+
+/**
+ * Historical production by season, used to blend a real decline rate into the
+ * market age curves. One row per player per season.
+ */
+export const uploadProductionSeasons = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        rows: z
+          .array(
+            z.object({
+              name: z.string().min(1).max(80),
+              position: z.string().min(1).max(8),
+              season: z.number().int().min(1990).max(2100),
+              age: z.number().min(18).max(50).nullable().optional(),
+              points: z.number().min(0).max(1000),
+              games: z.number().int().min(0).max(25).nullable().optional(),
+              contractEndYear: z.number().int().min(1990).max(2100).nullable().optional(),
+            }),
+          )
+          .min(1)
+          .max(20000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: players } = await supabaseAdmin.from("players").select("id, full_name, position");
+    const index = playerIndex(
+      (players ?? []).map((p) => ({
+        id: p.id,
+        full_name: String(p.full_name),
+        position: String(p.position),
+      })),
+    );
+
+    const unmatched: string[] = [];
+    const rows = data.rows.map((r) => {
+      const hit = index.find(r.name, r.position);
+      if (!hit) unmatched.push(r.name);
+      return {
+        norm_name: normalizeName(r.name),
+        display_name: r.name,
+        player_id: hit?.id ?? null,
+        position: r.position.toUpperCase(),
+        season: r.season,
+        age: r.age ?? null,
+        fantasy_points: r.points,
+        games: r.games ?? null,
+        contract_end_year: r.contractEndYear ?? null,
+        uploaded_by: context.userId,
+      };
+    });
+
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await supabaseAdmin
+        .from("player_production_seasons")
+        .upsert(rows.slice(i, i + 500), { onConflict: "norm_name,season" });
+      if (error) throw new Error(error.message);
+    }
+
+    // Games missed across the two most recent uploaded seasons, per player.
+    const seasons = [...new Set(rows.map((r) => r.season))].sort((a, b) => b - a).slice(0, 2);
+    const missedByPlayer = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.player_id || !seasons.includes(r.season) || r.games == null) continue;
+      missedByPlayer.set(r.player_id, (missedByPlayer.get(r.player_id) ?? 0) + Math.max(0, 17 - r.games));
+    }
+    for (const [id, missed] of missedByPlayer) {
+      await supabaseAdmin.from("players").update({ games_missed_2y: missed }).eq("id", id);
+    }
+
+    // The decline half of the curves now has new evidence behind it.
+    const { refitAgeCurves } = await import("@/lib/fantasy/age-curve.server");
+    await Promise.all([refitAgeCurves(supabaseAdmin, "sf"), refitAgeCurves(supabaseAdmin, "1qb")]);
+
+    return {
+      saved: rows.length,
+      matched: rows.length - unmatched.length,
+      unmatched: unmatched.slice(0, 50),
+      unmatchedCount: unmatched.length,
+    };
+  });
+
+/** Draft round/pick/year for every player, from the public nflverse file. */
+export const syncDraftCapitalNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { syncDraftCapital } = await import("@/lib/fantasy/draft-capital.server");
+    return syncDraftCapital(supabaseAdmin);
+  });
+
+/** How often each Rising / Peak / Declining / Cliff call has been right. */
+export const getTrajectoryHitRates = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { trajectoryHitRates } = await import("@/lib/fantasy/trajectory-log.server");
+    const rates = await trajectoryHitRates(supabaseAdmin);
+    const { count } = await supabaseAdmin
+      .from("trajectory_log")
+      .select("id", { count: "exact", head: true });
+    return { rates, logged: count ?? 0 };
+  });
