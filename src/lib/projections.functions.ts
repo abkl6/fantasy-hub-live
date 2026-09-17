@@ -50,10 +50,15 @@ export const listProjections = createServerFn({ method: "POST" })
         position: z.string().max(8).optional(),
         adjustedOnly: z.boolean().optional(),
         limit: z.number().int().min(1).max(500).optional(),
+        /** Which set of numbers to show. Defaults to the caller's own upload when they have one. */
+        source: z.enum(["app", "user"]).optional(),
+        season: z.number().int().min(2020).max(2100).optional(),
       })
       .parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
+    const season = data.season ?? new Date().getFullYear();
+    const userSource = `user:${context.userId}`;
     const [{ data: players, error }, { data: overrides }] = await Promise.all([
       context.supabase
         .from("players")
