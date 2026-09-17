@@ -9,7 +9,7 @@ import type { LeagueSlot } from "@/lib/fantasy/slots";
 
 interface Props {
   leagueId: string;
-  slots: { key: string; label: string; eligible: string[] }[];
+  slots?: { key: string; label: string; eligible: string[] }[] | null;
   onSaved: () => void;
 }
 
@@ -51,14 +51,15 @@ export function SlotConfirmBanner({ leagueId, slots, onSaved }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!slots.length) return null;
+  const list = slots ?? [];
+  if (!list.length) return null;
 
   return (
     <section className="mt-6 rounded-xl border border-border bg-card p-5">
       <h2 className="text-sm font-bold">Check your lineup spots</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Your league didn&apos;t say what these spots take, so we worked it out from what teams
-        have started: {slots.map((s) => `${s.label} — ${s.eligible.join(", ") || "unknown"}`).join("; ")}.
+        have started: {list.map((s) => `${s.label} — ${s.eligible.join(", ") || "unknown"}`).join("; ")}.
       </p>
 
       {editing ? (
@@ -83,7 +84,7 @@ export function SlotConfirmBanner({ leagueId, slots, onSaved }: Props) {
             variant="outline"
             onClick={() => {
               setDraft(
-                slots.map((s) => ({
+                list.map((s) => ({
                   key: s.key,
                   label: s.label,
                   count: 1,
