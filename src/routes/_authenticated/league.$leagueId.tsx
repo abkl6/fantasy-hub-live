@@ -2602,6 +2602,62 @@ function ProjectionSourcePicker({
   );
 }
 
+/** The two or three letters shown on this league's strip tile. */
+function LeagueAbbrevEditor({
+  leagueId,
+  name,
+  current,
+}: {
+  leagueId: string;
+  name: string;
+  current: string | null;
+}) {
+  const save = useServerFn(updateLeagueSettings);
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(current ?? "");
+
+  const mutation = useMutation({
+    mutationFn: (abbrev: string) => save({ data: { leagueId, abbrev } }),
+    onSuccess: () => {
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["league-strip"] });
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      toast.success("Short name saved");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the short name"),
+  });
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        title="Change the short name used on the league strip"
+        className="rounded bg-secondary px-2 py-0.5 text-[11px] font-bold tracking-wide text-muted-foreground hover:text-foreground"
+      >
+        {(current ?? "").trim() || leagueInitials(name)}
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        value={value}
+        autoFocus
+        maxLength={4}
+        aria-label="Short name for the league strip"
+        onChange={(e) => setValue(e.target.value.toUpperCase())}
+        className="w-16 rounded bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+      />
+      <Button size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => mutation.mutate(value)}>
+        Save
+      </Button>
+    </span>
+  );
+}
+
 function LeagueColorPicker({ leagueId, current }: { leagueId: string; current: string | null }) {
   const save = useServerFn(updateLeagueSettings);
   const queryClient = useQueryClient();
