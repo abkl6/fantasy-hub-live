@@ -22,7 +22,7 @@ export interface ThisWeekItem {
   /** Short right-hand note, such as time remaining. */
   meta: string | null;
   /** Which league tab the row opens. */
-  tab: "lineup" | "moves" | "league";
+  tab: "lineup" | "waivers" | "trade" | "league";
   swap: string | null;
   replacement: string | null;
   /** "+1.8% title" — the change this move makes, in the team's own terms. */

@@ -104,7 +104,16 @@ export async function buildLeagueStrip(supabase: DB): Promise<LeagueStripPayload
           ? `${record}, nothing waiting`
           : "No team on file yet";
 
-    const defaultTab: StripTab = matchup && matchup.gameState !== "pre" ? "live" : items[0] ? "moves" : "league";
+    const firstItemTab = items[0]?.tab;
+    const defaultTab: StripTab = matchup && matchup.gameState !== "pre"
+      ? "live"
+      : firstItemTab === "trade"
+        ? "trade"
+        : firstItemTab === "lineup"
+          ? "lineup"
+          : items[0]
+            ? "waivers"
+            : "league";
 
     return {
       id: l.id,

@@ -1,6 +1,6 @@
 /** Client-safe shapes for the persistent league strip. */
 
-export type StripTab = "lineup" | "moves" | "league" | "live";
+export type StripTab = "lineup" | "waivers" | "trade" | "league" | "live";
 
 export interface LeagueStripLive {
   myScore: number;

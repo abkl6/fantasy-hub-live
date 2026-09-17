@@ -13,7 +13,7 @@ import { getLeagueStripFn, recordLeagueOpenFn } from "@/lib/strip.functions";
 import type { LeagueStripTile, StripTab } from "@/lib/fantasy/strip-types";
 import { leagueColor } from "@/lib/league-colors";
 
-const TABS: StripTab[] = ["lineup", "moves", "league", "live"];
+const TABS: StripTab[] = ["lineup", "waivers", "trade", "league", "live"];
 
 /** Which league tab a tile should open, given where the user is standing. */
 export function stripTargetTab(
@@ -21,13 +21,14 @@ export function stripTargetTab(
   currentTab: string | undefined,
   fallback: StripTab,
 ): StripTab {
+  if (pathname.startsWith("/league/") && currentTab === "moves") return "waivers";
   if (pathname.startsWith("/league/") && currentTab && (TABS as string[]).includes(currentTab)) {
     return currentTab as StripTab;
   }
   if (pathname.startsWith("/gameday")) return "live";
-  if (pathname.startsWith("/this-week") || pathname.startsWith("/waivers")) return "moves";
+  if (pathname.startsWith("/this-week") || pathname.startsWith("/waivers")) return "waivers";
   if (pathname.startsWith("/lineup-check")) return "lineup";
-  if (pathname.startsWith("/trade-desk")) return "moves";
+  if (pathname.startsWith("/trade-desk")) return "trade";
   return fallback;
 }
 

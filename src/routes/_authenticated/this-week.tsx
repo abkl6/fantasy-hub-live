@@ -212,7 +212,7 @@ function ThisWeekPage() {
                     <Link
                       to="/league/$leagueId"
                       params={{ leagueId: league.id }}
-                      search={{ tab: "moves" }}
+                      search={{ tab: league.items[0]?.tab ?? "waivers" }}
                       className="shrink-0 text-xs font-semibold text-primary"
                     >
                       {league.items.length} to handle

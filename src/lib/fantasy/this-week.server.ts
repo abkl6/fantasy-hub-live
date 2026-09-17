@@ -168,7 +168,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         `Empty ${fill.slot} — add ${fill.name}`,
         `${fill.reason}. Bid $${fill.bid}${fill.minimumBid ? " (minimum)" : ""}.`,
         `${fill.projWeek.toFixed(1)} pts`,
-        "moves",
+        "waivers",
         null,
         fill.name,
         fill.ruleNote ?? null,
@@ -181,7 +181,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         `Stream ${board.stream.inName} over ${board.stream.outName}`,
         board.stream.reason,
         `$${board.stream.bid}`,
-        "moves",
+        "waivers",
         board.stream.outName,
         board.stream.inName,
       );
@@ -221,7 +221,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         `Claim in for ${bid.player_name}`,
         `$${bid.amount} bid, still pending`,
         "Pending",
-        "moves",
+        "waivers",
       );
     }
 
@@ -238,7 +238,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         `Trade offer from ${offer.partner_team_name ?? "another manager"}`,
         offer.verdict || "Open offer waiting on your answer.",
         "Open",
-        "moves",
+        "trade",
       );
     }
 
@@ -251,7 +251,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         ? `${(bids ?? []).length} claim${(bids ?? []).length === 1 ? "" : "s"} in so far`
         : "No claims in yet",
       null,
-      "moves",
+      "waivers",
     );
 
     // 5. Available players trending up.
@@ -265,7 +265,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
         `${move.addName ?? move.headline} is available`,
         move.detail,
         `+${move.pointsDelta.toFixed(1)} pts`,
-        "moves",
+        "waivers",
         null,
         move.addName ?? null,
         move.ruleNote ?? null,
