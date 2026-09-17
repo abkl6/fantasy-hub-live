@@ -121,6 +121,9 @@ export const Route = createFileRoute("/_authenticated/league/$leagueId")({
 });
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
+
+type AnalysisData = Awaited<ReturnType<typeof getAnalysis>>;
+type PlayoffData = AnalysisData["playoff"];
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)} pts`;
 
 function LeaguePage() {
@@ -661,7 +664,7 @@ function LeaguePage() {
           </Section>
 
           <Section title="Playoff picture">
-            <PlayoffPanel leagueId={leagueId} />
+            <PlayoffPanel data={data.playoff} />
           </Section>
 
           <Section title="Trends">
