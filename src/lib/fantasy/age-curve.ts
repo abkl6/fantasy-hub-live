@@ -109,12 +109,16 @@ function median(values: number[]) {
  * curve is allowed to rise past its position's known peak.
  */
 export function clampAfterPeak(position: string, points: CurvePoint[]): CurvePoint[] {
-  const peak = HAND_SET[position.toUpperCase()]?.peak ?? 27;
+  const shape = HAND_SET[position.toUpperCase()] ?? { peak: 27, decline: 0.1, rise: 0.05 };
+  // Past the peak the curve may not rise, and it must fall at least half as
+  // fast as the position is known to fall.
+  const floorRate = 1 - shape.decline / 2;
   let ceiling = Infinity;
   return points.map((p) => {
-    if (p.age <= peak) return p;
-    ceiling = Math.min(ceiling, p.value);
-    return { age: p.age, value: Math.min(p.value, ceiling) };
+    if (p.age <= shape.peak) return p;
+    ceiling = Math.min(ceiling * floorRate, p.value);
+    if (!Number.isFinite(ceiling)) ceiling = p.value;
+    return { age: p.age, value: ceiling };
   });
 }
 

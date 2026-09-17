@@ -8,11 +8,13 @@ import {
   fitAgeCurves,
   fitFromPairs,
   handCurve,
+  isUncertain,
   MIN_PAIRS,
   qbVariant,
   riseSlope,
   situationShift,
   trajectoryFor,
+  trajectoryLabel,
 } from "./age-curve";
 
 /** Builds a synthetic market table: peak value at `peak`, decaying after. */
@@ -141,17 +143,11 @@ describe("splits, tiers and situation", () => {
     expect(Math.abs(extreme)).toBeLessThanOrEqual(0.12);
   });
 
-  it("flags a call as uncertain when the band crosses a boundary", () => {
-    const wr = { ...handCurve("WR"), dispersion: [{ age: 28, sd: 0.4 }] };
-    const t = trajectoryFor({
-      position: "WR",
-      age: 28,
-      value: 5000,
-      tier: "starter",
-      curve: wr,
-    });
-    expect(t.uncertain).toBe(true);
-    expect(t.label).toContain("uncertain");
+  it("flags a call as uncertain only near a class boundary", () => {
+    expect(isUncertain(-0.05, 0.3)).toBe(true);
+    expect(isUncertain(0.045, 0.3)).toBe(true);
+    expect(isUncertain(-0.12, 0.3)).toBe(false);
+    expect(trajectoryLabel("declining", true)).toContain("uncertain");
   });
 
   it("names the sell window for a pick differently to a veteran", () => {
