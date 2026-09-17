@@ -44,7 +44,7 @@ import {
   getAnalysis,
   getDraftRecapFn,
   getLeagueMeta,
-  getPlayoffPictureFn,
+  
   getScoringGapFn,
   getTrendsFn,
   getWaiverBoard,
@@ -664,7 +664,7 @@ function LeaguePage() {
           </Section>
 
           <Section title="Playoff picture">
-            <PlayoffPanel data={data.playoff} />
+            <PlayoffPanel data={data.playoff} lastUpdated={lastUpdated} />
           </Section>
 
           <Section title="Trends">
