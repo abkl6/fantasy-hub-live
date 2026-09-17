@@ -716,6 +716,23 @@ export async function ffpcLeagueBundle(
     }
   }
 
+  const observedPositions = [
+    ...[...rosters.values()].flat().map((p) => p.position ?? ""),
+    ...home.myRoster.map((p) => p.position ?? ""),
+  ].filter(Boolean);
+  const rosterSlots = rules.rosterSlots.length
+    ? rules.rosterSlots
+    : (filterSlotCodesByObserved(
+        FFPC_TYPICAL_SLOTS,
+        observedPositions,
+        home.teams.length,
+      ) as string[]);
+  if (!rules.rosterSlots.length && rosterSlots.length < FFPC_TYPICAL_SLOTS.length) {
+    parseWarnings.push(
+      `Lineup spots guessed from rosters: ${rosterSlots.join(", ")} — confirm them on the league page.`,
+    );
+  }
+
   let transactions: FfpcTransaction[] = [];
   let draft: FfpcDraftPick[] = [];
   let futurePicks: FfpcFuturePick[] = [];
