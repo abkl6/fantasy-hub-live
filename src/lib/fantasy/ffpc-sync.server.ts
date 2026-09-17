@@ -35,6 +35,7 @@ export async function ffpcToken(
   supabase: DB,
   userId?: string,
   leagueExternalId?: string | null,
+  options: { pinnedOnly?: boolean } = {},
 ): Promise<string | null> {
   const { decryptToken } = await import("./token-crypto.server");
   let query = supabase.from("platform_credentials").select("payload").eq("platform", "ffpc");
@@ -42,8 +43,11 @@ export async function ffpcToken(
   const { data } = await query.maybeSingle();
   const payload = (data?.payload ?? {}) as Record<string, unknown>;
   const byLeague = (payload["byLeague"] ?? {}) as Record<string, string>;
-  const stored =
-    (leagueExternalId ? byLeague[leagueExternalId] : null) ?? (payload["ltuid"] as string) ?? null;
+  const pinned = leagueExternalId ? (byLeague[leagueExternalId] ?? null) : null;
+  // A refresh must only ever use this league's own link. The most recent link
+  // is a fallback for a first import; reusing it later opens whichever league
+  // that link belongs to and would overwrite this one with another's data.
+  const stored = options.pinnedOnly ? pinned : (pinned ?? (payload["ltuid"] as string) ?? null);
   return decryptToken(stored);
 }
 
@@ -377,6 +381,24 @@ export async function applyFfpcBundle(
       }
     }
 
+    // Winning bids from the transaction log: the league's own market prices,
+    // and the only way to know what rivals have left when FFPC doesn't publish
+    // their balance.
+    const { recordWinningBids } = await import("./faab-history.server");
+    const reportedTeamIds = new Set(
+      bundle.teams
+        .filter((t) => t.faabRemaining != null)
+        .map((t) => teamByExternal.get(t.externalId))
+        .filter((id): id is string => Boolean(id)),
+    );
+    await recordWinningBids(supabase, userId, leagueId, {
+      transactions: bundle.transactions,
+      currentWeek: bundle.currentWeek,
+      faabBudget: bundle.faabBudget,
+      teamByExternal,
+      reportedTeamIds,
+    }).catch(() => undefined);
+
     const { syncLeagueRosters } = await import("./rosters.server");
     await syncLeagueRosters(supabase, userId, leagueId);
   } else {
@@ -423,17 +445,16 @@ export async function refreshFfpcLeague(
     return { refreshed: false, reason: "not an FFPC league" };
   }
 
-  const ltuid = await ffpcToken(supabase, userId, league.external_id);
-  if (!ltuid) return { refreshed: false, reason: "FFPC is not connected." };
+  const ltuid = await ffpcToken(supabase, userId, league.external_id, { pinnedOnly: true });
+  if (!ltuid) {
+    return { refreshed: false, reason: "This league has no saved FFPC link of its own." };
+  }
 
   try {
     const bundle = await ffpcLeagueBundle(league.external_id, ltuid, {
       shallow: options.live === true,
     });
     await applyFfpcBundle(supabase, userId, leagueId, bundle, options);
-    // A link that worked for this league is pinned to it, so a later league's
-    // link can never be used against it.
-    await saveFfpcToken(supabase, userId, ltuid, league.external_id);
     // Queue the rebuild rather than running it inside this request.
     const { enqueueLeagueJobs } = await import("./jobs.server");
     await enqueueLeagueJobs(supabase, userId, leagueId).catch(() => {});

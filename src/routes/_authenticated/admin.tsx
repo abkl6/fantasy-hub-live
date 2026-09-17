@@ -83,6 +83,19 @@ function OverviewTab() {
         <Tile label="Alerts sent 24h" value={d.notifications24h} />
         <Tile label="Errors 24h" value={d.errors24h} tone={d.errors24h ? "bad" : undefined} />
       </div>
+      <div className="rounded-xl border border-border bg-card">
+        <p className="px-3 pt-3 text-sm font-semibold">Scheduled refresh health</p>
+        <p className="px-3 pb-3 pt-1 text-xs text-muted-foreground">
+          Last successful league read {when(d.lastSyncAt ?? null)} ·{" "}
+          <span className={d.staleLeagues ? "text-destructive" : undefined}>
+            {d.staleLeagues} league{d.staleLeagues === 1 ? "" : "s"} over a day old
+          </span>{" "}
+          ·{" "}
+          <span className={d.rejectedRuns24h ? "text-destructive" : undefined}>
+            {d.rejectedRuns24h} scheduled run{d.rejectedRuns24h === 1 ? "" : "s"} turned away in 24h
+          </span>
+        </p>
+      </div>
       <div className="rounded-xl bg-card">
         <p className="px-3 pt-3 text-sm font-semibold">Leagues by platform</p>
         <div className="mt-2 divide-y divide-border">

@@ -6,13 +6,13 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { authenticateCron } from "@/lib/cron-guard.server";
 
 export const Route = createFileRoute("/api/public/cron/weekly-results")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const denied = await authenticateCronRequest(request);
+        const denied = await authenticateCron(request);
         if (denied) return denied;
 
         const params = new URL(request.url).searchParams;

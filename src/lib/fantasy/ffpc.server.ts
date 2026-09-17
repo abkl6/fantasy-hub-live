@@ -282,6 +282,9 @@ export function parseLeagueHome(html: string, leagueId: string) {
   } else if (standings) {
 
     const usesVp = standings.headers.some((header) => /season\s*vp/i.test(header));
+    // Some standings tables carry every team's remaining budget; use it when
+    // it is there so rivals' budgets aren't guesswork.
+    const cFaabAll = columnIndex(standings, "remaining faab", "faab remaining", "faab");
     // A record table has its own W column; a points-only table does not.
     const usesRecord = standings.headers.some((header) => /^w$/i.test(header.trim()));
     let division: string | null = null;
@@ -316,7 +319,7 @@ export function parseLeagueHome(html: string, leagueId: string) {
         vp: usesRecord && usesVp ? toNumber(row[4]) : 0,
         division,
         playoffSeed: seedMatch ? Number(seedMatch[1]) : null,
-        faabRemaining: null,
+        faabRemaining: cFaabAll >= 0 ? toNumber(row[cFaabAll]) : null,
         eliminatedWeek: null,
         roster: [],
       });
@@ -360,6 +363,9 @@ export function parseLeagueHome(html: string, leagueId: string) {
   const settings = parseLeagueSettings(html);
 
   return {
+    // The page states which league it is; a request for one league that comes
+    // back as another must never be written.
+    leagueIdOnPage: infoMatch?.[1] ?? null,
     name: name || `FFPC league ${leagueId}`,
     leagueType: text(infoMatch?.[2] ?? "") || "FFPC",
     isBestBall,
@@ -647,6 +653,12 @@ export async function ffpcLeagueBundle(
   }
   const homeHtml = firstHtml;
   const home = parseLeagueHome(homeHtml, leagueId);
+  if (home.leagueIdOnPage && home.leagueIdOnPage !== leagueId) {
+    throw new FfpcParseError(
+      "LeagueHome.aspx",
+      "The saved FFPC link opens a different league. Paste this league's own address again.",
+    );
+  }
   if (!home.teams.length) {
     throw new FfpcParseError(
       "LeagueHome.aspx",
@@ -783,7 +795,13 @@ export async function ffpcLeagueBundle(
   const teams: FfpcTeam[] = home.teams.map((t) => ({
     ...t,
     isMine: t.externalId === home.myTeamExternalId,
-    faabRemaining: t.externalId === home.myTeamExternalId ? home.faabRemaining : null,
+    // The standings page publishes some teams' budgets; my own panel is the
+    // authority for mine. Anything still unknown is worked out later from the
+    // transaction log.
+    faabRemaining:
+      t.externalId === home.myTeamExternalId
+        ? (home.faabRemaining ?? t.faabRemaining)
+        : t.faabRemaining,
     roster: rosters.get(t.externalId) ?? (t.externalId === home.myTeamExternalId ? home.myRoster : []),
   }));
 

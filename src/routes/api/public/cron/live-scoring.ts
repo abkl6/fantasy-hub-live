@@ -5,7 +5,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { authenticateCron } from "@/lib/cron-guard.server";
 
 export const Route = createFileRoute("/api/public/cron/live-scoring")({
   server: {
@@ -13,25 +13,8 @@ export const Route = createFileRoute("/api/public/cron/live-scoring")({
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // The database scheduler keeps stats flowing while nobody has the app
-        // open; it presents the key held in cron_keys instead of the platform
-        // cron secret, so accept either.
-        const denied = await authenticateCronRequest(request);
-        if (denied) {
-          const token = /^Bearer ([^\s,]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
-          const { data } = await (supabaseAdmin as unknown as {
-            from: (t: string) => {
-              select: (c: string) => {
-                eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data: { token?: string } | null }> };
-              };
-            };
-          })
-            .from("cron_keys")
-            .select("token")
-            .eq("name", "live-scoring")
-            .maybeSingle();
-          if (!token || !data?.token || token !== data.token) return denied;
-        }
+        const denied = await authenticateCron(request);
+        if (denied) return denied;
 
         const { refreshLiveScoring } = await import("@/lib/fantasy/live.server");
         const { redZoneTeams, sendLiveAlerts } = await import("@/lib/push/live-alerts.server");
