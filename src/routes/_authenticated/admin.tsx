@@ -1,4 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { adminListUsers, adminSetEntitlement } from "@/lib/entitlements.functions";
+import { hasPremium } from "@/lib/entitlements";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Loader2, RefreshCw, Send, Upload } from "lucide-react";
@@ -673,6 +675,7 @@ function AdminPage() {
           <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="rules">Rules</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="errors">Errors</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4"><OverviewTab /></TabsContent>
@@ -682,6 +685,7 @@ function AdminPage() {
         <TabsContent value="accuracy" className="mt-4"><AccuracyTab /></TabsContent>
         <TabsContent value="notifications" className="mt-4"><NotificationsTab /></TabsContent>
         <TabsContent value="rules" className="mt-4"><RulesTab /></TabsContent>
+        <TabsContent value="users" className="mt-4"><UsersTab /></TabsContent>
         <TabsContent value="errors" className="mt-4"><ErrorsTab /></TabsContent>
       </Tabs>
     </main>
@@ -1134,6 +1138,93 @@ function QualityTab() {
           ))}
         </ul>
       </section>
+    </div>
+  );
+}
+
+/** Change who has Premium and for how long. */
+function UsersTab() {
+  const load = useServerFn(adminListUsers);
+  const save = useServerFn(adminSetEntitlement);
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["admin", "users"], queryFn: () => load() });
+  const mutation = useMutation({
+    mutationFn: (input: { userId: string; tier: "free" | "premium"; expiresAt: string | null }) =>
+      save({ data: input }),
+    onSuccess: () => {
+      toast.success("Tier updated");
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["entitlement"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update tier"),
+  });
+
+  if (q.isLoading) return <p className="text-sm text-muted-foreground">Loading members…</p>;
+  const rows = q.data ?? [];
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">
+        Founding season grants everyone Premium through 1 February 2027. Payments are not connected
+        yet, so changes here are the only way to move somebody between tiers.
+      </p>
+      {rows.map((u) => (
+        <UserRow key={u.userId} user={u} onSave={(tier, expiresAt) => mutation.mutate({ userId: u.userId, tier, expiresAt })} saving={mutation.isPending} />
+      ))}
+      {!rows.length ? <p className="text-sm text-muted-foreground">No members yet.</p> : null}
+    </div>
+  );
+}
+
+function UserRow({
+  user,
+  onSave,
+  saving,
+}: {
+  user: { userId: string; displayName: string | null; tier: string; source: string; expiresAt: string | null; leagues: number };
+  onSave: (tier: "free" | "premium", expiresAt: string | null) => void;
+  saving: boolean;
+}) {
+  const [tier, setTier] = useState<"free" | "premium">(user.tier === "premium" ? "premium" : "free");
+  const [expires, setExpires] = useState(user.expiresAt ? user.expiresAt.slice(0, 10) : "");
+  const active = hasPremium({
+    tier: user.tier === "premium" ? "premium" : "free",
+    source: "admin",
+    expiresAt: user.expiresAt,
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-card p-4">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{user.displayName ?? user.userId.slice(0, 8)}</p>
+        <p className="text-xs text-muted-foreground">
+          {user.leagues} leagues · {active ? "Premium" : "Free"} · via {user.source}
+        </p>
+      </div>
+      <select
+        className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        value={tier}
+        onChange={(e) => setTier(e.target.value as "free" | "premium")}
+        aria-label="Tier"
+      >
+        <option value="free">Free</option>
+        <option value="premium">Premium</option>
+      </select>
+      <Input
+        type="date"
+        className="h-9 w-40"
+        value={expires}
+        onChange={(e) => setExpires(e.target.value)}
+        aria-label="Expiry date"
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={saving}
+        onClick={() => onSave(tier, expires ? new Date(`${expires}T00:00:00Z`).toISOString() : null)}
+      >
+        Save
+      </Button>
     </div>
   );
 }

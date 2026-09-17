@@ -29,6 +29,8 @@ import { useCachedQuery } from "@/hooks/useCachedQuery";
 import type { TeamBadge as TeamBadgeValue } from "@/lib/fantasy/team-class";
 import { TeamBadge } from "@/components/TeamBadge";
 import { TradeBuilder } from "@/components/TradeBuilder";
+import { PremiumGate, PremiumNote } from "@/components/PremiumGate";
+import { usePremium } from "@/hooks/usePremium";
 import { TrajectoryChip } from "@/components/TrajectoryChip";
 import type { Trajectory as PlayerTrajectory } from "@/lib/fantasy/age-curve";
 import { GameDayBoard } from "@/components/GameDayBoard";
@@ -142,6 +144,7 @@ function LeaguePage() {
     navigate({ to: "/league/$leagueId", params: { leagueId }, search: { tab: next }, replace: true });
   };
   const swipe = useLeagueSwipe(tab);
+  const { premium } = usePremium();
 
   const forceRef = useRef(false);
   const { data, isLoading, isFetching, refetch, error, updating, stale, lastUpdated } = useCachedQuery({
@@ -310,13 +313,22 @@ function LeaguePage() {
       {data.league.platform === "manual" && <ManualUpkeep leagueId={leagueId} />}
 
       {me && !data.mySurvival && (
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <OddsCard label="Title odds" value={pct(me.titleOdds)} tone="primary" />
-          <OddsCard label="Playoff odds" value={pct(me.playoffOdds)} />
-          <OddsCard
-            label="Projected finish"
-            value={`${me.projWins.toFixed(1)}-${me.projLosses.toFixed(1)}`}
-          />
+        <div className="mt-6">
+          {premium ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <OddsCard label="Title odds" value={pct(me.titleOdds)} tone="primary" />
+              <OddsCard label="Playoff odds" value={pct(me.playoffOdds)} />
+              <OddsCard
+                label="Projected finish"
+                value={`${me.projWins.toFixed(1)}-${me.projLosses.toFixed(1)}`}
+              />
+            </div>
+          ) : (
+            <PremiumNote
+              title="Title and playoff odds are part of Premium"
+              what="These come from thousands of simulated seasons using your league's real scoring and schedule."
+            />
+          )}
         </div>
       )}
 
@@ -403,6 +415,13 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="trade" className="mt-6 space-y-6">
+          {!premium && (
+            <PremiumNote
+              title="Trade prompts are part of Premium"
+              what="Premium watches your roster and your rivals' and tells you when a trade is worth making, with the title-odds change for both sides."
+            />
+          )}
+          {premium && (
           <div className="space-y-3">
             <ShownLogger
               leagueId={leagueId}
@@ -423,8 +442,16 @@ function LeaguePage() {
               />
             ))}
           </div>
+          )}
 
-          {!!data.buySell?.length && (
+          {!premium ? (
+            <PremiumNote
+              title="Buy and sell targets are part of Premium"
+              what="Premium compares each player's market price with their actual production and lists who to buy low and sell high."
+            />
+          ) : null}
+
+          {premium && !!data.buySell?.length && (
             <Section title="Buy and sell">
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
@@ -500,6 +527,13 @@ function LeaguePage() {
         </TabsContent>
 
         <TabsContent value="league" className="mt-6 space-y-6">
+          {!premium ? (
+            <PremiumNote
+              title="The Season tab is part of Premium"
+              what="Standings, projected seeds, playoff paths and the rest of the season view come with Premium."
+            />
+          ) : (
+          <>
           {data.contestFormat !== "points" && (
             <Section title="Standings">
               <div className="overflow-x-auto">
@@ -678,6 +712,8 @@ function LeaguePage() {
           <Section title="Draft">
             <DraftPanel leagueId={leagueId} />
           </Section>
+          </>
+          )}
         </TabsContent>
       </Tabs>
     </main>

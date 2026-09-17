@@ -5,10 +5,12 @@
 
 import { ArrowDownRight, ArrowRight, ArrowUpRight, TrendingDown } from "lucide-react";
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TRAJECTORY_LABEL, type Trajectory } from "@/lib/fantasy/age-curve";
 import { cn } from "@/lib/utils";
+import { usePremium } from "@/hooks/usePremium";
 
 const TONE: Record<Trajectory["classification"], string> = {
   rising: "text-primary",
@@ -34,7 +36,19 @@ export function TrajectoryChip({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const { premium } = usePremium();
   if (!trajectory) return null;
+  if (!premium) {
+    return (
+      <Link
+        to="/premium"
+        className={cn("text-[11px] text-muted-foreground underline", className)}
+        title="Value trajectories are part of Premium"
+      >
+        Trajectory (Premium)
+      </Link>
+    );
+  }
   const Icon = ICON[trajectory.classification];
 
   return (
