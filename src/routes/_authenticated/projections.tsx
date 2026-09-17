@@ -318,6 +318,46 @@ function BaselineEditor({ row, onDone }: { row: BaselineRow; onDone: () => void 
 /** A member's own weekly stat projections, used by leagues set to "My projections". */
 type UploadGroup = "offense" | "dst" | "idp" | "k";
 
+interface PendingFile {
+  name: string;
+  csv: string;
+  kind: "stats" | "opponents" | "unknown";
+  group: UploadGroup | null;
+}
+
+interface FileOutcome {
+  name: string;
+  ok: boolean;
+  summary: string;
+  detail?: string;
+  canSave: boolean;
+}
+
+/** Reads every CSV out of a picked file — a .zip unpacks into one entry per CSV inside. */
+async function readPickedFiles(fileList: FileList): Promise<PendingFile[]> {
+  const { detectGroup, detectOpponentGrid } = await import("@/lib/fantasy/projection-templates");
+  const classify = (name: string, csv: string): PendingFile => {
+    const header = (csv.split(/\r?\n/)[0] ?? "").split(",");
+    if (detectOpponentGrid(header)) return { name, csv, kind: "opponents", group: null };
+    const group = detectGroup(header);
+    return { name, csv, kind: group ? "stats" : "unknown", group };
+  };
+  const out: PendingFile[] = [];
+  for (const file of Array.from(fileList)) {
+    if (file.name.toLowerCase().endsWith(".zip")) {
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(file);
+      for (const entry of Object.values(zip.files)) {
+        if (entry.dir || !entry.name.toLowerCase().endsWith(".csv")) continue;
+        out.push(classify(entry.name.split("/").pop() ?? entry.name, await entry.async("string")));
+      }
+    } else {
+      out.push(classify(file.name, await file.text()));
+    }
+  }
+  return out;
+}
+
 const GROUP_CHOICES: { value: UploadGroup; label: string }[] = [
   { value: "offense", label: "Offence (QB, RB, WR, TE)" },
   { value: "dst", label: "Team defence" },
