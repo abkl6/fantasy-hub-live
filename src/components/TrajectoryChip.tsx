@@ -50,10 +50,10 @@ export function TrajectoryChip({
           TONE[trajectory.classification],
           className,
         )}
-        aria-label={`${playerName} value trajectory: ${TRAJECTORY_LABEL[trajectory.classification]}`}
+        aria-label={`${playerName} value trajectory: ${trajectory.label}`}
       >
         <Icon className="h-3 w-3" />
-        {TRAJECTORY_LABEL[trajectory.classification]}
+        {trajectory.label}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -64,8 +64,14 @@ export function TrajectoryChip({
           <TrajectoryChart trajectory={trajectory} />
           <p className="text-sm text-muted-foreground">{trajectory.sentence}</p>
           <p className="text-xs text-muted-foreground">
-            Shaded band is ±15%. Curve fitted from the{" "}
-            {trajectory.curveSource === "market" ? "current trade market" : "standard age curve"}.
+            Shaded band is ±{Math.round(trajectory.dispersion * 100)}%, the usual spread for this
+            position and age. Curve fitted from{" "}
+            {trajectory.curveSource === "market"
+              ? trajectory.pairCount > 0
+                ? `${trajectory.pairCount} real year-to-year moves`
+                : "the current trade market"
+              : "the standard age curve"}
+            .{trajectory.uncertain ? " The band crosses a boundary, so treat the label loosely." : ""}
           </p>
         </DialogContent>
       </Dialog>

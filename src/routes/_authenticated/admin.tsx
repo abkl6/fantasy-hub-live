@@ -22,6 +22,9 @@ import {
   getAdminOverview,
   applyCalibrationNow,
   getCalibration,
+  getTrajectoryHitRates,
+  syncDraftCapitalNow,
+  uploadProductionSeasons,
   getDataQuality,
   getSyncHealth,
   recomputeProjections,
@@ -96,6 +99,7 @@ function OverviewTab() {
           </span>
         </p>
       </div>
+      <TrajectoryCard />
       <div className="rounded-xl bg-card">
         <p className="px-3 pt-3 text-sm font-semibold">Leagues by platform</p>
         <div className="mt-2 divide-y divide-border">
@@ -743,6 +747,134 @@ function RulesTab() {
       ))}
     </div>
   );
+}
+
+/**
+ * Value-trajectory tooling: upload historical production, refresh draft
+ * capital, and see how often the Rising/Peak/Declining/Cliff calls were right.
+ */
+function TrajectoryCard() {
+  const load = useServerFn(getTrajectoryHitRates);
+  const upload = useServerFn(uploadProductionSeasons);
+  const syncDraft = useServerFn(syncDraftCapitalNow);
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["admin", "trajectories"], queryFn: () => load() });
+
+  const draft = useMutation({
+    mutationFn: () => syncDraft({}),
+    onSuccess: (r) => toast.success(`Draft capital updated for ${r.updated} players.`),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const send = useMutation({
+    mutationFn: (rows: ProductionRow[]) => upload({ data: { rows } }),
+    onSuccess: (r) => {
+      toast.success(
+        `Saved ${r.saved} seasons · ${r.matched} matched${r.unmatchedCount ? ` · ${r.unmatchedCount} unmatched` : ""}.`,
+      );
+      qc.invalidateQueries({ queryKey: ["admin", "trajectories"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      send.mutate(parseProductionCsv(await file.text()));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not read that file.");
+    }
+  }
+
+  const rates = q.data?.rates ?? [];
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <p className="text-sm font-semibold">Value trajectories</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {q.data?.logged ? `${q.data.logged} weekly calls on file.` : "No calls logged yet."} Hit
+        rates appear once calls are a season old.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-xs font-semibold">
+          Upload production history (CSV)
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+        </label>
+        <button
+          type="button"
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+          onClick={() => draft.mutate()}
+          disabled={draft.isPending}
+        >
+          {draft.isPending ? "Refreshing…" : "Refresh draft capital"}
+        </button>
+      </div>
+      {rates.length > 0 && (
+        <div className="mt-3 divide-y divide-border">
+          {rates.map((r) => (
+            <div
+              key={`${r.classification}-${r.position}`}
+              className="flex items-center justify-between py-2 text-sm"
+            >
+              <span className="font-semibold capitalize">
+                {r.classification} · {r.position}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {Math.round(r.rate * 100)}% right · {r.graded} graded
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ProductionRow {
+  name: string;
+  position: string;
+  season: number;
+  age: number | null;
+  points: number;
+  games: number | null;
+  contractEndYear: number | null;
+}
+
+/** name, position, season, age, points[, games][, contract_end_year] */
+function parseProductionCsv(text: string): ProductionRow[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) throw new Error("That file had no rows.");
+  const header = lines[0]!.split(",").map((h) => h.trim().toLowerCase());
+  const at = (...names: string[]) => header.findIndex((h) => names.includes(h));
+  const iName = at("name", "player", "player_name");
+  const iPos = at("position", "pos");
+  const iSeason = at("season", "year");
+  const iPoints = at("points", "fantasy_points", "fpts");
+  if (iName < 0 || iPos < 0 || iSeason < 0 || iPoints < 0)
+    throw new Error("Needs name, position, season and points columns.");
+  const iAge = at("age");
+  const iGames = at("games", "g", "gp");
+  const iContract = at("contract_end_year", "contract");
+
+  const num = (cells: string[], i: number) => {
+    if (i < 0) return null;
+    const v = Number(cells[i]);
+    return Number.isFinite(v) ? v : null;
+  };
+
+  return lines.slice(1).map((line) => {
+    const cells = line.split(",").map((c) => c.trim());
+    return {
+      name: cells[iName] ?? "",
+      position: (cells[iPos] ?? "").toUpperCase(),
+      season: num(cells, iSeason) ?? 0,
+      age: num(cells, iAge),
+      points: num(cells, iPoints) ?? 0,
+      games: num(cells, iGames),
+      contractEndYear: num(cells, iContract),
+    };
+  }).filter((r) => r.name && r.season > 1990);
 }
 
 /** How well the app's calls have matched what actually happened. */

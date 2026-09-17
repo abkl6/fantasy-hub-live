@@ -3,9 +3,18 @@ import { describe, expect, it } from "vitest";
 import {
   classifyTrajectory,
   curveValueAt,
+  dispersionAt,
+  dispersionFromPairs,
   fitAgeCurves,
+  fitFromPairs,
   handCurve,
+  isUncertain,
+  MIN_PAIRS,
+  qbVariant,
+  riseSlope,
+  situationShift,
   trajectoryFor,
+  trajectoryLabel,
 } from "./age-curve";
 
 /** Builds a synthetic market table: peak value at `peak`, decaying after. */
@@ -67,5 +76,98 @@ describe("trajectories", () => {
     expect(classifyTrajectory(-0.02)).toBe("peak");
     expect(classifyTrajectory(-0.12)).toBe("declining");
     expect(classifyTrajectory(-0.31)).toBe("cliff");
+  });
+});
+
+describe("year-over-year fitting", () => {
+  /** Same-player moves: value holds to `peak`, then drops `decline` a year. */
+  function pairs(peak: number, decline: number, count = 8) {
+    const out: { age: number; ratio: number }[] = [];
+    for (let age = 21; age <= 33; age += 1) {
+      const ratio = age < peak ? 1.08 : 1 - decline;
+      for (let i = 0; i < count; i += 1) out.push({ age, ratio: ratio + (i % 3) * 0.01 });
+    }
+    return out;
+  }
+
+  it("prefers same-player pairs once there are enough of them", () => {
+    const curve = fitFromPairs("RB", pairs(25, 0.2));
+    expect(curve).not.toBeNull();
+    expect(curve!.pairCount).toBeGreaterThanOrEqual(MIN_PAIRS);
+    expect(curveValueAt(curve!, 30)).toBeLessThan(curveValueAt(curve!, 25));
+  });
+
+  it("refuses to fit from too few pairs", () => {
+    expect(fitFromPairs("RB", pairs(25, 0.2, 1))).toBeNull();
+  });
+
+  it("measures dispersion from the real spread", () => {
+    const wide = dispersionFromPairs(
+      Array.from({ length: 60 }, (_, i) => ({ age: 27, ratio: 1 + (i % 2 ? 0.4 : -0.4) })),
+    );
+    const tight = dispersionFromPairs(
+      Array.from({ length: 60 }, (_, i) => ({ age: 27, ratio: 1 + (i % 2 ? 0.02 : -0.02) })),
+    );
+    expect(dispersionAt(wide, 27)).toBeGreaterThan(dispersionAt(tight, 27));
+  });
+});
+
+describe("splits, tiers and situation", () => {
+  it("splits quarterbacks by rushing share", () => {
+    expect(qbVariant(0.3)).toBe("rush");
+    expect(qbVariant(0.05)).toBe("pocket");
+    expect(qbVariant(null)).toBe("all");
+  });
+
+  it("lifts risers with production or first-round capital and damps day-three misses", () => {
+    expect(riseSlope("elite", null)).toBeGreaterThan(1);
+    expect(riseSlope("starter", 1)).toBeGreaterThan(1);
+    expect(riseSlope("replacement", 6)).toBeLessThan(1);
+  });
+
+  it("nudges young players by role trend and leaves veterans alone", () => {
+    expect(situationShift(23, { roleTrend: 0.1 })).toBeGreaterThan(0);
+    expect(situationShift(23, { roleTrend: -0.1 })).toBeLessThan(0);
+    expect(situationShift(31, { roleTrend: 0.1 })).toBe(
+      situationShift(31, { roleTrend: -0.1 }),
+    );
+  });
+
+  it("keeps every shift inside its cap", () => {
+    const extreme = situationShift(23, {
+      roleTrend: 5,
+      draftRound: 1,
+      contractYear: true,
+      gamesMissed2y: 30,
+    });
+    expect(Math.abs(extreme)).toBeLessThanOrEqual(0.12);
+  });
+
+  it("flags a call as uncertain only near a class boundary", () => {
+    expect(isUncertain(-0.05, 0.3)).toBe(true);
+    expect(isUncertain(0.045, 0.3)).toBe(true);
+    expect(isUncertain(-0.12, 0.3)).toBe(false);
+    expect(trajectoryLabel("declining", true)).toContain("uncertain");
+  });
+
+  it("names the sell window for a pick differently to a veteran", () => {
+    const wr = handCurve("WR");
+    const rookie = trajectoryFor({
+      position: "WR",
+      age: 22,
+      value: 5000,
+      tier: "starter",
+      curve: wr,
+      sell: { rookieOrPick: true, month: 1 },
+    });
+    const vet = trajectoryFor({
+      position: "WR",
+      age: 30,
+      value: 3000,
+      tier: "starter",
+      curve: wr,
+      sell: { rookieOrPick: false, month: 1 },
+    });
+    expect(rookie.sentence).not.toBe(vet.sentence);
   });
 });

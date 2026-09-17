@@ -565,6 +565,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       value,
       tier: tierFromRank(values.positionRank(id, name, position), league.team_count ?? 12, position),
       curve: ageCurves.curve(position),
+      declineCurve: ageCurves.declineCurve(position),
     });
   };
 
