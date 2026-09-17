@@ -31,6 +31,7 @@ import {
   uploadOpponentGrid,
   projectionTemplate,
   clearMyProjections,
+  setProjectionSourceEverywhere,
   importPlatformProjections,
   clearAllOverrides,
   listProjections,
@@ -164,6 +165,7 @@ function ProjectionsPage() {
           </select>
         </div>
         <MyProjectionsUpload />
+        <UseMyProjectionsEverywhere />
         {admin && <CsvUpload />}
         {admin && <PlatformImport />}
       </div>
