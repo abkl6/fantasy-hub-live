@@ -440,6 +440,7 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const iName = headerIndex(header, HEADERS.name);
     const iPos = headerIndex(header, HEADERS.position);
     const iWeek = header.findIndex((h) => h === "week");
+    const iOpp = header.findIndex((h) => h === "opponent" || h === "opp");
     if (iName < 0) throw new Error('The file needs a "name" or "player" column.');
 
     const detected = detectGroup(rawHeader);
@@ -490,7 +491,8 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
     const source = `user:${context.userId}`;
     const recognised = statCols.map((c) => rawHeader[c.i] ?? "").filter(Boolean);
     const unrecognised = rawHeader.filter(
-      (h, i) => h && !statCols.some((c) => c.i === i) && i !== iName && i !== iPos && i !== iWeek,
+      (h, i) =>
+        h && !statCols.some((c) => c.i === i) && i !== iName && i !== iPos && i !== iWeek && i !== iOpp,
     );
     const seenPos = new Set<string>();
     const preview: { name: string; position: string; points: number }[] = [];
