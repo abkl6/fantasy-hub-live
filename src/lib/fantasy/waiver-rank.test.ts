@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { bidRecommendation, isInjuredStatus, rankWaivers, type RankableRow } from "./waiver-rank";
+import {
+  bidRecommendation,
+  enforceBidOrder,
+  isInjuredStatus,
+  rankWaivers,
+  type RankableRow,
+} from "./waiver-rank";
 
 const row = (p: Partial<RankableRow> & { id: string; position: string; projSeason: number }): RankableRow => ({
   status: "Active",
