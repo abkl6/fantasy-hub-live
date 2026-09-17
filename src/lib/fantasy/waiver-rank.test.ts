@@ -83,26 +83,74 @@ describe("waiver ranking", () => {
 });
 
 describe("bid ceilings", () => {
-  it("keeps a low-projection player under 3% of the budget", () => {
+  it("keeps a player who neither starts nor moves the odds cheap", () => {
     const bid = bidRecommendation({
       budget: 100,
       perWeek: 4.2,
-      bestAtPositionPerWeek: 16,
+      impact: 0,
+      topImpact: 0.09,
+      lineupGain: 0,
       winningBids: [40, 55, 70],
     });
-    expect(bid.recommended).toBeLessThanOrEqual(3);
+    expect(bid.recommended).toBeLessThanOrEqual(5);
   });
 
   it("prices the best player on the wire off winning bid history", () => {
     const bid = bidRecommendation({
       budget: 100,
       perWeek: 16,
-      bestAtPositionPerWeek: 16,
       winningBids: [20, 30, 45],
     });
     expect(bid.recommended).toBeGreaterThan(10);
     expect(bid.ceiling).toBeLessThanOrEqual(50);
     expect(bid.passive).toBe(Math.round(bid.recommended * 0.7));
     expect(bid.aggressive).toBe(Math.round(bid.recommended * 1.3));
+  });
+
+  it("prices the bigger simulated gain higher, whatever the position", () => {
+    // The Bowers / Rodriguez case: a tight end who genuinely helps must not be
+    // priced below a running back who happens to lead a thin position.
+    const te = bidRecommendation({
+      budget: 1000,
+      remaining: 1000,
+      perWeek: 9.9,
+      impact: 0.05,
+      topImpact: 0.05,
+      lineupGain: 4,
+      winningBids: [],
+    });
+    const rb = bidRecommendation({
+      budget: 1000,
+      remaining: 1000,
+      perWeek: 6,
+      impact: 0.01,
+      topImpact: 0.05,
+      lineupGain: 0.5,
+      winningBids: [],
+    });
+    expect(te.recommended).toBeGreaterThan(rb.recommended);
+  });
+
+  it("never lets a lower-ranked player carry a bigger bid", () => {
+    const rows = [
+      { bid: 40 },
+      { bid: 95 },
+      { bid: 12 },
+    ];
+    expect(enforceBidOrder(rows).map((r) => r.bid)).toEqual([40, 40, 12]);
+  });
+
+  it("never bids more than is left in the budget", () => {
+    const bid = bidRecommendation({
+      budget: 1000,
+      remaining: 25,
+      perWeek: 18,
+      impact: 0.08,
+      topImpact: 0.08,
+      lineupGain: 9,
+      rivalFloor: 400,
+      winningBids: [],
+    });
+    expect(bid.recommended).toBeLessThanOrEqual(25);
   });
 });

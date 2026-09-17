@@ -421,7 +421,15 @@ function parseRules(html: string) {
   return {
     rosterSlots,
     scoringRules,
-    scoringType: tePremium ? "te_premium" : scoringRules["rec"] ? "ppr" : "standard",
+    // An unreadable rules page must never silently turn an FFPC league into a
+    // no-points-per-catch league: fall back to the FFPC house rules instead.
+    scoringType: tePremium
+      ? "te_premium"
+      : scoringRules["rec"]
+        ? "ppr"
+        : Object.keys(scoringRules).length
+          ? "standard"
+          : FFPC_DEFAULT_SCORING,
     playoffTeams: playoffMatch ? Number(playoffMatch[1]) : 0,
     regularSeasonWeeks: weeksMatch ? Number(weeksMatch[1]) : 0,
     rulesText: rulesSentences.length ? rulesSentences.join(" ") : null,
