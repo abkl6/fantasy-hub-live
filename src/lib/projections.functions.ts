@@ -620,6 +620,78 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
   });
 
 
+/**
+ * A schedule grid (one row per NFL team, one column per week) replaces the
+ * stored fixture list for the season. These files often travel with stat-line
+ * projection packs and carry the freshest fixtures, which schedule adjustment
+ * and Game Day both read.
+ */
+export const uploadOpponentGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        csv: z.string().min(1).max(500_000),
+        season: z.number().int().min(2020).max(2100).optional(),
+        apply: z.boolean().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (!(await callerIsAdmin(context))) {
+      throw new Error("Only an admin can replace the season schedule.");
+    }
+    const season = data.season ?? new Date().getFullYear();
+    const { parseOpponentGrid, detectOpponentGrid } = await import(
+      "@/lib/fantasy/projection-templates"
+    );
+    const header = (data.csv.split(/\r?\n/)[0] ?? "").split(",");
+    if (!detectOpponentGrid(header)) {
+      throw new Error(
+        "That file is not a schedule grid — it needs a team column and one column per week (Wk1, Wk2, …).",
+      );
+    }
+    const grid = parseOpponentGrid(data.csv);
+    if (!grid.length) throw new Error("No team rows were found in that file.");
+
+    const rows = grid.flatMap((team) =>
+      team.opponents.map((o) => ({
+        season,
+        week: o.week,
+        nfl_team: team.nflTeam,
+        opponent: o.opponent,
+      })),
+    );
+
+    if (data.apply) {
+      const weeks = [...new Set(rows.map((r) => r.week))];
+      for (const week of weeks) {
+        const { error: delErr } = await context.supabase
+          .from("nfl_schedule")
+          .delete()
+          .eq("season", season)
+          .eq("week", week);
+        if (delErr) throw new Error(delErr.message);
+      }
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await context.supabase
+          .from("nfl_schedule")
+          .insert(rows.slice(i, i + 500) as never);
+        if (error) throw new Error(error.message);
+      }
+      await context.supabase.from("analysis_cache").delete().eq("user_id", context.userId);
+    }
+
+    return {
+      applied: !!data.apply,
+      season,
+      teams: grid.length,
+      rows: rows.length,
+      byes: rows.filter((r) => r.opponent === null).length,
+      weeks: [...new Set(rows.map((r) => r.week))].sort((a, b) => a - b),
+    };
+  });
+
 // ------------------------------------------------- templates & schedule strength
 
 /**
