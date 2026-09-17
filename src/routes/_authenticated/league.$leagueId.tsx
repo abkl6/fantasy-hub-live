@@ -180,6 +180,9 @@ function LeaguePage() {
   }
 
   const me = data.myTeam;
+  // Offline and server caches can briefly return an older analysis shape after
+  // new fields are introduced. Keep the route render-safe while it refreshes.
+  const suggestions = data.suggestions ?? [];
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -388,14 +391,14 @@ function LeaguePage() {
             teamId={data.myTeam?.id ?? null}
             week={data.league.current_week}
             teamClass={data.teamClass ?? "middle"}
-            suggestions={data.suggestions ?? []}
+            suggestions={suggestions}
           />
-          {!data.suggestions.length && (
+          {!suggestions.length && (
             <p className="text-sm text-muted-foreground">
               No moves worth making right now — your lineup is already the strongest one available.
             </p>
           )}
-          {data.suggestions.map((s) => (
+          {suggestions.map((s) => (
             <MoveCard
               key={s.id}
               leagueId={leagueId}
