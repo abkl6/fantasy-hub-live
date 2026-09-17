@@ -217,6 +217,10 @@ function LeaguePage() {
             </Badge>
             <Badge variant="outline" className="text-[10px]">
               {data.scoringLabel}
+              {(data.league as { settings_source?: Record<string, string> | null }).settings_source
+                ?.scoring === "assumed"
+                ? " (assumed)"
+                : ""}
             </Badge>
             <LeagueTypeBadge
               leagueId={leagueId}
