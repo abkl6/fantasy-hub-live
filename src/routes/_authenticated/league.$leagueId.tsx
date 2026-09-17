@@ -3,7 +3,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLeagueSwipe } from "@/components/LeagueStrip";
 
 /** The tabs this page offers; the strip keeps the user on the same one. */
-const LEAGUE_TABS = ["lineup", "moves", "league", "live"];
+const LEAGUE_TABS = ["lineup", "waivers", "trade", "league", "live"];
 import { LineupSpotsCard } from "@/components/LineupSpotsCard";
 import { SlotConfirmBanner } from "@/components/SlotConfirmBanner";
 import { useServerFn } from "@tanstack/react-start";
@@ -136,7 +136,8 @@ function LeaguePage() {
   const analyze = useServerFn(getAnalysis);
   // The tab lives in the URL so the league strip can carry it between leagues.
   const navigate = useNavigate();
-  const tab = LEAGUE_TABS.includes(search.tab ?? "") ? (search.tab as string) : "moves";
+  const requestedTab = search.tab === "moves" ? "waivers" : search.tab;
+  const tab = LEAGUE_TABS.includes(requestedTab ?? "") ? (requestedTab as string) : "waivers";
   const setTab = (next: string) => {
     navigate({ to: "/league/$leagueId", params: { leagueId }, search: { tab: next }, replace: true });
   };
@@ -374,7 +375,7 @@ function LeaguePage() {
                   </p>
                 </div>
                 {a.action && (
-                  <Button size="sm" variant="outline" onClick={() => setTab("moves")}>
+                  <Button size="sm" variant="outline" onClick={() => setTab("waivers")}>
                     {a.action.label}
                   </Button>
                 )}
@@ -387,7 +388,8 @@ function LeaguePage() {
       <Tabs value={tab} onValueChange={setTab} className="mt-8">
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="lineup">Lineup</TabsTrigger>
-          <TabsTrigger value="moves">Moves</TabsTrigger>
+          <TabsTrigger value="waivers">Waivers</TabsTrigger>
+          <TabsTrigger value="trade">Trade</TabsTrigger>
           <TabsTrigger value="league">League</TabsTrigger>
           <TabsTrigger value="live">Live</TabsTrigger>
         </TabsList>
@@ -396,44 +398,31 @@ function LeaguePage() {
           <GameDayBoard leagueId={leagueId} />
         </TabsContent>
 
-        <TabsContent value="moves" className="mt-6 space-y-3">
-          {data.myStrategy && data.myBadge && (
-            <div className="rounded-xl bg-card p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge>{data.myBadge.label}</Badge>
-                <Badge variant="secondary">
-                  {data.myStrategy.label}
-                </Badge>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">{data.myStrategy.rationale}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Targeting {data.myStrategy.wants} and moving on from {data.myStrategy.gives}.
-              </p>
-            </div>
-          )}
-          <ShownLogger
-            leagueId={leagueId}
-            teamId={data.myTeam?.id ?? null}
-            week={data.league.current_week}
-            teamClass={data.teamClass ?? "middle"}
-            suggestions={suggestions}
-          />
-          {!suggestions.length && (
-            <p className="text-sm text-muted-foreground">
-              No moves worth making right now — your lineup is already the strongest one available.
-            </p>
-          )}
-          {suggestions.map((s) => (
-            <MoveCard
-              key={s.id}
+        <TabsContent value="waivers" className="mt-6">
+          <WaiverPanel leagueId={leagueId} eligible={data?.eligiblePositions ?? null} onAdded={() => refetch()} />
+        </TabsContent>
+
+        <TabsContent value="trade" className="mt-6 space-y-6">
+          <div className="space-y-3">
+            <ShownLogger
               leagueId={leagueId}
-              week={data.league.current_week}
               teamId={data.myTeam?.id ?? null}
+              week={data.league.current_week}
               teamClass={data.teamClass ?? "middle"}
-              suggestion={s}
-              onApplied={() => refetch()}
+              suggestions={suggestions.filter((s) => s.kind === "trade")}
             />
-          ))}
+            {suggestions.filter((s) => s.kind === "trade").map((s) => (
+              <MoveCard
+                key={s.id}
+                leagueId={leagueId}
+                week={data.league.current_week}
+                teamId={data.myTeam?.id ?? null}
+                teamClass={data.teamClass ?? "middle"}
+                suggestion={s}
+                onApplied={() => refetch()}
+              />
+            ))}
+          </div>
 
           {!!data.buySell?.length && (
             <Section title="Buy and sell">
@@ -465,11 +454,7 @@ function LeaguePage() {
             </Section>
           )}
 
-          <Section title="Waiver wire">
-            <WaiverPanel leagueId={leagueId} eligible={data?.eligiblePositions ?? null} onAdded={() => refetch()} />
-          </Section>
-
-          <Section title="Trades">
+          <Section title="Trade tools">
             <div className="space-y-6">
               <TradeBuilder leagueId={leagueId} />
               <TradePanel leagueId={leagueId} />
