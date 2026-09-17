@@ -263,7 +263,7 @@ export function filterSlotCodesByObserved(
 }
 
 /** Used when a league has nothing stored yet. */
-export const DEFAULT_SLOTS: LeagueSlot[] = slotsFromCodes([
+export const DEFAULT_CODES: string[] = [
   "QB",
   "RB",
   "RB",
@@ -273,7 +273,9 @@ export const DEFAULT_SLOTS: LeagueSlot[] = slotsFromCodes([
   "FLEX",
   "K",
   "DEF",
-]);
+];
+
+export const DEFAULT_SLOTS: LeagueSlot[] = slotsFromCodes(DEFAULT_CODES);
 
 /**
  * The key a calculation uses for a slot. Standard codes keep their name; a
