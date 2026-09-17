@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectGroup, mapHeaders, templateColumns, templateHeaderRow } from "./projection-templates";
+import { detectGroup, detectOpponentGrid, mapHeaders, parseOpponentGrid, templateColumns, templateHeaderRow } from "./projection-templates";
 import {
   blendMeasure,
   blendWeight,
