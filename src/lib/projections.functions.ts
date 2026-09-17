@@ -153,7 +153,15 @@ export const listProjections = createServerFn({ method: "POST" })
       });
     }
 
-    return { rows, total: (players ?? []).length, adjusted: mine.size, admin: await callerIsAdmin(context) };
+    return {
+      rows,
+      total: (players ?? []).length,
+      adjusted: mine.size,
+      source,
+      uploadedCount: uploaded.size,
+      season,
+      admin: await callerIsAdmin(context),
+    };
   });
 
 // ------------------------------------------------------------ baseline (admin)
