@@ -134,6 +134,10 @@ export const listProjections = createServerFn({ method: "POST" })
           baseSeason: up ? up.season : appSeason,
           myWeek: own ? own.week : null,
           mySeason: own ? own.season : null,
+          appWeek,
+          appSeason,
+          userWeek: file ? file.season / (file.weeks > 0 ? file.weeks : 17) : null,
+          userSeason: file ? file.season : null,
           basis: up ? ("user" as const) : ("app" as const),
           trajectory: null as Trajectory | null,
         };
