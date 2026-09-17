@@ -13,6 +13,7 @@ import {
 import { playerIndex } from "./names";
 
 import { eligiblePositions } from "./eligibility";
+import { syncLeagueSlots } from "./slots.server";
 type DB = SupabaseClient<Database>;
 
 const DEFAULT_PROJ: Record<string, number> = {
@@ -121,6 +122,8 @@ export async function persistBundle(
     .select()
     .single();
   if (leagueError || !league) throw new Error(leagueError?.message ?? "Could not save the league.");
+
+  await syncLeagueSlots(supabase, userId, league.id, bundle.rosterSlots);
 
   const { data: canonical } = await supabase
     .from("players")

@@ -28,6 +28,7 @@ import { asFormat, bestBallDistribution } from "./format";
 import { asContestFormat, hasPointsRace } from "./contest";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
+import { loadSlotPlan } from "./slots.server";
 import type {
   GameDayPayload,
   LiveEventRow,
@@ -648,9 +649,7 @@ export async function buildGameDay(
     const oppId = game ? (game.home_team_id === mine.id ? game.away_team_id : game.home_team_id) : null;
     const opp = oppId ? teams.find((t) => t.id === oppId) ?? null : null;
 
-    const slots = Array.isArray(league.roster_slots)
-      ? (league.roster_slots as unknown[]).map(String).filter((s) => s.toUpperCase() !== "BN")
-      : [];
+    const slots = (await loadSlotPlan(supabase, league.id)).keys;
     const startable = (position: string) => slots.some((s) => slotAccepts(s, position.toUpperCase()));
 
     // Projections come from the shared player database plus this member's own

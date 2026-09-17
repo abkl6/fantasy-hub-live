@@ -15,6 +15,7 @@ import { slotAccepts } from "./engine";
 import { normalizeName } from "./names";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
+import { loadSlotPlan } from "./slots.server";
 import { leagueScoring } from "./scoring";
 
 
@@ -22,12 +23,7 @@ type DB = SupabaseClient<Database>;
 
 const BENCH_SPOTS = 6;
 const BENCH_POSITIONS = ["QB", "RB", "WR", "TE"];
-const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
 
-function asSlots(value: unknown): string[] {
-  if (Array.isArray(value) && value.length) return value.map(String).filter((s) => s.toUpperCase() !== "BN");
-  return DEFAULT_SLOTS;
-}
 
 const key = (name: string) => normalizeName(name);
 
@@ -51,7 +47,7 @@ export async function syncLeagueRosters(supabase: DB, userId: string, leagueId: 
     .maybeSingle();
   if (!league) return { filled: 0, removed: 0 };
 
-  const slots = asSlots(league.roster_slots);
+  const slots = (await loadSlotPlan(supabase, leagueId)).keys;
   const targetSize = slots.length + BENCH_SPOTS;
 
   const [{ data: teamRows }, { data: spotRows }, { data: playerRows }] = await Promise.all([
@@ -165,7 +161,7 @@ export async function leagueWaiverWire(
     .select("roster_slots, scoring_type, scoring_rules, current_week, platform, projection_source, user_id, sos_adjust")
     .eq("id", leagueId)
     .maybeSingle();
-  const slots = asSlots(league?.roster_slots);
+  const slots = (await loadSlotPlan(supabase, leagueId)).keys;
   const scoring = leagueScoring(
     league?.scoring_type,
     (league?.scoring_rules ?? {}) as Record<string, number>,

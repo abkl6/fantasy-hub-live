@@ -17,6 +17,7 @@ import { queueUnmatched } from "./manual.server";
 import type { ManualPlayerRow } from "./manual-types";
 
 import { eligiblePositions } from "./eligibility";
+import { syncLeagueSlots } from "./slots.server";
 type DB = SupabaseClient<Database>;
 
 const DEFAULT_PROJ: Record<string, number> = {
@@ -197,6 +198,10 @@ export async function applyFfpcBundle(
       last_synced_at: new Date().toISOString(),
     })
     .eq("id", leagueId);
+
+  if (!options.live) {
+    await syncLeagueSlots(supabase, userId, leagueId, bundle.rosterSlots);
+  }
 
   const { data: existingTeams } = await supabase
     .from("teams")

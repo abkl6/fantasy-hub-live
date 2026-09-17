@@ -71,10 +71,12 @@ import {
   type StreamSuggestion,
 } from "./slot-fill";
 
+import { loadSlotPlan } from "./slots.server";
+import { slotBreadth } from "./slots";
 import { asEligiblePositions, isEligiblePosition } from "./eligibility";
 type DB = SupabaseClient<Database>;
 
-const DEFAULT_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
+
 /** How many candidates get a full season re-simulation. */
 const SCORED_CANDIDATES = 12;
 /** The background worker scores a deeper list so the page is a plain read. */
@@ -86,10 +88,6 @@ const DISPLAYED_CANDIDATES = 5;
 
 
 
-function asSlots(value: unknown): string[] {
-  if (Array.isArray(value) && value.length) return value.map(String).filter((s) => s.toUpperCase() !== "BN");
-  return DEFAULT_SLOTS;
-}
 
 const key = (name: string) => normalizeName(name);
 
@@ -177,7 +175,8 @@ export async function buildWaiverBoard(
     ]);
 
   const book = await loadStrategyRules(supabase);
-  const slots = asSlots(league.roster_slots);
+  const slotPlan = await loadSlotPlan(supabase, leagueId);
+  const slots = slotPlan.keys;
   const teams = teamRows ?? [];
   const spots = spotRows ?? [];
   const players = playerRows;
@@ -279,9 +278,14 @@ export async function buildWaiverBoard(
 
   // --- replacement level: the Nth best season projection at each position ---
   const startersNeeded = (pos: string) => {
-    const direct = slots.filter((s) => slotAccepts(s, pos) && s.toUpperCase() !== "FLEX").length;
-    const flex = slots.filter((s) => s.toUpperCase() === "FLEX" && slotAccepts(s, pos)).length;
-    return Math.max(1, direct + Math.ceil(flex / 3));
+    // A slot that takes several positions is shared, so it only counts for a
+    // fraction of a starter at any one of them — breadth decides, not a name.
+    const accepting = slots.filter((s) => slotAccepts(s, pos));
+    const direct = accepting.filter((s) => slotBreadth(s) <= 1).length;
+    const shared = accepting
+      .filter((s) => slotBreadth(s) > 1)
+      .reduce((sum, s) => sum + 1 / slotBreadth(s), 0);
+    return Math.max(1, direct + Math.ceil(shared));
   };
   const replacement = new Map<string, number>();
   for (const pos of ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"].filter(usablePosition)) {

@@ -7,6 +7,9 @@ import { Check, ImageUp, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { SlotEditor } from "@/components/SlotEditor";
+import { slotsFromCodes, type LeagueSlot } from "@/lib/fantasy/slots";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,6 +122,16 @@ export function ScreenshotToText({
       />
     </label>
   );
+}
+
+/** Turns the editor's spots back into the comma list the league is saved with. */
+function slotsToCodes(slots: LeagueSlot[]): string {
+  const codes: string[] = [];
+  for (const slot of slots) {
+    const code = slot.eligible.length > 1 ? `${slot.key} (${slot.eligible.join("/")})` : slot.key;
+    for (let i = 0; i < slot.count; i += 1) codes.push(code);
+  }
+  return codes.join(", ");
 }
 
 export function ManualLeagueWizard() {
@@ -456,14 +469,16 @@ export function ManualLeagueWizard() {
               </div>
             ))}
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="m-slots">Starting lineup slots</Label>
-              <Input
-                id="m-slots"
-                value={form.slots}
-                onChange={(e) => setForm({ ...form, slots: e.target.value })}
+              <Label>Starting lineup spots</Label>
+              <SlotEditor
+                slots={slotsFromCodes(
+                  form.slots.split(",").map((s) => s.trim()).filter(Boolean),
+                  "user",
+                )}
+                onChange={(next) => setForm({ ...form, slots: slotsToCodes(next) })}
               />
               <p className="text-xs text-muted-foreground">
-                Comma separated. Use FLEX for RB/WR/TE and SUPER_FLEX if quarterbacks are allowed.
+                Set how many of each spot your league starts and which positions can fill it.
               </p>
             </div>
             <div className="space-y-2 sm:col-span-2">

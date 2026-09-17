@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { leagueValueFormat, pickLabel, type PickSlot } from "@/lib/fantasy/trade-value";
+import { loadSlotPlan } from "@/lib/fantasy/slots.server";
 
 export interface TeamPickRow {
   id: string;
@@ -37,7 +38,7 @@ export const listDraftPicks = createServerFn({ method: "POST" })
     ]);
     if (!league) throw new Error("League not found.");
 
-    const slots = Array.isArray(league.roster_slots) ? league.roster_slots.map(String) : [];
+    const slots = (await loadSlotPlan(context.supabase, data.leagueId)).keys;
     const format = leagueValueFormat(slots);
     const { data: pickValues } = await context.supabase
       .from("pick_values")

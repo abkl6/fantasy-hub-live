@@ -108,6 +108,7 @@ import {
 import { loadStrategyRules } from "./rules.server";
 import { loadVolatilityDefaults, recordPredictions } from "./calibration.server";
 import { asEligiblePositions, isEligiblePosition, DEFAULT_ELIGIBLE } from "./eligibility";
+import { loadSlotPlan } from "./slots.server";
 import {
   BORDERLINE_POINTS,
   modeLine,
@@ -249,6 +250,10 @@ export interface ScoreboardGame {
 export interface AnalysisPayload {
   league: LeagueRow;
   slots: string[];
+  /** Screen names for each slot key, from the league's own spot list. */
+  slotLabels: Record<string, string>;
+  /** Spots whose positions we guessed and would like confirmed. */
+  slotsNeedConfirmation: { key: string; label: string; eligible: string[] }[];
   myTeam: {
     id: string;
     name: string;
@@ -405,7 +410,8 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
     ]);
 
-  const slots = asSlots(league.roster_slots);
+  const slotPlan = await loadSlotPlan(supabase, leagueId);
+  const slots = slotPlan.keys;
   // Chop leagues keep knocked-out teams on the page; they take no further part
   // in standings, odds or advice — except when the member's own team is out.
   const allTeams = teamRows ?? [];
@@ -467,6 +473,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     (league as { eligible_positions?: unknown }).eligible_positions,
     slots,
   );
+
   const usablePosition = (position: string) => isEligiblePosition(position, eligible);
 
   const engineTeams: EngineTeam[] = teams.map((t) => ({
@@ -821,6 +828,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
     return {
       league: toLeagueRow(league),
       slots,
+    slotLabels: slotPlan.labels,
+    slotsNeedConfirmation: slotPlan.needsConfirmation.map((s) => ({
+      key: s.key,
+      label: s.label,
+      eligible: s.eligible,
+    })),
       myTeam: null,
       standings,
       grades: [],
@@ -1676,6 +1689,12 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   return {
     league: toLeagueRow(league),
     slots,
+    slotLabels: slotPlan.labels,
+    slotsNeedConfirmation: slotPlan.needsConfirmation.map((s) => ({
+      key: s.key,
+      label: s.label,
+      eligible: s.eligible,
+    })),
     myTeam: {
       id: mine.id,
       name: mine.name,

@@ -8,6 +8,7 @@ import {
   type EnginePlayer,
   type ScheduleGame,
 } from "./engine";
+import { loadSlotPlan } from "./slots.server";
 
 type DB = SupabaseClient<Database>;
 
@@ -268,9 +269,7 @@ export async function loadPlayoffPicture(
     supabase.from("matchups").select("*").eq("league_id", leagueId),
   ]);
 
-  const slots = Array.isArray(league.roster_slots) && league.roster_slots.length
-    ? league.roster_slots.map(String)
-    : ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"];
+  const slots = (await loadSlotPlan(supabase, leagueId)).keys;
 
   const teams = (teamRows ?? []).map((t) => {
     const roster: EnginePlayer[] = (spotRows ?? [])

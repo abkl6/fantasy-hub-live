@@ -16,6 +16,7 @@ import { normalizeName } from "@/lib/fantasy/names";
 import { LEAGUE_COLOR_KEYS } from "@/lib/league-colors";
 
 import { eligiblePositions } from "@/lib/fantasy/eligibility";
+import { loadSlotPlan, syncLeagueSlots } from "@/lib/fantasy/slots.server";
 const DEFAULT_PROJ: Record<string, number> = {
   QB: 16, RB: 9, WR: 9, TE: 6.5, K: 8, DEF: 7, DST: 7,
 };
@@ -91,6 +92,8 @@ export const createManualLeagueWizard = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error || !league) throw new Error(error?.message ?? "Could not create the league.");
+
+    await syncLeagueSlots(context.supabase, context.userId, league.id, data.rosterSlots);
 
     const names = [...data.teamNames];
     while (names.length < data.teamCount) names.push(`Team ${names.length + 1}`);
@@ -189,9 +192,7 @@ export const applyDraftBoard = createServerFn({ method: "POST" })
       .select("roster_slots")
       .eq("id", data.leagueId)
       .maybeSingle();
-    const slots = Array.isArray(league?.roster_slots)
-      ? (league.roster_slots as string[]).map(String)
-      : [];
+    const slots = (await loadSlotPlan(supabase, data.leagueId)).keys;
 
     await supabase.from("roster_spots").delete().eq("league_id", data.leagueId);
 
