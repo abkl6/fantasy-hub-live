@@ -200,8 +200,10 @@ export function bidRecommendation(input: BidCeilingInput): BidRecommendation {
   const topPrice = history.length ? Math.max(percentile(history, 0.9), 1) : budget * 0.35;
 
   let ceiling = Math.min(pot, budget * 0.5, topPrice * (0.3 + share * 1.1));
-  // He neither starts nor moves the odds: a bench flier, not an auction.
-  const helps = (input.lineupGain ?? 0) > 0.05 || impact > 0;
+  // He neither starts nor moves the odds: a bench flier, not an auction. Only
+  // judged when a simulation actually ran for him.
+  const simulated = input.impact != null || input.lineupGain != null;
+  const helps = !simulated || (input.lineupGain ?? 0) > 0.05 || impact > 0;
   if (!helps) ceiling = Math.min(ceiling, budget * 0.05);
   ceiling = Math.max(0, ceiling);
 
