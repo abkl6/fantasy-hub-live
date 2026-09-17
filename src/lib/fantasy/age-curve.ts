@@ -444,11 +444,15 @@ export function classifyTrajectory(change1: number): TrajectoryClass {
   return "cliff";
 }
 
-/** Uncertain when the change's own band reaches across a class boundary. */
+/**
+ * Uncertain when a class boundary sits close enough that the ordinary spread
+ * of year-to-year moves could easily land the player on the other side. Half a
+ * standard deviation keeps the flag meaningful: with a wide band almost every
+ * player would otherwise be labelled uncertain.
+ */
 export function isUncertain(change1: number, sd: number): boolean {
-  const low = change1 - sd;
-  const high = change1 + sd;
-  return THRESHOLDS.some((t) => low < t && high > t);
+  const reach = Math.max(0.02, sd * 0.5);
+  return THRESHOLDS.some((t) => Math.abs(change1 - t) < reach);
 }
 
 export interface SellContext {
