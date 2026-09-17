@@ -518,12 +518,18 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       if (iWeek >= 0) {
         const week = Number(raw[iWeek]);
         if (!Number.isFinite(week) || week < 1 || week > 18) continue;
+        // A file that names its own opponent column wins over the stored
+        // schedule — these uploads often carry fresher fixtures.
+        const fileOpp = iOpp >= 0 ? (raw[iOpp] ?? "").trim().toUpperCase() : "";
         const games = weeksByTeam.get((hit.nfl_team ?? "").toUpperCase()) ?? [];
         weekOut.push({
           player_id: hit.id,
           season,
           week,
-          opponent: games.find((g) => g.week === week)?.opponent ?? null,
+          opponent:
+            fileOpp && !["BYE", "-", "--"].includes(fileOpp)
+              ? fileOpp
+              : (games.find((g) => g.week === week)?.opponent ?? null),
           stats,
           src_points: points,
           source,
