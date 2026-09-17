@@ -71,10 +71,20 @@ function ProjectionsPage() {
   const [position, setPosition] = useState("ALL");
   const [adjustedOnly, setAdjustedOnly] = useState(false);
   const [open, setOpen] = useState<BaselineRow | null>(null);
+  const [source, setSource] = useState<"auto" | "app" | "user">("auto");
 
   const players = useQuery({
-    queryKey: ["projections", search, position, adjustedOnly],
-    queryFn: () => list({ data: { search, position, adjustedOnly, limit: 150 } }),
+    queryKey: ["projections", search, position, adjustedOnly, source],
+    queryFn: () =>
+      list({
+        data: {
+          search,
+          position,
+          adjustedOnly,
+          limit: 150,
+          ...(source === "auto" ? {} : { source }),
+        },
+      }),
   });
 
   const clearAll = useMutation({
@@ -137,10 +147,36 @@ function ProjectionsPage() {
             Reset all
           </Button>
         )}
+        <div>
+          <Label htmlFor="proj-source">Numbers shown</Label>
+          <select
+            id="proj-source"
+            className="mt-1 h-9 rounded-md bg-secondary px-3 text-sm"
+            value={source}
+            onChange={(e) => setSource(e.target.value as "auto" | "app" | "user")}
+          >
+            <option value="auto">
+              My projections when uploaded
+            </option>
+            <option value="user">My projections</option>
+            <option value="app">App baseline</option>
+          </select>
+        </div>
         <MyProjectionsUpload />
         {admin && <CsvUpload />}
         {admin && <PlatformImport />}
       </div>
+
+      {players.data && (
+        <p className="text-xs text-muted-foreground">
+          {players.data.uploadedCount > 0
+            ? players.data.source === "user"
+              ? `Showing your uploaded projections for ${players.data.uploadedCount} players; anyone you didn't include falls back to the app baseline.`
+              : `Showing the app baseline. You have uploaded projections for ${players.data.uploadedCount} players.`
+            : "No uploaded projections on file yet — use “My projections” to add a file, and remember to press Save after checking it."}
+        </p>
+      )}
+
 
       {players.isLoading ? (
         <p className="flex items-center gap-2 text-muted-foreground">
@@ -167,6 +203,11 @@ function ProjectionsPage() {
                     {row.myWeek !== null && (
                       <Badge className="ml-2" variant="secondary">
                         yours
+                      </Badge>
+                    )}
+                    {row.basis === "user" && (
+                      <Badge className="ml-2" variant="outline">
+                        my file
                       </Badge>
                     )}
                     <TrajectoryChip className="ml-2" trajectory={row.trajectory} playerName={row.name} />
