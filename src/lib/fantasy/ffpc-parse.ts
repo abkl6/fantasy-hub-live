@@ -262,7 +262,7 @@ export function detectAllPlayWeeks(html: string): number[] {
 export function parseRosterSlots(html: string): string[] {
   const slots: string[] = [];
   const slotTable = findTable(html, "position", "starters") ?? findTable(html, "position", "start");
-  if (!slotTable) return slots;
+  if (!slotTable) return parseRosterSlotsFromText(html);
   const cPos = Math.max(0, columnIndex(slotTable, "position"));
   const cCount = columnIndex(slotTable, "starters", "start", "number");
   for (const row of slotTable.rows) {
