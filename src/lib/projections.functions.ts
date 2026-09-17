@@ -600,8 +600,7 @@ export const uploadMyProjections = createServerFn({ method: "POST" })
       }
 
       // Fresh numbers in — every cached screen built on the old ones must go.
-      const { clearCache } = await import("@/lib/fantasy/cache.server");
-      await clearCache(context.supabase, context.userId);
+      await context.supabase.from("analysis_cache").delete().eq("user_id", context.userId);
     }
 
     return {
