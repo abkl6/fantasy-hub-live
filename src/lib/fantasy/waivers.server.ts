@@ -54,12 +54,14 @@ import {
 import { loadStrategyRules } from "./rules.server";
 import {
   bidRecommendation,
+  enforceBidOrder,
   isInjuredStatus,
   rankWaivers,
   type BidRecommendation,
   type RankableRow,
   type WaiverSort,
 } from "./waiver-rank";
+import { willingToPay } from "./faab";
 import { buildFaabPlan, paceBid, type FaabPlan } from "./faab-plan";
 import {
   buildFills,
