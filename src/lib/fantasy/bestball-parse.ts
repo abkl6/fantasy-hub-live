@@ -18,8 +18,13 @@ export interface ParsedEntry {
   entryId: string;
   draftId: string | null;
   draftSlot: number | null;
+  /** How many managers were in the draft, when the file says. */
+  draftSize: number | null;
+  /** Weekly-winner style tournaments are scored week by week, not cumulatively. */
+  weekly: boolean;
   players: BestballPick[];
 }
+
 
 export interface ParsedBestballFile {
   site: BestballSite;
