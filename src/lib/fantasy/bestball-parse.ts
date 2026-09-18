@@ -83,9 +83,18 @@ const COLUMNS = {
     "contest_title",
     "slate",
   ],
-  entryId: ["draft_entry_id", "entry_id", "entry_key", "entry", "lineup_id", "roster_id"],
-  draftId: ["draft_id", "draft_key", "contest_id"],
+  entryId: [
+    "draft_entry_id",
+    "draft_entry",
+    "entry_id",
+    "entry_key",
+    "entry",
+    "lineup_id",
+    "roster_id",
+  ],
+  draftId: ["draft_id", "draft_key", "draft", "contest_id"],
   slot: ["pick_order", "draft_slot", "draft_position", "slot", "team_pick_slot", "draft_order"],
+  size: ["draft_size", "tournament_size", "team_count", "teams"],
   name: ["player_name", "player", "name", "full_name", "playername"],
   firstName: ["first_name", "firstname"],
   lastName: ["last_name", "lastname"],
@@ -95,6 +104,19 @@ const COLUMNS = {
 } as const;
 
 type ColumnKey = keyof typeof COLUMNS;
+
+/** Titles are spread across several columns; the first non-empty one wins. */
+const TITLE_COLUMNS = [
+  "tournament_title",
+  "draft_pool_title",
+  "weekly_winner_title",
+  "tournament_name",
+  "contest_name",
+  "contest_title",
+] as const;
+
+/** Column names that hold a weekly-winner style title. */
+const WEEKLY_TITLE_COLUMNS = new Set(["weekly_winner_title"]);
 
 function mapHeaders(header: string[]) {
   const normalized = header.map(norm);
@@ -107,14 +129,29 @@ function mapHeaders(header: string[]) {
     index[key] = found ?? -1;
     if (found != null && found >= 0) used.add(found);
   }
+  const titles: { column: string; index: number }[] = [];
+  for (const column of TITLE_COLUMNS) {
+    const i = normalized.indexOf(column);
+    if (i >= 0) {
+      titles.push({ column, index: i });
+      used.add(i);
+    }
+  }
   const unknownColumns = header.filter((_, i) => !used.has(i) && header[i]!.trim().length);
-  return { index, unknownColumns, normalized };
+  return { index, titles, unknownColumns, normalized };
 }
 
 /** Which site an export came from, read from its headers. */
 export function detectSite(header: string[]): BestballSite | null {
   const set = new Set(header.map(norm));
-  if (set.has("draft_entry_id") || set.has("tournament_title") || set.has("appearance_id")) {
+  if (
+    set.has("draft_entry_id") ||
+    set.has("draft_entry") ||
+    set.has("tournament_title") ||
+    set.has("weekly_winner_title") ||
+    set.has("draft_pool_title") ||
+    set.has("appearance_id")
+  ) {
     return "underdog";
   }
   if (set.has("entry_key") || set.has("contest_key") || set.has("draftkings_id")) {
@@ -145,7 +182,7 @@ export function parseBestballCsv(text: string, siteHint?: string | null): Parsed
   if (!site) {
     throw new Error("That doesn't look like an Underdog or DraftKings entries export.");
   }
-  const { index, unknownColumns } = mapHeaders(header);
+  const { index, titles, unknownColumns } = mapHeaders(header);
   if (index.name < 0 && (index.firstName < 0 || index.lastName < 0)) {
     throw new Error("That file has no player name column.");
   }
@@ -163,7 +200,10 @@ export function parseBestballCsv(text: string, siteHint?: string | null): Parsed
       skipped += 1;
       continue;
     }
-    const tournament = cell(row, index.tournament) || "Best ball tournament";
+    const title = titles.find((t) => cell(row, t.index).length);
+    const fallbackTitle = cell(row, index.tournament);
+    const tournament = title ? cell(row, title.index) : fallbackTitle || "Best ball tournament";
+    const weekly = title ? WEEKLY_TITLE_COLUMNS.has(title.column) : false;
     const draftId = cell(row, index.draftId) || null;
     const entryId = cell(row, index.entryId) || draftId || `row-${rowNumber}`;
     const key = `${tournament}::${entryId}`;
@@ -174,6 +214,8 @@ export function parseBestballCsv(text: string, siteHint?: string | null): Parsed
         entryId,
         draftId,
         draftSlot: toNumber(cell(row, index.slot)),
+        draftSize: toNumber(cell(row, index.size)),
+        weekly,
         players: [],
       };
       byEntry.set(key, entry);
@@ -191,9 +233,22 @@ export function parseBestballCsv(text: string, siteHint?: string | null): Parsed
   if (!entries.length) throw new Error("No entries could be read from that file.");
   for (const entry of entries) {
     entry.players.sort((a, b) => (a.pickNumber ?? 0) - (b.pickNumber ?? 0));
+    if (entry.draftSlot == null) entry.draftSlot = deriveSlot(entry);
   }
   return { site, entries, skipped, unknownColumns };
 }
+
+/**
+ * Underdog's export has no draft slot, but the first pick of an entry gives it
+ * away: in a snake draft, slot = ((first pick − 1) mod draft size) + 1.
+ */
+function deriveSlot(entry: ParsedEntry): number | null {
+  const size = entry.draftSize && entry.draftSize > 1 ? Math.round(entry.draftSize) : null;
+  const picks = entry.players.map((p) => p.pickNumber).filter((n): n is number => n != null && n > 0);
+  if (!size || !picks.length) return null;
+  return ((Math.min(...picks) - 1) % size) + 1;
+}
+
 
 /** Groups parsed entries by tournament, the unit a league is created for. */
 export function groupByTournament(entries: ParsedEntry[]): Map<string, ParsedEntry[]> {
