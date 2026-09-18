@@ -1,8 +1,10 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { detectSite, groupByTournament, parseBestballCsv } from "./bestball-parse";
 import { leagueScoring } from "./scoring";
-import { BESTBALL_SLOTS } from "./bestball";
+import { BESTBALL_SLOTS, isWeeklyTournament } from "./bestball";
 import { optimalLineup } from "./engine";
 
 const underdog = [
@@ -85,5 +87,38 @@ describe("best ball scoring", () => {
     expect(names).not.toContain("QB1");
     expect(names).toContain("RB2");
     expect(best.total).toBeCloseTo(25 + 18 + 12 + 22 + 15 + 9 + 7 + 11, 5);
+  });
+});
+
+describe("real Underdog exports", () => {
+  const read = (file: string) =>
+    readFileSync(new URL(`./__fixtures__/${file}`, import.meta.url), "utf8");
+
+  it("groups the board export into one entry per draft", () => {
+    const parsed = parseBestballCsv(read("underdog-boards.csv"));
+    expect(parsed.site).toBe("underdog");
+    expect(parsed.entries).toHaveLength(21);
+    expect(parsed.entries.every((e) => e.players.length === 20)).toBe(true);
+    const names = [...groupByTournament(parsed.entries).keys()].sort();
+    expect(names).toEqual(["The Big Board", "The Little Board"]);
+    expect(parsed.entries.every((e) => e.draftSlot! >= 1 && e.draftSlot! <= 12)).toBe(true);
+  });
+
+  it("splits the puppy export into its three tournaments", () => {
+    const parsed = parseBestballCsv(read("underdog-puppies.csv"));
+    expect(parsed.entries).toHaveLength(5);
+    expect(parsed.entries.every((e) => e.players.length === 18)).toBe(true);
+    const groups = groupByTournament(parsed.entries);
+    expect([...groups.keys()].sort()).toEqual(["The Corgi", "The Fast Puppy", "The Pug"]);
+    expect(groups.get("The Pug")).toHaveLength(3);
+  });
+
+  it("names the weekly winners export from its own title column", () => {
+    const parsed = parseBestballCsv(read("underdog-weekly.csv"));
+    expect(parsed.entries).toHaveLength(22);
+    expect([...groupByTournament(parsed.entries).keys()]).toEqual(["Weekly Winners"]);
+    expect(parsed.entries.every((e) => e.weekly)).toBe(true);
+    expect(isWeeklyTournament("Weekly Winners")).toBe(true);
+    expect(isWeeklyTournament("The Pug")).toBe(false);
   });
 });

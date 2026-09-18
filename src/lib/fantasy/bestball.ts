@@ -35,7 +35,13 @@ export function asBestballSite(value: unknown): BestballSite | null {
   return isBestballSite(v) ? (v as BestballSite) : null;
 }
 
+/** Weekly-winner tournaments pay out each week; there is no running total. */
+export function isWeeklyTournament(name: string): boolean {
+  return /weekly\s*winner/i.test(name);
+}
+
 /** A stable id for a tournament so a re-import replaces its entries. */
+
 export function tournamentKey(site: BestballSite, tournament: string): string {
   const slug = tournament
     .toLowerCase()

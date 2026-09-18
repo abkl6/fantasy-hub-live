@@ -9,8 +9,9 @@ import type { BestballPayload } from "@/lib/fantasy/bestball.server";
 
 export function BestballLeague({ payload }: { payload: BestballPayload }) {
   const [open, setOpen] = useState<string | null>(null);
-  const playedWeeks = payload.entries[0]?.weeks.filter((w) => w.actual).map((w) => w.week) ?? [];
-  const lastPlayed = playedWeeks.length ? Math.max(...playedWeeks) : 0;
+  const lastPlayed = payload.lastPlayedWeek;
+  const weekScore = (entry: BestballPayload["entries"][number]) =>
+    entry.weeks.find((w) => w.week === (lastPlayed || 1))?.points ?? 0;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -18,12 +19,16 @@ export function BestballLeague({ payload }: { payload: BestballPayload }) {
         <h1 className="text-3xl font-bold">{payload.name}</h1>
         <Badge variant="secondary">{payload.siteLabel}</Badge>
         <Badge variant="outline">Best ball · {payload.scoringLabel}</Badge>
+        {payload.weekly && <Badge variant="outline">Scored each week</Badge>}
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        {payload.entries.length} {payload.entries.length === 1 ? "entry" : "entries"} · scores
-        through week {payload.lastWeek}
+        {payload.entries.length} {payload.entries.length === 1 ? "entry" : "entries"} ·{" "}
+        {payload.weekly
+          ? `ranked by week ${lastPlayed || 1}`
+          : `scores through week ${payload.lastWeek}`}
         {lastPlayed ? ` · weeks 1–${lastPlayed} played, the rest projected` : " · all weeks projected"}
       </p>
+
 
       <section className="mt-8 space-y-3">
         <div className="flex items-center gap-2">
@@ -51,9 +56,16 @@ export function BestballLeague({ payload }: { payload: BestballPayload }) {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <p className="text-2xl font-bold tabular-nums">{entry.total.toFixed(1)}</p>
-                  <p className="text-xs text-muted-foreground">through week {payload.lastWeek}</p>
+                  <p className="text-2xl font-bold tabular-nums">
+                    {(payload.weekly ? weekScore(entry) : entry.total).toFixed(1)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {payload.weekly
+                      ? `week ${lastPlayed || 1}`
+                      : `through week ${payload.lastWeek}`}
+                  </p>
                 </div>
+
                 <Button
                   size="sm"
                   variant="outline"
