@@ -356,7 +356,16 @@ export async function buildBestball(
     };
   });
 
-  rows.sort((a, b) => b.total - a.total);
+  const weekly = isWeeklyTournament(league.name);
+  const lastPlayedWeek = Math.max(
+    0,
+    ...rows.flatMap((r) => r.weeks.filter((w) => w.actual).map((w) => w.week)),
+  );
+  const sortKey = (row: BestballEntryRow) =>
+    weekly
+      ? (row.weeks.find((w) => w.week === lastPlayedWeek)?.points ?? row.total)
+      : row.total;
+  rows.sort((a, b) => sortKey(b) - sortKey(a));
   rows.forEach((row, i) => {
     row.rank = i + 1;
   });
@@ -369,9 +378,12 @@ export async function buildBestball(
     season: league.season,
     lastWeek: ROUND_ONE_LAST_WEEK,
     scoringLabel: scoring.label,
+    weekly,
+    lastPlayedWeek,
     entries: rows,
   };
 }
+
 
 // --- exposure and games ----------------------------------------------------
 
