@@ -56,9 +56,16 @@ export function BestballLeague({ payload }: { payload: BestballPayload }) {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <p className="text-2xl font-bold tabular-nums">{entry.total.toFixed(1)}</p>
-                  <p className="text-xs text-muted-foreground">through week {payload.lastWeek}</p>
+                  <p className="text-2xl font-bold tabular-nums">
+                    {(payload.weekly ? weekScore(entry) : entry.total).toFixed(1)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {payload.weekly
+                      ? `week ${lastPlayed || 1}`
+                      : `through week ${payload.lastWeek}`}
+                  </p>
                 </div>
+
                 <Button
                   size="sm"
                   variant="outline"
