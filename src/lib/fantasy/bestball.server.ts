@@ -15,9 +15,11 @@ import {
   BESTBALL_SLOTS,
   BESTBALL_SITE_LABELS,
   ROUND_ONE_LAST_WEEK,
+  isWeeklyTournament,
   tournamentKey,
   type BestballSite,
 } from "./bestball";
+
 import { groupByTournament, type ParsedEntry } from "./bestball-parse";
 import { eligiblePositions } from "./eligibility";
 import { optimalLineup, type EnginePlayer } from "./engine";
@@ -98,8 +100,9 @@ export async function importBestball(
         name: tournament,
         season,
         current_week: currentWeek,
-        team_count: list.length,
+        team_count: list.find((e) => e.draftSize && e.draftSize > 1)?.draftSize ?? list.length,
         playoff_teams: 0,
+
         regular_season_weeks: ROUND_ONE_LAST_WEEK,
         scoring_type: BESTBALL_SCORING[site],
         scoring_rules: {},
