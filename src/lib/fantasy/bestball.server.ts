@@ -203,8 +203,13 @@ export interface BestballPayload {
   season: number;
   lastWeek: number;
   scoringLabel: string;
+  /** Weekly-winner tournaments are ranked week by week, with no running total. */
+  weekly: boolean;
+  /** The last week scored from real stats, 0 when nothing has been played. */
+  lastPlayedWeek: number;
   entries: BestballEntryRow[];
 }
+
 
 interface WeekPoints {
   points: number;
