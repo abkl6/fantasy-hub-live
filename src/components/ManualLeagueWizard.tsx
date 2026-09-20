@@ -318,6 +318,23 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
                 >
                   {openTeam === team.id ? "Close" : team.players > 0 ? "Replace" : "Add roster"}
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  disabled={removeTeam.isPending}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Remove ${team.name} from this league? Their roster and results go too.`,
+                      )
+                    )
+                      return;
+                    removeTeam.mutate(team.id);
+                  }}
+                >
+                  Remove team
+                </Button>
               </div>
             </div>
 
