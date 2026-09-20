@@ -1475,10 +1475,12 @@ function StandingsTable({
   standings,
   showWeeklyHighs,
   showVictoryPoints,
+  showSurvival,
 }: {
   leagueId: string;
   showWeeklyHighs?: boolean;
   showVictoryPoints?: boolean;
+  showSurvival?: boolean;
   standings: {
     id: string;
     name: string;
@@ -1487,6 +1489,8 @@ function StandingsTable({
     pointsFor: number;
     playoffOdds: number;
     titleOdds: number;
+    projPointsPerWeek?: number;
+    surviveWeekOdds?: number | null;
     weeklyHighs?: number;
     vp?: number;
     badge?: TeamBadgeValue;
