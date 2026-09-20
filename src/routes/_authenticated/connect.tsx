@@ -439,6 +439,15 @@ function ManualPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the league."),
   });
 
+  const saveStandingsMutation = useMutation({
+    mutationFn: () => saveStandings({ data: { leagueId: leagueId!, teams: standings } }),
+    onSuccess: (res) => {
+      toast.success(`${res.created + res.updated} teams saved. Now add your roster.`);
+      setStep(3);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the standings."),
+  });
+
   const saveRosterMutation = useMutation({
     mutationFn: () =>
       store({
