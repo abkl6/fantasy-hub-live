@@ -513,7 +513,7 @@ export function ManualLeagueWizard() {
       }),
     onSuccess: (res) => {
       toast.success(`${res.games} games saved.`);
-      setStep(4);
+      setStep(5);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the schedule."),
   });
@@ -534,7 +534,7 @@ export function ManualLeagueWizard() {
               }),
         },
       }),
-    onSuccess: () => setStep(contest === "points" ? 4 : 3),
+    onSuccess: () => setStep(contest === "points" ? 5 : 4),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the format."),
   });
 
@@ -863,7 +863,7 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">How is this league won?</h2>
 
@@ -949,7 +949,7 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">Schedule</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -987,7 +987,7 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">Which team is yours?</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
