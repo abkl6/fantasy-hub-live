@@ -21,9 +21,11 @@ import {
   Loader2,
   RefreshCw,
   Shield,
+  Trash2,
   Trophy,
   Users,
 } from "lucide-react";
+import { deleteManualTeam } from "@/lib/manual.functions";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -587,6 +589,7 @@ function LeaguePage() {
                   showWeeklyHighs={data.weeklyHighBonus}
                   showVictoryPoints={data.contestFormat === "vp"}
                   showSurvival={!!data.showSurvival}
+                  canDeleteTeams={!data.league.external_id}
                 />
               </div>
             </Section>
