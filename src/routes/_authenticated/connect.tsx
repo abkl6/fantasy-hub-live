@@ -37,6 +37,7 @@ import {
   readScreenshot,
   saveRoster,
 } from "@/lib/fantasy.functions";
+import { applyStandings } from "@/lib/manual.functions";
 import {
   importAllYahooLeagues,
   importEspnLeague,
