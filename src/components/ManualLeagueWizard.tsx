@@ -156,7 +156,7 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
     mutationFn: (images: string[]) => scan({ data: { mode: "roster" as const, images } }),
     onSuccess: (res) => {
       if (res.mode !== "roster" || !res.players) return;
-      setPlayers(res.players);
+      setPlayers((prev) => [...prev, ...res.players!]);
       toast.success(`${res.players.length} players read.`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that roster."),
