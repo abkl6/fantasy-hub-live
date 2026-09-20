@@ -44,6 +44,7 @@ import {
   applyDraftBoard,
   applyStandings,
   applyTeamRoster,
+  deleteManualTeam,
   manualRosterProgress,
   copyableLeagues,
   createManualLeagueWizard,
@@ -282,6 +283,18 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that roster."),
   });
 
+  const deleteTeamFn = useServerFn(deleteManualTeam);
+  const removeTeam = useMutation({
+    mutationFn: (teamId: string) => deleteTeamFn({ data: { leagueId, teamId } }),
+    onSuccess: (res) => {
+      toast.success(`${res.removed} removed — ${res.teams} teams left.`);
+      setOpenTeam(null);
+      setPlayers([]);
+      void progress.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove that team."),
+  });
+
   const rows = progress.data?.teams ?? [];
 
   return (
@@ -317,6 +330,23 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
                   }}
                 >
                   {openTeam === team.id ? "Close" : team.players > 0 ? "Replace" : "Add roster"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  disabled={removeTeam.isPending}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Remove ${team.name} from this league? Their roster and results go too.`,
+                      )
+                    )
+                      return;
+                    removeTeam.mutate(team.id);
+                  }}
+                >
+                  Remove team
                 </Button>
               </div>
             </div>

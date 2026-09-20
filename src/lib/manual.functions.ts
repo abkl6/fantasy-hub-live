@@ -796,6 +796,72 @@ export const manualRosterProgress = createServerFn({ method: "POST" })
     };
   });
 
+/** Removes a team from a hand-tracked league (no platform sync). */
+export const deleteManualTeam = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ leagueId: z.string().uuid(), teamId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+
+    const { data: league } = await supabase
+      .from("leagues")
+      .select("id, external_id, team_count")
+      .eq("id", data.leagueId)
+      .maybeSingle();
+    if (!league) throw new Error("League not found.");
+    if (league.external_id) {
+      throw new Error("This league syncs from its platform, so teams can't be removed by hand.");
+    }
+
+    const { data: team } = await supabase
+      .from("teams")
+      .select("id, name, is_mine")
+      .eq("id", data.teamId)
+      .eq("league_id", data.leagueId)
+      .maybeSingle();
+    if (!team) throw new Error("Team not found.");
+    if (team.is_mine) throw new Error("That's your own team — pick a different one.");
+
+    await Promise.all([
+      supabase.from("roster_spots").delete().eq("team_id", data.teamId),
+      supabase.from("draft_picks").delete().eq("team_id", data.teamId),
+      supabase.from("manual_lineups").delete().eq("team_id", data.teamId),
+      supabase.from("faab_bids").delete().eq("team_id", data.teamId),
+      supabase.from("team_draft_picks").delete().eq("team_id", data.teamId),
+      supabase.from("team_draft_picks").delete().eq("original_team_id", data.teamId),
+      supabase.from("weekly_snapshots").delete().eq("team_id", data.teamId),
+      supabase.from("saved_moves").delete().eq("team_id", data.teamId),
+      supabase.from("recommendation_log").delete().eq("team_id", data.teamId),
+      supabase.from("score_reconciliation").delete().eq("team_id", data.teamId),
+      supabase.from("calibration_log").delete().eq("team_id", data.teamId),
+      supabase.from("trade_history").delete().eq("team_id", data.teamId),
+      supabase.from("matchups").delete().eq("home_team_id", data.teamId),
+      supabase.from("matchups").delete().eq("away_team_id", data.teamId),
+      supabase.from("manual_transactions").delete().eq("from_team_id", data.teamId),
+      supabase.from("manual_transactions").delete().eq("to_team_id", data.teamId),
+    ]);
+
+    const { error } = await supabase
+      .from("teams")
+      .delete()
+      .eq("id", data.teamId)
+      .eq("league_id", data.leagueId);
+    if (error) throw new Error(error.message);
+
+    const { count } = await supabase
+      .from("teams")
+      .select("id", { count: "exact", head: true })
+      .eq("league_id", data.leagueId);
+    const remaining = count ?? 0;
+    await supabase.from("leagues").update({ team_count: remaining }).eq("id", data.leagueId);
+    await supabase.from("analysis_cache").delete().eq("league_id", data.leagueId);
+
+    return { removed: team.name, teams: remaining };
+  });
+
+
 // -------------------------------------------------------------- upkeep list
 
 export const manualLeagueStatus = createServerFn({ method: "GET" })
