@@ -586,6 +586,7 @@ function LeaguePage() {
                   standings={data.standings}
                   showWeeklyHighs={data.weeklyHighBonus}
                   showVictoryPoints={data.contestFormat === "vp"}
+                  showSurvival={!!data.showSurvival}
                 />
               </div>
             </Section>
@@ -1474,10 +1475,12 @@ function StandingsTable({
   standings,
   showWeeklyHighs,
   showVictoryPoints,
+  showSurvival,
 }: {
   leagueId: string;
   showWeeklyHighs?: boolean;
   showVictoryPoints?: boolean;
+  showSurvival?: boolean;
   standings: {
     id: string;
     name: string;
@@ -1486,6 +1489,8 @@ function StandingsTable({
     pointsFor: number;
     playoffOdds: number;
     titleOdds: number;
+    projPointsPerWeek?: number;
+    surviveWeekOdds?: number | null;
     weeklyHighs?: number;
     vp?: number;
     badge?: TeamBadgeValue;
@@ -1500,6 +1505,10 @@ function StandingsTable({
 
   const teamTrends = new Map(trends?.series?.map((s) => [s.teamId, s.points]) ?? []);
 
+  const rows = showSurvival
+    ? [...standings].sort((a, b) => (b.projPointsPerWeek ?? 0) - (a.projPointsPerWeek ?? 0))
+    : standings;
+
   return (
     <table className="w-full text-sm">
       <thead className="text-left text-xs text-muted-foreground">
@@ -1509,13 +1518,22 @@ function StandingsTable({
           <th className="py-2">Points</th>
           {showVictoryPoints && <th className="py-2">VP</th>}
           {showWeeklyHighs && <th className="py-2">Weekly highs</th>}
-          <th className="py-2">Playoffs</th>
-          <th className="py-2">Title</th>
+          {showSurvival ? (
+            <>
+              <th className="py-2">Projected this week</th>
+              <th className="py-2">Chance to survive this week</th>
+            </>
+          ) : (
+            <>
+              <th className="py-2">Playoffs</th>
+              <th className="py-2">Title</th>
+            </>
+          )}
           <th className="py-2">Trend</th>
         </tr>
       </thead>
       <tbody>
-        {standings.map((t) => {
+        {rows.map((t) => {
           const points = teamTrends.get(t.id) ?? [];
           const start = points[0]?.titleOdds ?? t.titleOdds;
           const end = points[points.length - 1]?.titleOdds ?? t.titleOdds;
@@ -1532,8 +1550,19 @@ function StandingsTable({
               <td className="stat-num py-3">{t.pointsFor.toFixed(1)}</td>
               {showVictoryPoints && <td className="stat-num py-3">{(t.vp ?? 0).toFixed(0)}</td>}
               {showWeeklyHighs && <td className="stat-num py-3">{t.weeklyHighs ?? 0}</td>}
-              <td className="stat-num py-3">{pct(t.playoffOdds)}</td>
-              <td className="stat-num py-3 text-primary">{pct(t.titleOdds)}</td>
+              {showSurvival ? (
+                <>
+                  <td className="stat-num py-3">{(t.projPointsPerWeek ?? 0).toFixed(1)}</td>
+                  <td className="stat-num py-3 text-primary">
+                    {t.surviveWeekOdds == null ? "—" : pct(t.surviveWeekOdds)}
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td className="stat-num py-3">{pct(t.playoffOdds)}</td>
+                  <td className="stat-num py-3 text-primary">{pct(t.titleOdds)}</td>
+                </>
+              )}
               <td className="py-3">
                 {points.length > 1 ? (
                   <div className="flex items-center gap-1">
