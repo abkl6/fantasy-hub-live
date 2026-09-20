@@ -130,6 +130,102 @@ export function StandingsUpload({ onRows }: { onRows: (rows: StandingsRow[]) => 
   );
 }
 
+/** Editable list of standings rows (team name, record, points, budget left). */
+export function StandingsEditor({
+  rows,
+  onChange,
+}: {
+  rows: StandingsRow[];
+  onChange: (rows: StandingsRow[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        {rows.length} teams — fix anything that looks wrong.
+      </p>
+      {rows.map((row, i) => (
+        <div key={`${row.name}-${i}`} className="flex flex-wrap items-center gap-2">
+          <Input
+            aria-label="Team name"
+            className="h-8 flex-1 min-w-[140px]"
+            value={row.name}
+            onChange={(e) =>
+              onChange(rows.map((r, idx) => (idx === i ? { ...r, name: e.target.value } : r)))
+            }
+          />
+          {(
+            [
+              ["wins", "W"],
+              ["losses", "L"],
+              ["pointsFor", "PF"],
+            ] as const
+          ).map(([key, label]) => (
+            <Input
+              key={key}
+              aria-label={`${row.name} ${label}`}
+              className="h-8 w-20"
+              type="number"
+              value={row[key]}
+              onChange={(e) =>
+                onChange(
+                  rows.map((r, idx) =>
+                    idx === i ? { ...r, [key]: Number(e.target.value) || 0 } : r,
+                  ),
+                )
+              }
+            />
+          ))}
+          <Input
+            aria-label={`${row.name} budget left`}
+            className="h-8 w-24"
+            type="number"
+            placeholder="FAAB"
+            value={row.faabRemaining ?? ""}
+            onChange={(e) =>
+              onChange(
+                rows.map((r, idx) =>
+                  idx === i
+                    ? { ...r, faabRemaining: e.target.value === "" ? null : Number(e.target.value) }
+                    : r,
+                ),
+              )
+            }
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+          >
+            Remove
+          </Button>
+        </div>
+      ))}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() =>
+          onChange([
+            ...rows,
+            {
+              name: `Team ${rows.length + 1}`,
+              owner: null,
+              wins: 0,
+              losses: 0,
+              ties: 0,
+              pointsFor: 0,
+              pointsAgainst: 0,
+              faabRemaining: null,
+              faabSpent: null,
+            },
+          ])
+        }
+      >
+        Add a team
+      </Button>
+    </div>
+  );
+}
+
 interface ReadPlayer {
   name: string;
   position: string;
@@ -748,98 +844,7 @@ export function ManualLeagueWizard() {
                 }}
               />
               {standings.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    {standings.length} teams read — fix anything that looks wrong.
-                  </p>
-                  {standings.map((row, i) => (
-                    <div key={`${row.name}-${i}`} className="flex flex-wrap items-center gap-2">
-                      <Input
-                        aria-label="Team name"
-                        className="h-8 flex-1 min-w-[140px]"
-                        value={row.name}
-                        onChange={(e) =>
-                          setStandings((list) =>
-                            list.map((r, idx) => (idx === i ? { ...r, name: e.target.value } : r)),
-                          )
-                        }
-                      />
-                      {(
-                        [
-                          ["wins", "W"],
-                          ["losses", "L"],
-                          ["pointsFor", "PF"],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <Input
-                          key={key}
-                          aria-label={`${row.name} ${label}`}
-                          className="h-8 w-20"
-                          type="number"
-                          value={row[key]}
-                          onChange={(e) =>
-                            setStandings((list) =>
-                              list.map((r, idx) =>
-                                idx === i ? { ...r, [key]: Number(e.target.value) || 0 } : r,
-                              ),
-                            )
-                          }
-                        />
-                      ))}
-                      <Input
-                        aria-label={`${row.name} budget left`}
-                        className="h-8 w-24"
-                        type="number"
-                        placeholder="FAAB"
-                        value={row.faabRemaining ?? ""}
-                        onChange={(e) =>
-                          setStandings((list) =>
-                            list.map((r, idx) =>
-                              idx === i
-                                ? {
-                                    ...r,
-                                    faabRemaining:
-                                      e.target.value === "" ? null : Number(e.target.value),
-                                  }
-                                : r,
-                            ),
-                          )
-                        }
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          setStandings((list) => list.filter((_, idx) => idx !== i))
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setStandings((list) => [
-                        ...list,
-                        {
-                          name: `Team ${list.length + 1}`,
-                          owner: null,
-                          wins: 0,
-                          losses: 0,
-                          ties: 0,
-                          pointsFor: 0,
-                          pointsAgainst: 0,
-                          faabRemaining: null,
-                          faabSpent: null,
-                        },
-                      ])
-                    }
-                  >
-                    Add a team
-                  </Button>
-                </div>
+                <StandingsEditor rows={standings} onChange={setStandings} />
               ) : (
                 <Textarea
                   id="m-teams"

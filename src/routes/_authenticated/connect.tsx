@@ -5,7 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ImageUp, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ManualLeagueWizard, RosterStep } from "@/components/ManualLeagueWizard";
+import {
+  ManualLeagueWizard,
+  RosterStep,
+  StandingsEditor,
+  StandingsUpload,
+  type StandingsRow,
+} from "@/components/ManualLeagueWizard";
 import { BestballImport } from "@/components/BestballImport";
 
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +37,7 @@ import {
   readScreenshot,
   saveRoster,
 } from "@/lib/fantasy.functions";
+import { applyStandings } from "@/lib/manual.functions";
 import {
   importAllYahooLeagues,
   importEspnLeague,
@@ -348,7 +355,9 @@ function ManualPanel() {
   const store = useServerFn(saveRoster);
   const scan = useServerFn(readScreenshot);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [standings, setStandings] = useState<StandingsRow[]>([]);
+  const saveStandings = useServerFn(applyStandings);
   const [leagueId, setLeagueId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
 
@@ -425,9 +434,18 @@ function ManualPanel() {
       setLeagueId(res.leagueId);
       setTeamId(res.myTeamId);
       setStep(2);
-      toast.success("League created. Now add your roster.");
+      toast.success("League created. Now add the standings.");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the league."),
+  });
+
+  const saveStandingsMutation = useMutation({
+    mutationFn: () => saveStandings({ data: { leagueId: leagueId!, teams: standings } }),
+    onSuccess: (res) => {
+      toast.success(`${res.created + res.updated} teams saved. Now add your roster.`);
+      setStep(3);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the standings."),
   });
 
   const saveRosterMutation = useMutation({
@@ -447,7 +465,7 @@ function ManualPanel() {
     onSuccess: () => {
       toast.success("Roster saved. Now add the other teams.");
       setPlayers([]);
-      setStep(3);
+      setStep(4);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the roster."),
   });
@@ -461,7 +479,7 @@ function ManualPanel() {
     else scanScoring.mutate(images);
   }
 
-  if (step === 3 && leagueId) {
+  if (step === 4 && leagueId) {
     return (
       <section className="rounded-xl bg-card p-6">
         <h2 className="text-2xl font-bold">The other teams</h2>
@@ -483,7 +501,40 @@ function ManualPanel() {
     );
   }
 
-  if (step === 2 && leagueId && teamId) {
+  if (step === 2 && leagueId) {
+    return (
+      <section className="rounded-xl bg-card p-6">
+        <h2 className="text-2xl font-bold">League standings</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Upload a screenshot of the standings table — this fills in every team's name, record,
+          points and waiver budget, so the roster steps after this can match each picture to the
+          right team.
+        </p>
+        <div className="mt-5">
+          <StandingsUpload onRows={setStandings} />
+        </div>
+        {standings.length > 0 && (
+          <div className="mt-4">
+            <StandingsEditor rows={standings} onChange={setStandings} />
+          </div>
+        )}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button
+            disabled={saveStandingsMutation.isPending || standings.length < 2}
+            onClick={() => saveStandingsMutation.mutate()}
+          >
+            {saveStandingsMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            Save standings and continue
+          </Button>
+          <Button variant="outline" onClick={() => setStep(3)}>
+            Skip — I'll add team names myself
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  if (step === 3 && leagueId && teamId) {
     return (
       <section className="rounded-xl bg-card p-6">
         <h2 className="text-2xl font-bold">Your roster</h2>
