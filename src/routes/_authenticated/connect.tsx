@@ -355,7 +355,9 @@ function ManualPanel() {
   const store = useServerFn(saveRoster);
   const scan = useServerFn(readScreenshot);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [standings, setStandings] = useState<StandingsRow[]>([]);
+  const saveStandings = useServerFn(applyStandings);
   const [leagueId, setLeagueId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
 
@@ -432,7 +434,7 @@ function ManualPanel() {
       setLeagueId(res.leagueId);
       setTeamId(res.myTeamId);
       setStep(2);
-      toast.success("League created. Now add your roster.");
+      toast.success("League created. Now add the standings.");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the league."),
   });
