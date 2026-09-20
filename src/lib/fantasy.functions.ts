@@ -807,7 +807,7 @@ export const readScreenshot = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        mode: z.enum(["roster", "scoring", "text"]),
+        mode: z.enum(["roster", "scoring", "text", "standings"]),
         images: z.array(z.string().min(20)).min(1).max(4),
       })
       .parse(d),
