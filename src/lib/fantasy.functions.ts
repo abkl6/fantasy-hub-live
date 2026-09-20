@@ -830,8 +830,19 @@ Include every scoring rule you can read using short snake_case keys and numeric 
 Return ONLY minified JSON of this exact shape: {"lines":["one row of the screenshot per entry"]}
 Keep each row on its own line exactly as shown, including team names, dates, player names, positions and NFL teams. Keep team headings as their own line ending with a colon. No commentary.`;
 
+    const standingsPrompt = `You are reading a screenshot of a fantasy football league standings or league table.
+Return ONLY minified JSON of this exact shape:
+{"teams":[{"name":"Team name","owner":"Manager name","wins":0,"losses":0,"ties":0,"pointsFor":0,"pointsAgainst":0,"faabRemaining":null,"faabSpent":null,"confidence":0.0}]}
+Rules: one entry per team row, in the order shown. Use null for any number the table does not show. Waiver/FAAB budget columns map to faabRemaining or faabSpent. confidence is 0-1 per row. No commentary.`;
+
     const prompt =
-      data.mode === "roster" ? rosterPrompt : data.mode === "scoring" ? scoringPrompt : textPrompt;
+      data.mode === "roster"
+        ? rosterPrompt
+        : data.mode === "scoring"
+          ? scoringPrompt
+          : data.mode === "standings"
+            ? standingsPrompt
+            : textPrompt;
 
     const body = {
       model: SCREENSHOT_MODELS,
