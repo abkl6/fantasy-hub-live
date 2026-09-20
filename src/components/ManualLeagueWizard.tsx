@@ -380,6 +380,8 @@ export function ManualLeagueWizard() {
   const saveSchedule = useServerFn(saveManualSchedule);
   const setMine = useServerFn(setMyManualTeam);
   const saveSettings = useServerFn(updateLeagueSettings);
+  const saveStandings = useServerFn(applyStandings);
+  const [standings, setStandings] = useState<StandingsRow[]>([]);
 
   const [step, setStep] = useState(0);
   const [leagueId, setLeagueId] = useState<string | null>(null);
