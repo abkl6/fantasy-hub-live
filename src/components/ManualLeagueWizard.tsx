@@ -458,9 +458,20 @@ export function ManualLeagueWizard() {
           teamNames: names(),
         },
       }),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       setLeagueId(res.leagueId);
       setTeams(res.teams);
+      if (standings.length >= 2) {
+        try {
+          const applied = await saveStandings({
+            data: { leagueId: res.leagueId, teams: standings },
+          });
+          setTeams(applied.teams);
+          toast.success("Standings saved.");
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Could not save those standings.");
+        }
+      }
       setStep(1);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the league."),
