@@ -448,7 +448,7 @@ export const createManualLeague = createServerFn({ method: "POST" })
         season: new Date().getFullYear(),
         current_week: data.currentWeek,
         team_count: data.teamCount,
-        playoff_teams: data.playoffTeams,
+        playoff_teams: data.format === "guillotine" ? 0 : data.playoffTeams,
         regular_season_weeks: data.regularSeasonWeeks,
         scoring_type: data.scoringType,
         scoring_rules: data.scoringRules ?? {},
