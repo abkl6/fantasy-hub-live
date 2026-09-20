@@ -695,6 +695,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
         unknownAgeCount: unknownAgeById.get(r.id) ?? 0,
         weeklyHighs: 0,
         vp: vpByTeam.get(r.id) ?? 0,
+        surviveWeekOdds: survivalById.get(r.id)?.surviveWeekOdds ?? null,
       };
     });
 

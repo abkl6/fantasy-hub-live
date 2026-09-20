@@ -586,6 +586,7 @@ function LeaguePage() {
                   standings={data.standings}
                   showWeeklyHighs={data.weeklyHighBonus}
                   showVictoryPoints={data.contestFormat === "vp"}
+                  showSurvival={!!data.showSurvival}
                 />
               </div>
             </Section>
