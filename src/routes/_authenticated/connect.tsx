@@ -456,7 +456,7 @@ function ManualPanel() {
     onSuccess: () => {
       toast.success("Roster saved. Now add the other teams.");
       setPlayers([]);
-      setStep(3);
+      setStep(4);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the roster."),
   });
