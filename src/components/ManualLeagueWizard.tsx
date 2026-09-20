@@ -443,7 +443,7 @@ export function ManualLeagueWizard() {
         data: {
           name: form.name.trim() || "My league",
           teamCount: clamp(form.teamCount, 2, 20),
-          playoffTeams: clamp(form.playoffTeams, 2, 12),
+          playoffTeams: clamp(form.playoffTeams, 0, 20),
           regularSeasonWeeks: clamp(form.regularSeasonWeeks, 4, 18),
           currentWeek: clamp(form.currentWeek, 1, 18),
           scoringType: form.scoringType,
