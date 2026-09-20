@@ -44,6 +44,7 @@ import {
   applyDraftBoard,
   applyStandings,
   applyTeamRoster,
+  deleteManualTeam,
   manualRosterProgress,
   copyableLeagues,
   createManualLeagueWizard,
