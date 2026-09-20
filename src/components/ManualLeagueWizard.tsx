@@ -423,6 +423,10 @@ export function ManualLeagueWizard() {
 
   const names = () => {
     const count = clamp(form.teamCount, 2, 20);
+    if (standings.length >= 2) {
+      const fromTable = standings.map((s) => s.name.trim()).filter(Boolean);
+      if (fromTable.length >= 2) return fromTable.slice(0, Math.max(count, fromTable.length));
+    }
     const typed = teamNames
       .split(/[\n,]/)
       .map((n) => n.trim())
