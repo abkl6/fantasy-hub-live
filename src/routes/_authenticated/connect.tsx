@@ -493,14 +493,6 @@ function ManualPanel() {
   }
 
   if (step === 2 && leagueId) {
-    const saveTable = useMutation({
-      mutationFn: () => saveStandings({ data: { leagueId, teams: standings } }),
-      onSuccess: (res) => {
-        toast.success(`${res.created + res.updated} teams saved. Now add your roster.`);
-        setStep(3);
-      },
-      onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the standings."),
-    });
     return (
       <section className="rounded-xl bg-card p-6">
         <h2 className="text-2xl font-bold">League standings</h2>
