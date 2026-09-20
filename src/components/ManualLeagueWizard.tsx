@@ -863,6 +863,10 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
+      {step === 2 && leagueId && (
+        <RosterStep leagueId={leagueId} onDone={() => setStep(3)} />
+      )}
+
       {step === 3 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">How is this league won?</h2>
