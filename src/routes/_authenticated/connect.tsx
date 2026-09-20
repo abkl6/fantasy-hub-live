@@ -348,7 +348,7 @@ function ManualPanel() {
   const store = useServerFn(saveRoster);
   const scan = useServerFn(readScreenshot);
 
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [leagueId, setLeagueId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
 
