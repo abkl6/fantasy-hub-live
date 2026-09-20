@@ -909,7 +909,7 @@ export function ManualLeagueWizard() {
               Check the board
             </Button>
             <Button variant="ghost" onClick={() => setStep(2)}>
-              Skip for now
+              Skip — add roster screenshots instead
             </Button>
           </div>
 
