@@ -192,7 +192,8 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
     <div className="mt-6">
       <h2 className="text-lg font-semibold">Rosters</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Upload a picture of each team's roster. You can do a few now and finish the rest later.
+        Upload a picture of each team's roster — up to 4 pictures per team, added together. Team
+        names come from your standings picture. You can do a few now and finish the rest later.
       </p>
       <p className="mt-2 text-sm font-medium">
         {progress.data ? `${progress.data.filled} of ${progress.data.total} rosters added` : "Loading…"}
