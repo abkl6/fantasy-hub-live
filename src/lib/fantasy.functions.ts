@@ -858,7 +858,12 @@ Keep each row on its own line exactly as shown, including team names, dates, pla
 
     if (res.status === 429) throw new Error("Too many requests right now — try again in a moment.");
     if (res.status === 402) throw new Error("AI credits are used up. Add credits to keep using screenshot import.");
-    if (!res.ok) throw new Error(`Could not read the screenshot (${res.status}).`);
+    if (res.status === 413) throw new Error("Those images are too large. Try one screenshot at a time.");
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => "")).slice(0, 200);
+      console.error("readScreenshot failed", res.status, detail);
+      throw new Error(`Could not read the screenshot (${res.status}).`);
+    }
 
     const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     const text = json.choices?.[0]?.message?.content ?? "";
