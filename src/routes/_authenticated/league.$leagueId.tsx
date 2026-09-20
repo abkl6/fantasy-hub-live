@@ -1510,6 +1510,18 @@ function StandingsTable({
 
   const teamTrends = new Map(trends?.series?.map((s) => [s.teamId, s.points]) ?? []);
 
+  const queryClient = useQueryClient();
+  const deleteTeamFn = useServerFn(deleteManualTeam);
+  const removeTeam = useMutation({
+    mutationFn: (teamId: string) => deleteTeamFn({ data: { leagueId, teamId } }),
+    onSuccess: (res) => {
+      toast.success(`${res.removed} removed — ${res.teams} teams left.`);
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["trends", leagueId] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove that team."),
+  });
+
   const rows = showSurvival
     ? [...standings].sort((a, b) => (b.projPointsPerWeek ?? 0) - (a.projPointsPerWeek ?? 0))
     : standings;
@@ -1535,6 +1547,7 @@ function StandingsTable({
             </>
           )}
           <th className="py-2">Trend</th>
+          {canDeleteTeams && <th className="py-2" aria-label="Remove team" />}
         </tr>
       </thead>
       <tbody>
