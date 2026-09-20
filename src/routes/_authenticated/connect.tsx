@@ -5,7 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ImageUp, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ManualLeagueWizard, RosterStep } from "@/components/ManualLeagueWizard";
+import {
+  ManualLeagueWizard,
+  RosterStep,
+  StandingsEditor,
+  StandingsUpload,
+  type StandingsRow,
+} from "@/components/ManualLeagueWizard";
 import { BestballImport } from "@/components/BestballImport";
 
 import { Badge } from "@/components/ui/badge";
