@@ -21,9 +21,11 @@ import {
   Loader2,
   RefreshCw,
   Shield,
+  Trash2,
   Trophy,
   Users,
 } from "lucide-react";
+import { deleteManualTeam } from "@/lib/manual.functions";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -587,6 +589,7 @@ function LeaguePage() {
                   showWeeklyHighs={data.weeklyHighBonus}
                   showVictoryPoints={data.contestFormat === "vp"}
                   showSurvival={!!data.showSurvival}
+                  canDeleteTeams={!data.league.external_id}
                 />
               </div>
             </Section>
@@ -1476,11 +1479,13 @@ function StandingsTable({
   showWeeklyHighs,
   showVictoryPoints,
   showSurvival,
+  canDeleteTeams,
 }: {
   leagueId: string;
   showWeeklyHighs?: boolean;
   showVictoryPoints?: boolean;
   showSurvival?: boolean;
+  canDeleteTeams?: boolean;
   standings: {
     id: string;
     name: string;
@@ -1504,6 +1509,18 @@ function StandingsTable({
   });
 
   const teamTrends = new Map(trends?.series?.map((s) => [s.teamId, s.points]) ?? []);
+
+  const queryClient = useQueryClient();
+  const deleteTeamFn = useServerFn(deleteManualTeam);
+  const removeTeam = useMutation({
+    mutationFn: (teamId: string) => deleteTeamFn({ data: { leagueId, teamId } }),
+    onSuccess: (res) => {
+      toast.success(`${res.removed} removed — ${res.teams} teams left.`);
+      queryClient.invalidateQueries({ queryKey: ["analysis", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["trends", leagueId] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove that team."),
+  });
 
   const rows = showSurvival
     ? [...standings].sort((a, b) => (b.projPointsPerWeek ?? 0) - (a.projPointsPerWeek ?? 0))
@@ -1530,6 +1547,7 @@ function StandingsTable({
             </>
           )}
           <th className="py-2">Trend</th>
+          {canDeleteTeams && <th className="py-2" aria-label="Remove team" />}
         </tr>
       </thead>
       <tbody>
@@ -1569,13 +1587,37 @@ function StandingsTable({
                     {up ? <ChevronUp className="size-4 text-primary" /> : <ChevronDown className="size-4 text-destructive" />}
                     <MiniSparkline points={points.map((p) => p.titleOdds)} />
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
-            </tr>
-          );
-        })}
+                 ) : (
+                   <span className="text-xs text-muted-foreground">—</span>
+                 )}
+               </td>
+               {canDeleteTeams && (
+                 <td className="py-3">
+                   {!t.isMine && (
+                     <button
+                       type="button"
+                       title={`Remove ${t.name}`}
+                       aria-label={`Remove ${t.name}`}
+                       disabled={removeTeam.isPending}
+                       onClick={() => {
+                         if (
+                           !window.confirm(
+                             `Remove ${t.name} from this league? Their roster and results go too.`,
+                           )
+                         )
+                           return;
+                         removeTeam.mutate(t.id);
+                       }}
+                       className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                     >
+                       <Trash2 className="size-4" />
+                     </button>
+                   )}
+                 </td>
+               )}
+             </tr>
+           );
+         })}
       </tbody>
     </table>
   );
