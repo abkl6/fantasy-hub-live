@@ -1479,11 +1479,13 @@ function StandingsTable({
   showWeeklyHighs,
   showVictoryPoints,
   showSurvival,
+  canDeleteTeams,
 }: {
   leagueId: string;
   showWeeklyHighs?: boolean;
   showVictoryPoints?: boolean;
   showSurvival?: boolean;
+  canDeleteTeams?: boolean;
   standings: {
     id: string;
     name: string;
