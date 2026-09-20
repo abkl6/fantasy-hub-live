@@ -63,7 +63,256 @@ const FFPC_RULES: Record<string, number> = {
   fum_lost: -2,
 };
 
-const STEPS = ["League", "Draft board", "Format", "Schedule", "My team"];
+const STEPS = ["League", "Draft board", "Rosters", "Format", "Schedule", "My team"];
+
+export interface StandingsRow {
+  name: string;
+  owner: string | null;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  faabRemaining: number | null;
+  faabSpent: number | null;
+}
+
+/** Reads a standings table screenshot into editable rows. */
+export function StandingsUpload({ onRows }: { onRows: (rows: StandingsRow[]) => void }) {
+  const scan = useServerFn(readScreenshot);
+  const read = useMutation({
+    mutationFn: (images: string[]) => scan({ data: { mode: "standings" as const, images } }),
+    onSuccess: (res) => {
+      if (res.mode !== "standings") return;
+      onRows(
+        res.teams.map((t) => ({
+          name: t.name,
+          owner: t.owner,
+          wins: t.wins,
+          losses: t.losses,
+          ties: t.ties,
+          pointsFor: t.pointsFor,
+          pointsAgainst: t.pointsAgainst,
+          faabRemaining: t.faabRemaining,
+          faabSpent: t.faabSpent,
+        })),
+      );
+      toast.success(`${res.teams.length} teams read. Check them before saving.`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read those standings."),
+  });
+
+  return (
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/50 p-3 text-sm hover:text-primary">
+      {read.isPending ? (
+        <Loader2 className="size-4 animate-spin text-primary" />
+      ) : (
+        <ImageUp className="size-4 text-primary" aria-hidden="true" />
+      )}
+      <span>{read.isPending ? "Reading your standings…" : "Upload a standings screenshot"}</span>
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        onChange={async (e) => {
+          const files = e.target.files;
+          if (!files?.length) return;
+          const images = await readFiles(files);
+          e.target.value = "";
+          read.mutate(images);
+        }}
+      />
+    </label>
+  );
+}
+
+interface ReadPlayer {
+  name: string;
+  position: string;
+  nflTeam: string | null;
+  slot: string | null;
+  isStarter: boolean;
+  confidence: number;
+}
+
+/** One team at a time: upload a roster picture, check it, save it. */
+export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone: () => void }) {
+  const scan = useServerFn(readScreenshot);
+  const saveRoster = useServerFn(applyTeamRoster);
+  const progressFn = useServerFn(manualRosterProgress);
+  const progress = useQuery({
+    queryKey: ["manual-roster-progress", leagueId],
+    queryFn: () => progressFn({ data: { leagueId } }),
+  });
+
+  const [openTeam, setOpenTeam] = useState<string | null>(null);
+  const [players, setPlayers] = useState<ReadPlayer[]>([]);
+
+  const read = useMutation({
+    mutationFn: (images: string[]) => scan({ data: { mode: "roster" as const, images } }),
+    onSuccess: (res) => {
+      if (res.mode !== "roster" || !res.players) return;
+      setPlayers(res.players);
+      toast.success(`${res.players.length} players read.`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that roster."),
+  });
+
+  const save = useMutation({
+    mutationFn: (teamId: string) =>
+      saveRoster({
+        data: {
+          leagueId,
+          teamId,
+          players: players.map((p) => ({
+            name: p.name,
+            position: p.position,
+            nflTeam: p.nflTeam,
+            slot: p.slot,
+            isStarter: p.isStarter,
+          })),
+        },
+      }),
+    onSuccess: (res) => {
+      toast.success(`${res.saved} players saved.`);
+      setPlayers([]);
+      setOpenTeam(null);
+      void progress.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that roster."),
+  });
+
+  const rows = progress.data?.teams ?? [];
+
+  return (
+    <div className="mt-6">
+      <h2 className="text-lg font-semibold">Rosters</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Upload a picture of each team's roster. You can do a few now and finish the rest later.
+      </p>
+      <p className="mt-2 text-sm font-medium">
+        {progress.data ? `${progress.data.filled} of ${progress.data.total} rosters added` : "Loading…"}
+      </p>
+
+      <div className="mt-4 space-y-2">
+        {rows.map((team) => (
+          <div key={team.id} className="rounded-lg bg-background/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-medium">{team.name}</span>
+              <div className="flex items-center gap-2">
+                {team.players > 0 ? (
+                  <Badge variant="secondary">{team.players} players</Badge>
+                ) : (
+                  <Badge variant="outline" className="border-warning text-warning">
+                    No roster yet
+                  </Badge>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setOpenTeam(openTeam === team.id ? null : team.id);
+                    setPlayers([]);
+                  }}
+                >
+                  {openTeam === team.id ? "Close" : team.players > 0 ? "Replace" : "Add roster"}
+                </Button>
+              </div>
+            </div>
+
+            {openTeam === team.id && (
+              <div className="mt-3">
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/60 p-3 text-sm hover:text-primary">
+                  {read.isPending ? (
+                    <Loader2 className="size-4 animate-spin text-primary" />
+                  ) : (
+                    <ImageUp className="size-4 text-primary" aria-hidden="true" />
+                  )}
+                  <span>{read.isPending ? "Reading…" : "Upload roster screenshots (up to 4)"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (!files?.length) return;
+                      const images = await readFiles(files);
+                      e.target.value = "";
+                      read.mutate(images);
+                    }}
+                  />
+                </label>
+
+                {players.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {players.map((p, i) => (
+                      <div
+                        key={`${p.name}-${i}`}
+                        className="flex items-center gap-2 rounded-lg bg-background/60 px-3 py-2 text-sm"
+                      >
+                        <Input
+                          aria-label="Player name"
+                          value={p.name}
+                          className="h-8"
+                          onChange={(e) =>
+                            setPlayers((list) =>
+                              list.map((row, idx) =>
+                                idx === i ? { ...row, name: e.target.value } : row,
+                              ),
+                            )
+                          }
+                        />
+                        <Input
+                          aria-label="Position"
+                          value={p.position}
+                          className="h-8 w-20"
+                          onChange={(e) =>
+                            setPlayers((list) =>
+                              list.map((row, idx) =>
+                                idx === i
+                                  ? { ...row, position: e.target.value.toUpperCase() }
+                                  : row,
+                              ),
+                            )
+                          }
+                        />
+                        {p.confidence < 0.75 && (
+                          <Badge variant="outline" className="border-warning text-warning">
+                            Check
+                          </Badge>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPlayers((list) => list.filter((_, idx) => idx !== i))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      disabled={save.isPending}
+                      onClick={() => save.mutate(team.id)}
+                    >
+                      {save.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                      Save {team.name}'s roster
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <Button className="mt-6" onClick={onDone}>
+        Next: format
+      </Button>
+    </div>
+  );
+}
 
 
 /** Image-to-text upload used by the draft and schedule steps. */
