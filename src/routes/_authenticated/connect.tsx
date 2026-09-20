@@ -66,21 +66,6 @@ interface DraftPlayer {
   confidence: number;
 }
 
-function readFiles(files: FileList): Promise<string[]> {
-  return Promise.all(
-    Array.from(files)
-      .slice(0, 4)
-      .map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(new Error("Could not read that image."));
-            reader.readAsDataURL(file);
-          }),
-      ),
-  );
-}
 
 function ConnectPage() {
   return (
