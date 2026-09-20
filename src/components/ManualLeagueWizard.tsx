@@ -156,7 +156,7 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
     mutationFn: (images: string[]) => scan({ data: { mode: "roster" as const, images } }),
     onSuccess: (res) => {
       if (res.mode !== "roster" || !res.players) return;
-      setPlayers(res.players);
+      setPlayers((prev) => [...prev, ...res.players!]);
       toast.success(`${res.players.length} players read.`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that roster."),
@@ -192,7 +192,8 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
     <div className="mt-6">
       <h2 className="text-lg font-semibold">Rosters</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Upload a picture of each team's roster. You can do a few now and finish the rest later.
+        Upload a picture of each team's roster — up to 4 pictures per team, added together. Team
+        names come from your standings picture. You can do a few now and finish the rest later.
       </p>
       <p className="mt-2 text-sm font-medium">
         {progress.data ? `${progress.data.filled} of ${progress.data.total} rosters added` : "Loading…"}
@@ -908,7 +909,7 @@ export function ManualLeagueWizard() {
               Check the board
             </Button>
             <Button variant="ghost" onClick={() => setStep(2)}>
-              Skip for now
+              Skip — add roster screenshots instead
             </Button>
           </div>
 

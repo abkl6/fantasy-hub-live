@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ImageUp, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ManualLeagueWizard } from "@/components/ManualLeagueWizard";
+import { ManualLeagueWizard, RosterStep } from "@/components/ManualLeagueWizard";
 import { BestballImport } from "@/components/BestballImport";
 
 import { Badge } from "@/components/ui/badge";
@@ -348,7 +348,7 @@ function ManualPanel() {
   const store = useServerFn(saveRoster);
   const scan = useServerFn(readScreenshot);
 
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [leagueId, setLeagueId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
 
@@ -445,8 +445,9 @@ function ManualPanel() {
         },
       }),
     onSuccess: () => {
-      toast.success("Roster saved.");
-      navigate({ to: "/league/$leagueId", params: { leagueId: leagueId! } });
+      toast.success("Roster saved. Now add the other teams.");
+      setPlayers([]);
+      setStep(3);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the roster."),
   });
@@ -458,6 +459,28 @@ function ManualPanel() {
     e.target.value = "";
     if (mode === "roster") scanRoster.mutate(images);
     else scanScoring.mutate(images);
+  }
+
+  if (step === 3 && leagueId) {
+    return (
+      <section className="rounded-xl bg-card p-6">
+        <h2 className="text-2xl font-bold">The other teams</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Add each rival's roster from a picture so the league is complete. You can stop any time
+          and come back from the league page.
+        </p>
+        <RosterStep
+          leagueId={leagueId}
+          onDone={() => navigate({ to: "/league/$leagueId", params: { leagueId } })}
+        />
+        <Button
+          className="mt-4"
+          onClick={() => navigate({ to: "/league/$leagueId", params: { leagueId } })}
+        >
+          Finish
+        </Button>
+      </section>
+    );
   }
 
   if (step === 2 && leagueId && teamId) {
