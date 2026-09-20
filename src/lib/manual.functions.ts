@@ -31,7 +31,7 @@ export const createManualLeagueWizard = createServerFn({ method: "POST" })
       .object({
         name: z.string().min(1).max(80),
         teamCount: z.number().int().min(2).max(20),
-        playoffTeams: z.number().int().min(2).max(12),
+        playoffTeams: z.number().int().min(0).max(20),
         regularSeasonWeeks: z.number().int().min(4).max(18),
         currentWeek: z.number().int().min(1).max(18),
         scoringType: z.string().min(1).max(20),

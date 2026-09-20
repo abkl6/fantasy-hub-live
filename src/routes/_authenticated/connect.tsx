@@ -668,12 +668,16 @@ function ManualPanel() {
             <Input
               id={key}
               type="number"
-              min={1}
+              min={key === "playoffTeams" ? 0 : 1}
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: Number(e.target.value) })}
             />
           </div>
         ))}
+        <p className="text-xs text-muted-foreground sm:col-span-2">
+          Guillotine league? Pick <strong>Guillotine</strong> as the league type and set Playoff
+          spots to 0 — survival replaces playoffs.
+        </p>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="slots">Starting lineup slots</Label>
           <Input id="slots" value={form.slots} onChange={(e) => setForm({ ...form, slots: e.target.value })} />
