@@ -921,6 +921,53 @@ Rules: one entry per team row, in the order shown. Use null for any number the t
       };
     }
 
+    if (data.mode === "standings") {
+      const num = z.number().nullish();
+      const out = z
+        .object({
+          teams: z
+            .array(
+              z.object({
+                name: z.string(),
+                owner: z.string().nullish(),
+                wins: num,
+                losses: num,
+                ties: num,
+                pointsFor: num,
+                pointsAgainst: num,
+                faabRemaining: num,
+                faabSpent: num,
+                confidence: num,
+              }),
+            )
+            .default([]),
+        })
+        .safeParse(parsed);
+      if (!out.success || !out.data.teams.length) {
+        throw new Error("That screenshot did not look like league standings.");
+      }
+      return {
+        mode: "standings" as const,
+        teams: out.data.teams
+          .filter((t) => t.name.trim().length > 0)
+          .map((t) => ({
+            name: t.name.trim(),
+            owner: t.owner?.trim() || null,
+            wins: Math.max(0, Math.round(t.wins ?? 0)),
+            losses: Math.max(0, Math.round(t.losses ?? 0)),
+            ties: Math.max(0, Math.round(t.ties ?? 0)),
+            pointsFor: Number(t.pointsFor ?? 0),
+            pointsAgainst: Number(t.pointsAgainst ?? 0),
+            faabRemaining: t.faabRemaining == null ? null : Math.round(t.faabRemaining),
+            faabSpent: t.faabSpent == null ? null : Math.round(t.faabSpent),
+            confidence: t.confidence ?? 1,
+          })),
+        players: null,
+        scoring: null,
+        text: null,
+      };
+    }
+
     if (data.mode === "roster") {
       const out = rosterShape.safeParse(parsed);
       if (!out.success) throw new Error("That screenshot did not look like a roster.");
