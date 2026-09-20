@@ -1587,13 +1587,37 @@ function StandingsTable({
                     {up ? <ChevronUp className="size-4 text-primary" /> : <ChevronDown className="size-4 text-destructive" />}
                     <MiniSparkline points={points.map((p) => p.titleOdds)} />
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
-            </tr>
-          );
-        })}
+                 ) : (
+                   <span className="text-xs text-muted-foreground">—</span>
+                 )}
+               </td>
+               {canDeleteTeams && (
+                 <td className="py-3">
+                   {!t.isMine && (
+                     <button
+                       type="button"
+                       title={`Remove ${t.name}`}
+                       aria-label={`Remove ${t.name}`}
+                       disabled={removeTeam.isPending}
+                       onClick={() => {
+                         if (
+                           !window.confirm(
+                             `Remove ${t.name} from this league? Their roster and results go too.`,
+                           )
+                         )
+                           return;
+                         removeTeam.mutate(t.id);
+                       }}
+                       className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                     >
+                       <Trash2 className="size-4" />
+                     </button>
+                   )}
+                 </td>
+               )}
+             </tr>
+           );
+         })}
       </tbody>
     </table>
   );
