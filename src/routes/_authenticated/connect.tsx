@@ -520,10 +520,10 @@ function ManualPanel() {
         )}
         <div className="mt-6 flex flex-wrap gap-3">
           <Button
-            disabled={saveTable.isPending || standings.length < 2}
-            onClick={() => saveTable.mutate()}
+            disabled={saveStandingsMutation.isPending || standings.length < 2}
+            onClick={() => saveStandingsMutation.mutate()}
           >
-            {saveTable.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            {saveStandingsMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
             Save standings and continue
           </Button>
           <Button variant="outline" onClick={() => setStep(3)}>
