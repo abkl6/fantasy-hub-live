@@ -33,6 +33,7 @@ import {
 } from "@/lib/fantasy/league-type";
 import type { ManualDraftPreview } from "@/lib/fantasy/manual-types";
 import { readScreenshot, updateLeagueSettings } from "@/lib/fantasy.functions";
+import { readFiles } from "@/lib/screenshot-upload";
 import {
   CONTEST_DESCRIPTIONS,
   CONTEST_FORMATS,

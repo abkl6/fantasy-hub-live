@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import { importFfpcLeague, previewFfpcLeague } from "@/lib/ffpc.functions";
+import { readFiles } from "@/lib/screenshot-upload";
 import {
   createManualLeague,
   findSleeperLeagues,
