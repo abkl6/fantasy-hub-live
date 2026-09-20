@@ -282,6 +282,18 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: ()
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that roster."),
   });
 
+  const deleteTeamFn = useServerFn(deleteManualTeam);
+  const removeTeam = useMutation({
+    mutationFn: (teamId: string) => deleteTeamFn({ data: { leagueId, teamId } }),
+    onSuccess: (res) => {
+      toast.success(`${res.removed} removed — ${res.teams} teams left.`);
+      setOpenTeam(null);
+      setPlayers([]);
+      void progress.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove that team."),
+  });
+
   const rows = progress.data?.teams ?? [];
 
   return (
