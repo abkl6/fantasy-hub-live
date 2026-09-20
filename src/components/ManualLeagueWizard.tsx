@@ -738,13 +738,114 @@ export function ManualLeagueWizard() {
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="m-teams">Team names</Label>
-              <Textarea
-                id="m-teams"
-                rows={4}
-                value={teamNames}
-                placeholder="One per line. Leave blank and we will use Team 1, Team 2…"
-                onChange={(e) => setTeamNames(e.target.value)}
+              <StandingsUpload
+                onRows={(rows) => {
+                  setStandings(rows);
+                  setForm((f) => ({ ...f, teamCount: Math.max(2, Math.min(20, rows.length)) }));
+                }}
               />
+              {standings.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {standings.length} teams read — fix anything that looks wrong.
+                  </p>
+                  {standings.map((row, i) => (
+                    <div key={`${row.name}-${i}`} className="flex flex-wrap items-center gap-2">
+                      <Input
+                        aria-label="Team name"
+                        className="h-8 flex-1 min-w-[140px]"
+                        value={row.name}
+                        onChange={(e) =>
+                          setStandings((list) =>
+                            list.map((r, idx) => (idx === i ? { ...r, name: e.target.value } : r)),
+                          )
+                        }
+                      />
+                      {(
+                        [
+                          ["wins", "W"],
+                          ["losses", "L"],
+                          ["pointsFor", "PF"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <Input
+                          key={key}
+                          aria-label={`${row.name} ${label}`}
+                          className="h-8 w-20"
+                          type="number"
+                          value={row[key]}
+                          onChange={(e) =>
+                            setStandings((list) =>
+                              list.map((r, idx) =>
+                                idx === i ? { ...r, [key]: Number(e.target.value) || 0 } : r,
+                              ),
+                            )
+                          }
+                        />
+                      ))}
+                      <Input
+                        aria-label={`${row.name} budget left`}
+                        className="h-8 w-24"
+                        type="number"
+                        placeholder="FAAB"
+                        value={row.faabRemaining ?? ""}
+                        onChange={(e) =>
+                          setStandings((list) =>
+                            list.map((r, idx) =>
+                              idx === i
+                                ? {
+                                    ...r,
+                                    faabRemaining:
+                                      e.target.value === "" ? null : Number(e.target.value),
+                                  }
+                                : r,
+                            ),
+                          )
+                        }
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setStandings((list) => list.filter((_, idx) => idx !== i))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setStandings((list) => [
+                        ...list,
+                        {
+                          name: `Team ${list.length + 1}`,
+                          owner: null,
+                          wins: 0,
+                          losses: 0,
+                          ties: 0,
+                          pointsFor: 0,
+                          pointsAgainst: 0,
+                          faabRemaining: null,
+                          faabSpent: null,
+                        },
+                      ])
+                    }
+                  >
+                    Add a team
+                  </Button>
+                </div>
+              ) : (
+                <Textarea
+                  id="m-teams"
+                  rows={4}
+                  value={teamNames}
+                  placeholder="One per line. Leave blank and we will use Team 1, Team 2…"
+                  onChange={(e) => setTeamNames(e.target.value)}
+                />
+              )}
             </div>
           </div>
 
