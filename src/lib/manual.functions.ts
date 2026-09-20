@@ -659,6 +659,26 @@ export const applyStandings = createServerFn({ method: "POST" })
       }
     }
 
+    // Remove auto-generated placeholder teams ("Team 2", "Team 3", …) that the
+    // standings did not match — but only while they still have no roster.
+    const { data: allTeams } = await supabase
+      .from("teams")
+      .select("id, name, is_mine")
+      .eq("league_id", data.leagueId);
+    const standingsNames = new Set(data.teams.map((t) => normalizeName(t.name)));
+    const placeholders = (allTeams ?? []).filter(
+      (t) => !t.is_mine && /^team\s+\d+$/i.test(t.name.trim()) && !standingsNames.has(normalizeName(t.name)),
+    );
+    if (placeholders.length) {
+      const { data: spots } = await supabase
+        .from("roster_spots")
+        .select("team_id")
+        .in("team_id", placeholders.map((t) => t.id));
+      const withRoster = new Set((spots ?? []).map((s) => s.team_id));
+      const removable = placeholders.filter((t) => !withRoster.has(t.id)).map((t) => t.id);
+      if (removable.length) await supabase.from("teams").delete().in("id", removable);
+    }
+
     const { count } = await supabase
       .from("teams")
       .select("id", { count: "exact", head: true })
