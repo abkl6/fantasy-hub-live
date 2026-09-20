@@ -461,6 +461,28 @@ function ManualPanel() {
     else scanScoring.mutate(images);
   }
 
+  if (step === 3 && leagueId) {
+    return (
+      <section className="rounded-xl bg-card p-6">
+        <h2 className="text-2xl font-bold">The other teams</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Add each rival's roster from a picture so the league is complete. You can stop any time
+          and come back from the league page.
+        </p>
+        <RosterStep
+          leagueId={leagueId}
+          onDone={() => navigate({ to: "/league/$leagueId", params: { leagueId } })}
+        />
+        <Button
+          className="mt-4"
+          onClick={() => navigate({ to: "/league/$leagueId", params: { leagueId } })}
+        >
+          Finish
+        </Button>
+      </section>
+    );
+  }
+
   if (step === 2 && leagueId && teamId) {
     return (
       <section className="rounded-xl bg-card p-6">
