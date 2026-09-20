@@ -445,8 +445,9 @@ function ManualPanel() {
         },
       }),
     onSuccess: () => {
-      toast.success("Roster saved.");
-      navigate({ to: "/league/$leagueId", params: { leagueId: leagueId! } });
+      toast.success("Roster saved. Now add the other teams.");
+      setPlayers([]);
+      setStep(3);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the roster."),
   });
