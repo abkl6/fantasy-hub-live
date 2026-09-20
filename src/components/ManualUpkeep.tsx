@@ -61,6 +61,13 @@ export function ManualUpkeep({ leagueId }: { leagueId: string }) {
     queryFn: () => teamsFn({ data: { leagueId } }),
   });
 
+  const progressFn = useServerFn(manualRosterProgress);
+  const progress = useQuery({
+    queryKey: ["manual-roster-progress", leagueId],
+    queryFn: () => progressFn({ data: { leagueId } }),
+  });
+  const missing = progress.data ? progress.data.total - progress.data.filled : 0;
+
   const me = (leagues.data ?? []).find((l) => l.id === leagueId);
   const mine = (teams.data ?? []).find((t) => t.is_mine);
 
@@ -141,6 +148,11 @@ export function ManualUpkeep({ leagueId }: { leagueId: string }) {
         <span className="flex items-center gap-2">
           <span className="text-sm font-semibold">Keep this league current</span>
           <ManualFreshnessBadge lastConfirmedAt={me?.lastConfirmedAt ?? null} />
+          {missing > 0 && (
+            <span className="rounded-full border border-warning px-2 py-0.5 text-xs text-warning">
+              {missing} roster{missing === 1 ? "" : "s"} missing
+            </span>
+          )}
         </span>
         <ChevronDown
           className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
