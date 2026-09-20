@@ -587,6 +587,195 @@ export const applyReconcile = createServerFn({ method: "POST" })
     return { added: data.add.length, dropped: data.drop.length };
   });
 
+// -------------------------------------------- standings + per-team rosters
+
+const standingsRow = z.object({
+  name: z.string().min(1).max(60),
+  owner: z.string().max(60).nullable().optional(),
+  wins: z.number().int().min(0).max(30).optional(),
+  losses: z.number().int().min(0).max(30).optional(),
+  ties: z.number().int().min(0).max(30).optional(),
+  pointsFor: z.number().min(0).max(10000).optional(),
+  pointsAgainst: z.number().min(0).max(10000).optional(),
+  faabRemaining: z.number().int().min(0).max(100000).nullable().optional(),
+  faabSpent: z.number().int().min(0).max(100000).nullable().optional(),
+});
+
+/** Creates or updates every team from a standings table. */
+export const applyStandings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leagueId: z.string().uuid(),
+        teams: z.array(standingsRow).min(1).max(32),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const [{ data: league }, { data: existing }] = await Promise.all([
+      supabase.from("leagues").select("faab_budget").eq("id", data.leagueId).maybeSingle(),
+      supabase.from("teams").select("id, name").eq("league_id", data.leagueId),
+    ]);
+    const budget = league?.faab_budget ?? 0;
+    const idByName = new Map((existing ?? []).map((t) => [normalizeName(t.name), t.id]));
+
+    let created = 0;
+    let updated = 0;
+
+    for (const row of data.teams) {
+      const remaining =
+        row.faabRemaining ?? (row.faabSpent != null && budget ? Math.max(0, budget - row.faabSpent) : null);
+      const spent = row.faabSpent ?? (row.faabRemaining != null && budget ? Math.max(0, budget - row.faabRemaining) : null);
+      const values = {
+        name: row.name.trim(),
+        owner_name: row.owner?.trim() || null,
+        wins: row.wins ?? 0,
+        losses: row.losses ?? 0,
+        ties: row.ties ?? 0,
+        points_for: row.pointsFor ?? 0,
+        points_against: row.pointsAgainst ?? 0,
+        ...(remaining != null ? { faab_remaining: remaining } : {}),
+        ...(spent != null ? { faab_spent: spent } : {}),
+      };
+
+      const id = idByName.get(normalizeName(row.name));
+      if (id) {
+        const { error } = await supabase.from("teams").update(values).eq("id", id);
+        if (error) throw new Error(error.message);
+        updated += 1;
+      } else {
+        const { error } = await supabase
+          .from("teams")
+          .insert({
+            league_id: data.leagueId,
+            user_id: context.userId,
+            is_mine: false,
+            ...values,
+          } as never);
+        if (error) throw new Error(error.message);
+        created += 1;
+      }
+    }
+
+    const { count } = await supabase
+      .from("teams")
+      .select("id", { count: "exact", head: true })
+      .eq("league_id", data.leagueId);
+    if (count) await supabase.from("leagues").update({ team_count: count }).eq("id", data.leagueId);
+
+    const { touchConfirmed } = await import("./fantasy/manual.server");
+    await touchConfirmed(supabase, data.leagueId);
+
+    const { data: teams } = await supabase
+      .from("teams")
+      .select("id, name")
+      .eq("league_id", data.leagueId)
+      .order("created_at");
+    return { created, updated, teams: teams ?? [] };
+  });
+
+/** Replaces one team's roster, leaving every other team untouched. */
+export const applyTeamRoster = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leagueId: z.string().uuid(),
+        teamId: z.string().uuid(),
+        players: z
+          .array(
+            playerRow.extend({
+              slot: z.string().max(12).nullable().optional(),
+              isStarter: z.boolean().optional(),
+            }),
+          )
+          .min(1)
+          .max(40),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const { queueUnmatched, touchConfirmed } = await import("./fantasy/manual.server");
+    const { playerIndex } = await import("./fantasy/names");
+
+    const { data: canonical } = await supabase
+      .from("players")
+      .select("id, full_name, position, nfl_team, proj_points_week");
+    const index = playerIndex(canonical ?? []);
+    const slots = (await loadSlotPlan(supabase, data.leagueId)).keys;
+
+    await supabase.from("roster_spots").delete().eq("team_id", data.teamId);
+
+    let starters = 0;
+    const rows = data.players.map((p) => {
+      const match = index.find(p.name, p.position);
+      const explicit = p.slot?.toUpperCase();
+      const bench = explicit === "BN" || p.isStarter === false;
+      const slot = bench ? "BN" : (explicit && explicit !== "BN" ? explicit : slots[starters] ?? "BN");
+      if (slot !== "BN") starters += 1;
+      return {
+        team_id: data.teamId,
+        league_id: data.leagueId,
+        user_id: context.userId,
+        player_id: match?.id ?? null,
+        player_name: match?.full_name ?? p.name,
+        position: (match?.position ?? p.position).toUpperCase(),
+        nfl_team: p.nflTeam ?? match?.nfl_team ?? null,
+        slot,
+        is_starter: slot !== "BN",
+        proj_points: match ? Number(match.proj_points_week) : projFor(p.position),
+        is_auto: false,
+      };
+    });
+
+    const { error } = await supabase.from("roster_spots").insert(rows as never);
+    if (error) throw new Error(error.message);
+
+    await queueUnmatched(
+      supabase,
+      data.players.map((p) => ({
+        name: p.name,
+        position: p.position,
+        nflTeam: p.nflTeam ?? null,
+        matched: p.matched ?? true,
+      })),
+      "manual-roster",
+    );
+    await touchConfirmed(supabase, data.leagueId);
+
+    const { syncLeagueRosters } = await import("./fantasy/rosters.server");
+    await syncLeagueRosters(supabase, context.userId, data.leagueId);
+
+    return { saved: rows.length };
+  });
+
+/** How many teams still have no players. */
+export const manualRosterProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const [{ data: teams }, { data: spots }] = await Promise.all([
+      supabase.from("teams").select("id, name").eq("league_id", data.leagueId).order("created_at"),
+      supabase.from("roster_spots").select("team_id").eq("league_id", data.leagueId),
+    ]);
+    const counts = new Map<string, number>();
+    for (const s of spots ?? []) counts.set(s.team_id, (counts.get(s.team_id) ?? 0) + 1);
+    const rows = (teams ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      players: counts.get(t.id) ?? 0,
+    }));
+    return {
+      teams: rows,
+      filled: rows.filter((t) => t.players > 0).length,
+      total: rows.length,
+    };
+  });
+
 // -------------------------------------------------------------- upkeep list
 
 export const manualLeagueStatus = createServerFn({ method: "GET" })

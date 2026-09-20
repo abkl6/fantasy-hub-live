@@ -42,6 +42,9 @@ import {
 } from "@/lib/fantasy/contest";
 import {
   applyDraftBoard,
+  applyStandings,
+  applyTeamRoster,
+  manualRosterProgress,
   copyableLeagues,
   createManualLeagueWizard,
   previewDraftBoard,
@@ -63,7 +66,258 @@ const FFPC_RULES: Record<string, number> = {
   fum_lost: -2,
 };
 
-const STEPS = ["League", "Draft board", "Format", "Schedule", "My team"];
+const STEPS = ["League", "Draft board", "Rosters", "Format", "Schedule", "My team"];
+
+export interface StandingsRow {
+  name: string;
+  owner: string | null;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  faabRemaining: number | null;
+  faabSpent: number | null;
+}
+
+/** Reads a standings table screenshot into editable rows. */
+export function StandingsUpload({ onRows }: { onRows: (rows: StandingsRow[]) => void }) {
+  const scan = useServerFn(readScreenshot);
+  const read = useMutation({
+    mutationFn: (images: string[]) => scan({ data: { mode: "standings" as const, images } }),
+    onSuccess: (res) => {
+      if (res.mode !== "standings") return;
+      onRows(
+        res.teams.map((t) => ({
+          name: t.name,
+          owner: t.owner,
+          wins: t.wins,
+          losses: t.losses,
+          ties: t.ties,
+          pointsFor: t.pointsFor,
+          pointsAgainst: t.pointsAgainst,
+          faabRemaining: t.faabRemaining,
+          faabSpent: t.faabSpent,
+        })),
+      );
+      toast.success(`${res.teams.length} teams read. Check them before saving.`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read those standings."),
+  });
+
+  return (
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/50 p-3 text-sm hover:text-primary">
+      {read.isPending ? (
+        <Loader2 className="size-4 animate-spin text-primary" />
+      ) : (
+        <ImageUp className="size-4 text-primary" aria-hidden="true" />
+      )}
+      <span>{read.isPending ? "Reading your standings…" : "Upload a standings screenshot"}</span>
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        onChange={async (e) => {
+          const files = e.target.files;
+          if (!files?.length) return;
+          const images = await readFiles(files);
+          e.target.value = "";
+          read.mutate(images);
+        }}
+      />
+    </label>
+  );
+}
+
+interface ReadPlayer {
+  name: string;
+  position: string;
+  nflTeam: string | null;
+  slot: string | null;
+  isStarter: boolean;
+  confidence: number;
+}
+
+/** One team at a time: upload a roster picture, check it, save it. */
+export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: () => void }) {
+  const scan = useServerFn(readScreenshot);
+  const saveRoster = useServerFn(applyTeamRoster);
+  const progressFn = useServerFn(manualRosterProgress);
+  const progress = useQuery({
+    queryKey: ["manual-roster-progress", leagueId],
+    queryFn: () => progressFn({ data: { leagueId } }),
+  });
+
+  const [openTeam, setOpenTeam] = useState<string | null>(null);
+  const [players, setPlayers] = useState<ReadPlayer[]>([]);
+
+  const read = useMutation({
+    mutationFn: (images: string[]) => scan({ data: { mode: "roster" as const, images } }),
+    onSuccess: (res) => {
+      if (res.mode !== "roster" || !res.players) return;
+      setPlayers(res.players);
+      toast.success(`${res.players.length} players read.`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read that roster."),
+  });
+
+  const save = useMutation({
+    mutationFn: (teamId: string) =>
+      saveRoster({
+        data: {
+          leagueId,
+          teamId,
+          players: players.map((p) => ({
+            name: p.name,
+            position: p.position,
+            nflTeam: p.nflTeam,
+            slot: p.slot,
+            isStarter: p.isStarter,
+          })),
+        },
+      }),
+    onSuccess: (res) => {
+      toast.success(`${res.saved} players saved.`);
+      setPlayers([]);
+      setOpenTeam(null);
+      void progress.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that roster."),
+  });
+
+  const rows = progress.data?.teams ?? [];
+
+  return (
+    <div className="mt-6">
+      <h2 className="text-lg font-semibold">Rosters</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Upload a picture of each team's roster. You can do a few now and finish the rest later.
+      </p>
+      <p className="mt-2 text-sm font-medium">
+        {progress.data ? `${progress.data.filled} of ${progress.data.total} rosters added` : "Loading…"}
+      </p>
+
+      <div className="mt-4 space-y-2">
+        {rows.map((team) => (
+          <div key={team.id} className="rounded-lg bg-background/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-medium">{team.name}</span>
+              <div className="flex items-center gap-2">
+                {team.players > 0 ? (
+                  <Badge variant="secondary">{team.players} players</Badge>
+                ) : (
+                  <Badge variant="outline" className="border-warning text-warning">
+                    No roster yet
+                  </Badge>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setOpenTeam(openTeam === team.id ? null : team.id);
+                    setPlayers([]);
+                  }}
+                >
+                  {openTeam === team.id ? "Close" : team.players > 0 ? "Replace" : "Add roster"}
+                </Button>
+              </div>
+            </div>
+
+            {openTeam === team.id && (
+              <div className="mt-3">
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/60 p-3 text-sm hover:text-primary">
+                  {read.isPending ? (
+                    <Loader2 className="size-4 animate-spin text-primary" />
+                  ) : (
+                    <ImageUp className="size-4 text-primary" aria-hidden="true" />
+                  )}
+                  <span>{read.isPending ? "Reading…" : "Upload roster screenshots (up to 4)"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (!files?.length) return;
+                      const images = await readFiles(files);
+                      e.target.value = "";
+                      read.mutate(images);
+                    }}
+                  />
+                </label>
+
+                {players.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {players.map((p, i) => (
+                      <div
+                        key={`${p.name}-${i}`}
+                        className="flex items-center gap-2 rounded-lg bg-background/60 px-3 py-2 text-sm"
+                      >
+                        <Input
+                          aria-label="Player name"
+                          value={p.name}
+                          className="h-8"
+                          onChange={(e) =>
+                            setPlayers((list) =>
+                              list.map((row, idx) =>
+                                idx === i ? { ...row, name: e.target.value } : row,
+                              ),
+                            )
+                          }
+                        />
+                        <Input
+                          aria-label="Position"
+                          value={p.position}
+                          className="h-8 w-20"
+                          onChange={(e) =>
+                            setPlayers((list) =>
+                              list.map((row, idx) =>
+                                idx === i
+                                  ? { ...row, position: e.target.value.toUpperCase() }
+                                  : row,
+                              ),
+                            )
+                          }
+                        />
+                        {p.confidence < 0.75 && (
+                          <Badge variant="outline" className="border-warning text-warning">
+                            Check
+                          </Badge>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPlayers((list) => list.filter((_, idx) => idx !== i))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      disabled={save.isPending}
+                      onClick={() => save.mutate(team.id)}
+                    >
+                      {save.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                      Save {team.name}'s roster
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {onDone && (
+        <Button className="mt-6" onClick={onDone}>
+          Next: format
+        </Button>
+      )}
+    </div>
+  );
+}
 
 
 /** Image-to-text upload used by the draft and schedule steps. */
@@ -128,6 +382,8 @@ export function ManualLeagueWizard() {
   const saveSchedule = useServerFn(saveManualSchedule);
   const setMine = useServerFn(setMyManualTeam);
   const saveSettings = useServerFn(updateLeagueSettings);
+  const saveStandings = useServerFn(applyStandings);
+  const [standings, setStandings] = useState<StandingsRow[]>([]);
 
   const [step, setStep] = useState(0);
   const [leagueId, setLeagueId] = useState<string | null>(null);
@@ -169,6 +425,10 @@ export function ManualLeagueWizard() {
 
   const names = () => {
     const count = clamp(form.teamCount, 2, 20);
+    if (standings.length >= 2) {
+      const fromTable = standings.map((s) => s.name.trim()).filter(Boolean);
+      if (fromTable.length >= 2) return fromTable.slice(0, Math.max(count, fromTable.length));
+    }
     const typed = teamNames
       .split(/[\n,]/)
       .map((n) => n.trim())
@@ -185,7 +445,7 @@ export function ManualLeagueWizard() {
         data: {
           name: form.name.trim() || "My league",
           teamCount: clamp(form.teamCount, 2, 20),
-          playoffTeams: clamp(form.playoffTeams, 2, 12),
+          playoffTeams: clamp(form.playoffTeams, 0, 20),
           regularSeasonWeeks: clamp(form.regularSeasonWeeks, 4, 18),
           currentWeek: clamp(form.currentWeek, 1, 18),
           scoringType: form.scoringType,
@@ -200,9 +460,20 @@ export function ManualLeagueWizard() {
           teamNames: names(),
         },
       }),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       setLeagueId(res.leagueId);
       setTeams(res.teams);
+      if (standings.length >= 2) {
+        try {
+          const applied = await saveStandings({
+            data: { leagueId: res.leagueId, teams: standings },
+          });
+          setTeams(applied.teams);
+          toast.success("Standings saved.");
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Could not save those standings.");
+        }
+      }
       setStep(1);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the league."),
@@ -244,7 +515,7 @@ export function ManualLeagueWizard() {
       }),
     onSuccess: (res) => {
       toast.success(`${res.games} games saved.`);
-      setStep(4);
+      setStep(5);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the schedule."),
   });
@@ -265,7 +536,7 @@ export function ManualLeagueWizard() {
               }),
         },
       }),
-    onSuccess: () => setStep(contest === "points" ? 4 : 3),
+    onSuccess: () => setStep(contest === "points" ? 5 : 4),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the format."),
   });
 
@@ -469,13 +740,114 @@ export function ManualLeagueWizard() {
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="m-teams">Team names</Label>
-              <Textarea
-                id="m-teams"
-                rows={4}
-                value={teamNames}
-                placeholder="One per line. Leave blank and we will use Team 1, Team 2…"
-                onChange={(e) => setTeamNames(e.target.value)}
+              <StandingsUpload
+                onRows={(rows) => {
+                  setStandings(rows);
+                  setForm((f) => ({ ...f, teamCount: Math.max(2, Math.min(20, rows.length)) }));
+                }}
               />
+              {standings.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {standings.length} teams read — fix anything that looks wrong.
+                  </p>
+                  {standings.map((row, i) => (
+                    <div key={`${row.name}-${i}`} className="flex flex-wrap items-center gap-2">
+                      <Input
+                        aria-label="Team name"
+                        className="h-8 flex-1 min-w-[140px]"
+                        value={row.name}
+                        onChange={(e) =>
+                          setStandings((list) =>
+                            list.map((r, idx) => (idx === i ? { ...r, name: e.target.value } : r)),
+                          )
+                        }
+                      />
+                      {(
+                        [
+                          ["wins", "W"],
+                          ["losses", "L"],
+                          ["pointsFor", "PF"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <Input
+                          key={key}
+                          aria-label={`${row.name} ${label}`}
+                          className="h-8 w-20"
+                          type="number"
+                          value={row[key]}
+                          onChange={(e) =>
+                            setStandings((list) =>
+                              list.map((r, idx) =>
+                                idx === i ? { ...r, [key]: Number(e.target.value) || 0 } : r,
+                              ),
+                            )
+                          }
+                        />
+                      ))}
+                      <Input
+                        aria-label={`${row.name} budget left`}
+                        className="h-8 w-24"
+                        type="number"
+                        placeholder="FAAB"
+                        value={row.faabRemaining ?? ""}
+                        onChange={(e) =>
+                          setStandings((list) =>
+                            list.map((r, idx) =>
+                              idx === i
+                                ? {
+                                    ...r,
+                                    faabRemaining:
+                                      e.target.value === "" ? null : Number(e.target.value),
+                                  }
+                                : r,
+                            ),
+                          )
+                        }
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setStandings((list) => list.filter((_, idx) => idx !== i))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setStandings((list) => [
+                        ...list,
+                        {
+                          name: `Team ${list.length + 1}`,
+                          owner: null,
+                          wins: 0,
+                          losses: 0,
+                          ties: 0,
+                          pointsFor: 0,
+                          pointsAgainst: 0,
+                          faabRemaining: null,
+                          faabSpent: null,
+                        },
+                      ])
+                    }
+                  >
+                    Add a team
+                  </Button>
+                </div>
+              ) : (
+                <Textarea
+                  id="m-teams"
+                  rows={4}
+                  value={teamNames}
+                  placeholder="One per line. Leave blank and we will use Team 1, Team 2…"
+                  onChange={(e) => setTeamNames(e.target.value)}
+                />
+              )}
             </div>
           </div>
 
@@ -594,7 +966,11 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 2 && leagueId && (
+        <RosterStep leagueId={leagueId} onDone={() => setStep(3)} />
+      )}
+
+      {step === 3 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">How is this league won?</h2>
 
@@ -680,7 +1056,7 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">Schedule</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -718,7 +1094,7 @@ export function ManualLeagueWizard() {
         </div>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <div className="mt-6">
           <h2 className="text-lg font-semibold">Which team is yours?</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">

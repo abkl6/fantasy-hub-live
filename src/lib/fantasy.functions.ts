@@ -807,7 +807,7 @@ export const readScreenshot = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        mode: z.enum(["roster", "scoring", "text"]),
+        mode: z.enum(["roster", "scoring", "text", "standings"]),
         images: z.array(z.string().min(20)).min(1).max(4),
       })
       .parse(d),
@@ -830,8 +830,19 @@ Include every scoring rule you can read using short snake_case keys and numeric 
 Return ONLY minified JSON of this exact shape: {"lines":["one row of the screenshot per entry"]}
 Keep each row on its own line exactly as shown, including team names, dates, player names, positions and NFL teams. Keep team headings as their own line ending with a colon. No commentary.`;
 
+    const standingsPrompt = `You are reading a screenshot of a fantasy football league standings or league table.
+Return ONLY minified JSON of this exact shape:
+{"teams":[{"name":"Team name","owner":"Manager name","wins":0,"losses":0,"ties":0,"pointsFor":0,"pointsAgainst":0,"faabRemaining":null,"faabSpent":null,"confidence":0.0}]}
+Rules: one entry per team row, in the order shown. Use null for any number the table does not show. Waiver/FAAB budget columns map to faabRemaining or faabSpent. confidence is 0-1 per row. No commentary.`;
+
     const prompt =
-      data.mode === "roster" ? rosterPrompt : data.mode === "scoring" ? scoringPrompt : textPrompt;
+      data.mode === "roster"
+        ? rosterPrompt
+        : data.mode === "scoring"
+          ? scoringPrompt
+          : data.mode === "standings"
+            ? standingsPrompt
+            : textPrompt;
 
     const body = {
       model: SCREENSHOT_MODELS,
@@ -907,6 +918,53 @@ Keep each row on its own line exactly as shown, including team names, dates, pla
         players: null,
         scoring: null,
         text: out.data.lines.join("\n"),
+      };
+    }
+
+    if (data.mode === "standings") {
+      const num = z.number().nullish();
+      const out = z
+        .object({
+          teams: z
+            .array(
+              z.object({
+                name: z.string(),
+                owner: z.string().nullish(),
+                wins: num,
+                losses: num,
+                ties: num,
+                pointsFor: num,
+                pointsAgainst: num,
+                faabRemaining: num,
+                faabSpent: num,
+                confidence: num,
+              }),
+            )
+            .default([]),
+        })
+        .safeParse(parsed);
+      if (!out.success || !out.data.teams.length) {
+        throw new Error("That screenshot did not look like league standings.");
+      }
+      return {
+        mode: "standings" as const,
+        teams: out.data.teams
+          .filter((t) => t.name.trim().length > 0)
+          .map((t) => ({
+            name: t.name.trim(),
+            owner: t.owner?.trim() || null,
+            wins: Math.max(0, Math.round(t.wins ?? 0)),
+            losses: Math.max(0, Math.round(t.losses ?? 0)),
+            ties: Math.max(0, Math.round(t.ties ?? 0)),
+            pointsFor: Number(t.pointsFor ?? 0),
+            pointsAgainst: Number(t.pointsAgainst ?? 0),
+            faabRemaining: t.faabRemaining == null ? null : Math.round(t.faabRemaining),
+            faabSpent: t.faabSpent == null ? null : Math.round(t.faabSpent),
+            confidence: t.confidence ?? 1,
+          })),
+        players: null,
+        scoring: null,
+        text: null,
       };
     }
 
