@@ -6,7 +6,7 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ScreenshotToText } from "@/components/ManualLeagueWizard";
+import { RosterStep, ScreenshotToText } from "@/components/ManualLeagueWizard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -192,6 +192,10 @@ export function ManualUpkeep({ leagueId }: { leagueId: string }) {
               {importLog.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
               Apply transactions
             </Button>
+          </div>
+
+          <div>
+            <RosterStep leagueId={leagueId} />
           </div>
 
           <div>
