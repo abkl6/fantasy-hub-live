@@ -140,7 +140,7 @@ interface ReadPlayer {
 }
 
 /** One team at a time: upload a roster picture, check it, save it. */
-export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone: () => void }) {
+export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone?: () => void }) {
   const scan = useServerFn(readScreenshot);
   const saveRoster = useServerFn(applyTeamRoster);
   const progressFn = useServerFn(manualRosterProgress);
@@ -310,9 +310,11 @@ export function RosterStep({ leagueId, onDone }: { leagueId: string; onDone: () 
         ))}
       </div>
 
-      <Button className="mt-6" onClick={onDone}>
-        Next: format
-      </Button>
+      {onDone && (
+        <Button className="mt-6" onClick={onDone}>
+          Next: format
+        </Button>
+      )}
     </div>
   );
 }
