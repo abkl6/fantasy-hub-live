@@ -33,6 +33,7 @@ import {
 } from "@/lib/fantasy/league-type";
 import type { ManualDraftPreview } from "@/lib/fantasy/manual-types";
 import { readScreenshot, updateLeagueSettings } from "@/lib/fantasy.functions";
+import { readFiles } from "@/lib/screenshot-upload";
 import {
   CONTEST_DESCRIPTIONS,
   CONTEST_FORMATS,
@@ -64,21 +65,6 @@ const FFPC_RULES: Record<string, number> = {
 
 const STEPS = ["League", "Draft board", "Format", "Schedule", "My team"];
 
-function readFiles(files: FileList): Promise<string[]> {
-  return Promise.all(
-    Array.from(files)
-      .slice(0, 4)
-      .map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(new Error("Could not read that image."));
-            reader.readAsDataURL(file);
-          }),
-      ),
-  );
-}
 
 /** Image-to-text upload used by the draft and schedule steps. */
 export function ScreenshotToText({

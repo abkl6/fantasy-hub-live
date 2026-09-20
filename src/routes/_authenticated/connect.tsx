@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FORMAT_LABELS, LEAGUE_FORMATS } from "@/lib/fantasy/format";
 import { importFfpcLeague, previewFfpcLeague } from "@/lib/ffpc.functions";
+import { readFiles } from "@/lib/screenshot-upload";
 import {
   createManualLeague,
   findSleeperLeagues,
@@ -66,21 +67,6 @@ interface DraftPlayer {
   confidence: number;
 }
 
-function readFiles(files: FileList): Promise<string[]> {
-  return Promise.all(
-    Array.from(files)
-      .slice(0, 4)
-      .map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(new Error("Could not read that image."));
-            reader.readAsDataURL(file);
-          }),
-      ),
-  );
-}
 
 function ConnectPage() {
   return (
