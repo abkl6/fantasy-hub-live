@@ -247,6 +247,26 @@ export async function readCached<T>(
   };
 }
 
+/**
+ * Stored results are replaced by their successors, so anything already past its
+ * expiry is dead weight. Left alone it grows without limit — a stale row per
+ * input hash for every league, week and roster move of the season — and the
+ * table ends up far larger than the data it caches. Each write drops the rows
+ * this member has already outlived for the same kind of result.
+ */
+async function pruneExpired(supabase: DB, userId: string, kind: CacheKind): Promise<void> {
+  await supabase
+    .from("analysis_cache")
+    .delete()
+    .eq("user_id", userId)
+    .eq("kind", kind)
+    .lt("expires_at", new Date(Date.now() - 60_000).toISOString())
+    .then(
+      () => undefined,
+      () => undefined,
+    );
+}
+
 /** Stores a component payload, replacing any earlier row for the same key. */
 export async function writeCached(
   supabase: DB,
@@ -277,6 +297,8 @@ export async function writeCached(
     computed_at: computedAt,
     expires_at: new Date(Date.now() + ttl).toISOString(),
   });
+
+  await pruneExpired(supabase, opts.userId, opts.kind);
 
   return computedAt;
 }
