@@ -2755,6 +2755,7 @@ export type Database = {
         Returns: boolean
       }
       norm_player_name: { Args: { name: string }; Returns: string }
+      prune_maintenance_tables: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
