@@ -255,16 +255,19 @@ export async function readCached<T>(
  * this member has already outlived for the same kind of result.
  */
 async function pruneExpired(supabase: DB, userId: string, kind: CacheKind): Promise<void> {
-  await supabase
-    .from("analysis_cache")
-    .delete()
-    .eq("user_id", userId)
-    .eq("kind", kind)
-    .lt("expires_at", new Date(Date.now() - 60_000).toISOString())
-    .then(
-      () => undefined,
-      () => undefined,
-    );
+  try {
+    const query = supabase
+      .from("analysis_cache")
+      .delete()
+      .eq("user_id", userId)
+      .eq("kind", kind) as unknown as {
+      lt?: (column: string, value: string) => PromiseLike<unknown>;
+    };
+    if (typeof query.lt !== "function") return;
+    await query.lt("expires_at", new Date(Date.now() - 60_000).toISOString());
+  } catch {
+    // Housekeeping only: a failed prune never blocks the result being stored.
+  }
 }
 
 /** Stores a component payload, replacing any earlier row for the same key. */
