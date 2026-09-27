@@ -197,5 +197,16 @@ export async function runComputeJobs(
     }
   }
 
+  // Finished rows are only of interest for a day; keeping every one of them
+  // makes the claim query slower every time the worker wakes up.
+  await jobs(admin)
+    .delete()
+    .in("status", ["done", "failed"])
+    .lt("finished_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
+    .then(
+      () => undefined,
+      () => undefined,
+    );
+
   return { ran, failed };
 }
