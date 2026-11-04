@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -2755,6 +2755,14 @@ export type Database = {
         Returns: boolean
       }
       norm_player_name: { Args: { name: string }; Returns: string }
+      player_season_points: {
+        Args: { _season: number; _sources?: string[] }
+        Returns: {
+          games: number
+          player_id: string
+          points: number
+        }[]
+      }
       prune_maintenance_tables: { Args: never; Returns: undefined }
     }
     Enums: {
