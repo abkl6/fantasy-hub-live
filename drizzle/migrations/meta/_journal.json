@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793759771324,
+      "tag": "0000_season_points_aggregate",
+      "breakpoints": true
+    }
+  ]
+}
