@@ -79,11 +79,8 @@ export const listProjections = createServerFn({ method: "POST" })
           .select("player_id, src_points")
           .eq("season", season)
           .eq("source", userSource),
-        context.supabase
-          .from("player_week_stats")
-          .select("player_id, src_points")
-          .eq("season", season)
-          .eq("source", userSource),
+        // Summed in the database: a raw read was capped at 1,000 weekly rows.
+        context.supabase.rpc("player_season_points", { _season: season, _sources: [userSource] }),
       ]);
     if (error) throw new Error(error.message);
 
@@ -99,11 +96,11 @@ export const listProjections = createServerFn({ method: "POST" })
     for (const row of uploadSeason ?? []) {
       uploaded.set(row.player_id, { season: Number(row.src_points), weeks: 0 });
     }
-    for (const row of uploadWeeks ?? []) {
+    for (const row of (uploadWeeks ?? []) as { player_id: string; points: number; games: number }[]) {
       const prev = uploaded.get(row.player_id) ?? { season: 0, weeks: 0 };
       uploaded.set(row.player_id, {
-        season: prev.season + Number(row.src_points),
-        weeks: prev.weeks + 1,
+        season: prev.season + Number(row.points),
+        weeks: prev.weeks + Number(row.games),
       });
     }
     const hasUpload = uploaded.size > 0;

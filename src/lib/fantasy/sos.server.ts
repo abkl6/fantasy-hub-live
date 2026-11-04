@@ -221,15 +221,8 @@ export async function refreshTeamStrength(
   }
 
   // ---- defence and individual defenders: opponent offensive production -----
-  const projRows = await fetchAllRows<{ player_id: string; src_points: number }>((from, to) =>
-    supabase
-      .from("player_week_stats")
-      .select("player_id, src_points")
-      .eq("season", season)
-      .in("source", sources)
-      .order("player_id")
-      .range(from, to),
-  );
+  const { data: sums } = await supabase.rpc("player_season_points", { _season: season, _sources: sources });
+  const projRows = (sums ?? []).map((r) => ({ player_id: r.player_id, src_points: Number(r.points) }));
   const { data: players } = await supabase.from("players").select("id, position, nfl_team");
   const meta = new Map((players ?? []).map((p) => [p.id, p]));
 
