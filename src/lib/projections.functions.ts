@@ -4,6 +4,7 @@
  * of that member's leagues and are layered on top of the baseline everywhere.
  */
 
+import { fetchAllRows } from "@/lib/fantasy/paginate";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
