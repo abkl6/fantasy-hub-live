@@ -80,7 +80,7 @@ export const listProjections = createServerFn({ method: "POST" })
           .eq("season", season)
           .eq("source", userSource),
         // Summed in the database: a raw read was capped at 1,000 weekly rows.
-        context.supabase.rpc("player_season_points", { _season: season, _sources: [userSource] }),
+        fetchAllRows((from, to) => context.supabase.rpc("player_season_points", { _season: season, _sources: [userSource] }).order("player_id").range(from, to)).then((data) => ({ data, error: null })),
       ]);
     if (error) throw new Error(error.message);
 

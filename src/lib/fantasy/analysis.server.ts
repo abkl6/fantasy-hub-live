@@ -1503,7 +1503,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
   // --- buy / sell: market price against actual production -------------------
   let buySell: BuySellRow[] = [];
   if (isDynastyLeague) {
-    const { data: statRows } = await supabase.rpc("player_season_points", { _season: league.season });
+    const statRows = await fetchAllRows((from, to) => supabase.rpc("player_season_points", { _season: league.season }).order("player_id").range(from, to));
     const productionById = new Map<string, number>();
     for (const row of statRows ?? []) {
       productionById.set(row.player_id, Number(row.points ?? 0));
