@@ -3,6 +3,7 @@
  * between Monday night and the first kickoff. Server-only.
  */
 
+import { mapLimit } from "./concurrency";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
@@ -76,11 +77,12 @@ export async function buildThisWeek(supabase: DB, opts: { userId?: string } = {}
 
   const leagues: ThisWeekLeague[] = [];
 
-  for (const row of leagueRows ?? []) {
+  // Each league is worked out on its own, a few at a time, in league order.
+  const perLeague = async (row: NonNullable<typeof leagueRows>[number]): Promise<ThisWeekLeague | null> => {
     // Reuse the league's stored analysis; only a cold cache rebuilds it here.
     const analysis = await leagueAnalysis(supabase, row.user_id, row.id);
 
-    if (!analysis.myTeam) continue;
+    if (!analysis.myTeam) return null;
     const week = row.current_week;
     const items: ThisWeekItem[] = [];
     const isDynasty = analysis.dynasty !== null;
@@ -279,7 +281,7 @@ export async function buildThisWeek(supabase: DB, opts: { userId?: string } = {}
     }
 
     items.sort((a, b) => a.priority - b.priority || b.impactRank - a.impactRank);
-    leagues.push({
+    return {
       id: row.id,
       name: row.name,
       platform: row.platform,
@@ -288,7 +290,10 @@ export async function buildThisWeek(supabase: DB, opts: { userId?: string } = {}
       record: analysis.myTeam.record,
       week,
       items,
-    });
+    };
+  };
+  for (const built of await mapLimit(leagueRows ?? [], 4, perLeague)) {
+    if (built) leagues.push(built);
   }
 
   const items = leagues
