@@ -35,6 +35,8 @@ export const GLOBAL_LEAGUE = null;
 
 const FIFTEEN_MIN = 15 * 60_000;
 const FIVE_MIN = 5 * 60_000;
+/** Expired rows are kept this long so an unchanged result can still be shown. */
+const STALE_KEEP_MS = 30 * 60_000;
 
 /** 15 minutes normally, 5 while games are being played. */
 export function defaultTtl(now: Date = new Date()): number {
@@ -288,7 +290,8 @@ export async function readCached<T>(
   supabase: DB,
   opts: Pick<CacheOptions, "userId" | "leagueId" | "kind" | "suffix">,
   inputsHash: string,
-): Promise<CachedResult<T> | null> {
+  read: { allowStale?: boolean } = {},
+): Promise<(CachedResult<T> & { stale: boolean }) | null> {
   const key = opts.suffix ? `${inputsHash}:${opts.suffix}` : inputsHash;
   const { data } = await supabase
     .from("analysis_cache")
@@ -298,13 +301,39 @@ export async function readCached<T>(
     .eq("inputs_hash", key)
     .filter("league_id", opts.leagueId ? "eq" : "is", opts.leagueId ?? null)
     .maybeSingle();
-  if (!data || new Date(data.expires_at).getTime() <= Date.now()) return null;
+  if (!data) return null;
+  const stale = new Date(data.expires_at).getTime() <= Date.now();
+  if (stale && !read.allowStale) return null;
   return {
     payload: data.payload as T,
     computedAt: data.computed_at,
     fresh: false,
     computeMs: data.compute_ms,
+    stale,
   };
+}
+
+/**
+ * For screens: a stored result whose inputs are unchanged is shown straight
+ * away even when it has passed its expiry, and `refresh` queues a background
+ * rebuild. Only a result whose inputs changed (or none at all) is built while
+ * the member waits.
+ */
+export async function cachedOrStale<T>(
+  supabase: DB,
+  opts: CacheOptions,
+  inputsHash: string,
+  compute: () => Promise<T>,
+  refresh: () => Promise<unknown>,
+): Promise<CachedResult<T>> {
+  if (!opts.force) {
+    const hit = await readCached<T>(supabase, opts, inputsHash, { allowStale: true });
+    if (hit) {
+      if (hit.stale) await refresh().catch(() => undefined);
+      return hit;
+    }
+  }
+  return cachedWithMeta(supabase, opts, inputsHash, compute);
 }
 
 /**
@@ -324,7 +353,7 @@ async function pruneExpired(supabase: DB, userId: string, kind: CacheKind): Prom
       lt?: (column: string, value: string) => PromiseLike<unknown>;
     };
     if (typeof query.lt !== "function") return;
-    await query.lt("expires_at", new Date(Date.now() - 60_000).toISOString());
+    await query.lt("expires_at", new Date(Date.now() - STALE_KEEP_MS).toISOString());
   } catch {
     // Housekeeping only: a failed prune never blocks the result being stored.
   }

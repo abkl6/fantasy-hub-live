@@ -95,7 +95,7 @@ export const getAnalysis = createServerFn({ method: "POST" })
     // copy has gone stale (or the user asked for a refresh).
     const { data: meta } = await context.supabase
       .from("leagues")
-      .select("platform, last_synced_at")
+      .select("platform, last_synced_at, external_id")
       .eq("id", data.leagueId)
       .maybeSingle();
     const age = meta?.last_synced_at ? Date.now() - new Date(meta.last_synced_at).getTime() : Infinity;
@@ -103,15 +103,17 @@ export const getAnalysis = createServerFn({ method: "POST" })
       await refreshSleeperLeague(context.supabase, context.userId, data.leagueId).catch(() => {});
     }
 
-    // Backfill any team still missing a roster so availability stays accurate.
-    await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
+    // Hand-built leagues: backfill any team still missing a roster so
+    // availability stays accurate. Synced leagues bring every roster with them.
+    if (!meta?.external_id) await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
     // Injury news is not refreshed here: the scheduled injury feed already does
     // it every few minutes for everyone, and doing it on every page open made
     // each league visit download the whole Sleeper player list.
 
-    const { cachedWithMeta, leagueInputsHash } = await import("./fantasy/cache.server");
+    const { cachedOrStale, leagueInputsHash } = await import("./fantasy/cache.server");
+    const { enqueueLeagueJobs } = await import("./fantasy/jobs.server");
     const hash = await leagueInputsHash(context.supabase, data.leagueId);
-    const result = await cachedWithMeta(
+    const result = await cachedOrStale(
       context.supabase,
       {
         userId: context.userId,
@@ -121,6 +123,7 @@ export const getAnalysis = createServerFn({ method: "POST" })
       },
       hash,
       () => buildAnalysis(context.supabase, data.leagueId),
+      () => enqueueLeagueJobs(context.supabase, context.userId, data.leagueId, { priority: 0 }),
     );
     // The screen shows "updated N min ago" from this.
     return { ...result.payload, computedAt: result.computedAt };
@@ -1374,13 +1377,15 @@ export const getThisWeekFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildThisWeek } = await import("./fantasy/this-week.server");
-    const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { cachedOrStale, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { enqueueThisWeekJob } = await import("./fantasy/jobs.server");
     const hash = await allLeaguesInputsHash(context.supabase, { userId: context.userId });
-    const result = await cachedWithMeta(
+    const result = await cachedOrStale(
       context.supabase,
       { userId: context.userId, kind: "this-week" },
       hash,
       () => buildThisWeek(context.supabase, { userId: context.userId }),
+      () => enqueueThisWeekJob(context.supabase, context.userId),
     );
     return { ...result.payload, computedAt: result.computedAt };
   });
@@ -1398,13 +1403,15 @@ export const getWaiverHubFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildWaiverHub } = await import("./fantasy/waiver-hub.server");
-    const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { cachedOrStale, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { enqueueThisWeekJob } = await import("./fantasy/jobs.server");
     const hash = await allLeaguesInputsHash(context.supabase, { userId: context.userId });
-    const result = await cachedWithMeta(
+    const result = await cachedOrStale(
       context.supabase,
       { userId: context.userId, kind: "waiver-hub" },
       hash,
       () => buildWaiverHub(context.supabase, { userId: context.userId }),
+      () => enqueueThisWeekJob(context.supabase, context.userId),
     );
     return { ...result.payload, computedAt: result.computedAt };
   });
