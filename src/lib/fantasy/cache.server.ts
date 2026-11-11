@@ -122,8 +122,10 @@ export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<
 }
 
 /** One hash covering every league the member owns — used by This week. */
-export async function allLeaguesInputsHash(supabase: DB): Promise<string> {
-  const { data } = await supabase.from("leagues").select("id").order("id");
+export async function allLeaguesInputsHash(supabase: DB, opts: { userId?: string } = {}): Promise<string> {
+  let query = supabase.from("leagues").select("id");
+  if (opts.userId) query = query.eq("user_id", opts.userId);
+  const { data } = await query.order("id");
   // Leagues are independent, so they are hashed side by side, not one by one.
   const hashes = await Promise.all((data ?? []).map((row) => leagueInputsHash(supabase, row.id)));
   return hashParts(hashes);

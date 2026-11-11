@@ -129,14 +129,16 @@ async function runImpactJob(admin: DB, userId: string, leagueId: string) {
 
 async function runThisWeekJob(admin: DB, userId: string) {
   const { buildThisWeek } = await import("./this-week.server");
-  const hash = await allLeaguesInputsHash(admin);
+  // The worker's client reads every member's rows, so each build is scoped to
+  // the member the job belongs to.
+  const hash = await allLeaguesInputsHash(admin, { userId });
   await cachedWithMeta(admin, { userId, kind: "this-week", force: true }, hash, () =>
-    buildThisWeek(admin),
+    buildThisWeek(admin, { userId }),
   );
   // The cross-league waiver list reads the same inputs, so it is warmed alongside.
   const { buildWaiverHub } = await import("./waiver-hub.server");
   await cachedWithMeta(admin, { userId, kind: "waiver-hub", force: true }, hash, () =>
-    buildWaiverHub(admin),
+    buildWaiverHub(admin, { userId }),
   );
 }
 

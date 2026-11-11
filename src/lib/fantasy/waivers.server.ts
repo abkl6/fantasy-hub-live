@@ -17,7 +17,6 @@ import {
   type ScheduleGame,
 } from "./engine";
 import { normalizeName } from "./names";
-import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";

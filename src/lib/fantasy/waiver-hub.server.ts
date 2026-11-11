@@ -21,7 +21,6 @@ import { bestBallDistribution } from "./format";
 import { EMPTY_IMPACT, impactScore, primaryImpactText, type TeamClass } from "./impact";
 import { normalizeName } from "./names";
 import { loadLeague } from "./proposal.server";
-import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
@@ -84,12 +83,11 @@ function median(values: number[]) {
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
-export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
-  const { data: leagueRows, error } = await supabase
-    .from("leagues")
-    .select("*")
-    .not("platform", "in", "(underdog,draftkings)")
-    .order("created_at");
+/** `userId` scopes the read for the background worker, which sees every member. */
+export async function buildWaiverHub(supabase: DB, opts: { userId?: string } = {}): Promise<WaiverHubPayload> {
+  let leagueQuery = supabase.from("leagues").select("*").not("platform", "in", "(underdog,draftkings)");
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
+  const { data: leagueRows, error } = await leagueQuery.order("created_at");
   if (error) throw new Error(error.message);
 
   const players = await loadAllPlayers(supabase);

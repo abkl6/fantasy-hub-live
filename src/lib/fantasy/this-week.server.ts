@@ -40,27 +40,32 @@ const PRIORITY: Record<ThisWeekKind, number> = {
   rising: 4,
 };
 
-export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
+/**
+ * `userId` scopes the read to one member. Signed-in callers are already scoped
+ * by row security; the background worker reads everything and must pass it.
+ */
+export async function buildThisWeek(supabase: DB, opts: { userId?: string } = {}): Promise<ThisWeekPayload> {
   const now = new Date();
   const kickoff = nextKickoff(now);
   const waiverRun = nextWaiverRun(now);
 
-  const { data: leagueRows, error } = await supabase
+  let leagueQuery = supabase
     .from("leagues")
     .select("id, name, platform, color, current_week, last_confirmed_at, user_id")
-    .not("platform", "in", "(underdog,draftkings)")
-    .order("created_at");
+    .not("platform", "in", "(underdog,draftkings)");
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
+  const { data: leagueRows, error } = await leagueQuery.order("created_at");
   if (error) throw new Error(error.message);
 
 
   // How often each kind of advice has been right lately. Kinds that have been
   // landing get pushed up the list; kinds that have not drop down.
-  const { data: gradedRows } = await supabase
+  let gradedQuery = supabase
     .from("recommendation_log")
     .select("kind, week, grade")
-    .not("grade", "is", null)
-    .order("week", { ascending: false })
-    .limit(500);
+    .not("grade", "is", null);
+  if (opts.userId) gradedQuery = gradedQuery.eq("user_id", opts.userId);
+  const { data: gradedRows } = await gradedQuery.order("week", { ascending: false }).limit(500);
   const latestWeek = Math.max(1, ...(leagueRows ?? []).map((l) => l.current_week ?? 1));
   const rates: HitRate[] = hitRates(
     (gradedRows ?? []).map((r) => ({ kind: r.kind, week: r.week, grade: r.grade })),
