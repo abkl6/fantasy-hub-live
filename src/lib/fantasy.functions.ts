@@ -1029,8 +1029,17 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
       const { readCached, writeCached, componentHashes } = await import("./fantasy/cache.server");
       const parts = await componentHashes(context.supabase, data.leagueId);
       const opts = { userId: context.userId, leagueId: data.leagueId, kind: "impact" as const, suffix: "waivers" };
-      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(context.supabase, opts, parts.sim);
-      if (hit) return { ...hit.payload, computedAt: hit.computedAt };
+      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(context.supabase, opts, parts.sim, {
+        allowStale: true,
+      });
+      if (hit) {
+        // Same inputs, just older than its expiry: show it and rebuild behind the scenes.
+        if (hit.stale) {
+          const { enqueueLeagueJobs } = await import("./fantasy/jobs.server");
+          await enqueueLeagueJobs(context.supabase, context.userId, data.leagueId, { priority: 0 }).catch(() => {});
+        }
+        return { ...hit.payload, computedAt: hit.computedAt };
+      }
       // Not warmed yet: build it once and keep it, so the next visit is a read.
       const started = Date.now();
       const board = await buildWaiverBoard(context.supabase, data.leagueId, { showInjured: false, limit: 60 });
