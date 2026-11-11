@@ -40,6 +40,8 @@ import { usePremium } from "@/hooks/usePremium";
 import { TrajectoryChip } from "@/components/TrajectoryChip";
 import type { Trajectory as PlayerTrajectory } from "@/lib/fantasy/age-curve";
 import { GameDayBoard } from "@/components/GameDayBoard";
+import { OddsChart, type OddsChartSeries } from "@/components/OddsChart";
+import { withCurrentWeek, type OddsPoint } from "@/lib/fantasy/odds-history";
 import { ManualUpkeep } from "@/components/ManualUpkeep";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -387,6 +389,14 @@ function LeaguePage() {
             value={`${data.mySurvival.expectedWeeksLeft}`}
           />
         </div>
+      )}
+
+      {me && premium && (
+        <LeagueOddsTrend
+          leagueId={leagueId}
+          guillotine={Boolean(data.mySurvival)}
+          current={{ week: data.league.current_week ?? 1, titleOdds: me.titleOdds, playoffOdds: me.playoffOdds }}
+        />
       )}
 
       {data.showSurvival && !!data.survival?.length && (
@@ -2030,6 +2040,58 @@ function StatBox({ label, value }: { label: string; value: string }) {
       <p className="eyebrow text-xs text-muted-foreground">{label}</p>
       <p className="stat-num mt-1 text-xl">{value}</p>
     </div>
+  );
+}
+
+/** Your title and playoff chances, week by week, just under the headline odds. */
+function LeagueOddsTrend({
+  leagueId,
+  guillotine,
+  current,
+}: {
+  leagueId: string;
+  guillotine: boolean;
+  current: OddsPoint;
+}) {
+  const load = useServerFn(getTrendsFn);
+  const { data, isLoading } = useQuery({
+    queryKey: ["trends", leagueId],
+    queryFn: () => load({ data: { leagueId } }),
+    refetchOnWindowFocus: false,
+  });
+  if (isLoading) return <Skeleton className="mt-4 h-56 w-full rounded-xl" />;
+  const mine = data?.series?.find((s) => s.isMine);
+  const points = withCurrentWeek(mine?.points ?? [], current);
+  const series: OddsChartSeries[] = [
+    ...(guillotine
+      ? []
+      : [
+          {
+            key: "playoffs",
+            label: "Playoff chance",
+            color: "var(--chart-3)",
+            points: points.map((p) => ({ week: p.week, value: p.playoffOdds })),
+          },
+        ]),
+    {
+      key: "title",
+      label: "Title chance",
+      color: "var(--primary)",
+      points: points.map((p) => ({ week: p.week, value: p.titleOdds })),
+    },
+  ];
+  return (
+    <section className="mt-4 rounded-xl bg-card p-4">
+      <h2 className="text-sm font-bold">Your chances week by week</h2>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {guillotine
+          ? "Chance to be the last team standing after each week. Tap a week to see it."
+          : "Playoff and title chance after each week. Tap a week to see it."}
+      </p>
+      <div className="mt-3">
+        <OddsChart series={series} ariaLabel="Playoff and title chance by week" height={200} />
+      </div>
+    </section>
   );
 }
 
