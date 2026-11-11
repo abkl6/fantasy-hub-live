@@ -11,7 +11,9 @@ import { TeamBadge } from "@/components/TeamBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { deleteLeague, getManagerHubFn } from "@/lib/fantasy.functions";
+import { deleteLeague, getManagerHubFn, getOddsHistoryFn } from "@/lib/fantasy.functions";
+import { OddsChart, type OddsChartSeries } from "@/components/OddsChart";
+import { leagueColor } from "@/lib/league-colors";
 import { TrajectoryChip } from "@/components/TrajectoryChip";
 
 export const Route = createFileRoute("/_authenticated/manager-hub")({
@@ -417,6 +419,71 @@ function ordinal(rank: number | null) {
   return "th";
 }
 
+const DASHES = [undefined, "6 4", "2 3", "10 3 2 3"];
+
+/** Every league's chance for your team on one chart, switchable between title and playoffs. */
+function HubOddsChart() {
+  const fetchHistory = useServerFn(getOddsHistoryFn);
+  const [measure, setMeasure] = useState<"title" | "playoffs">("title");
+  const { data, isLoading } = useQuery({
+    queryKey: ["odds-history"],
+    queryFn: () => fetchHistory(),
+    refetchOnWindowFocus: false,
+  });
+
+  const series = useMemo<OddsChartSeries[]>(() => {
+    const used = new Map<string, number>();
+    return (data?.leagues ?? [])
+      .filter((l) => measure === "title" || !l.guillotine)
+      .map((l) => {
+        const color = leagueColor(l.color, l.leagueId);
+        const n = used.get(color) ?? 0;
+        used.set(color, n + 1);
+        return {
+          key: l.leagueId,
+          label: l.name,
+          color,
+          dash: DASHES[n % DASHES.length],
+          points: l.points.map((p) => ({ week: p.week, value: measure === "title" ? p.titleOdds : p.playoffOdds })),
+        };
+      });
+  }, [data, measure]);
+
+  const skipped = measure === "playoffs" ? (data?.leagues ?? []).filter((l) => l.guillotine).length : 0;
+
+  return (
+    <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2"><Activity className="size-5 shrink-0 text-primary" /><h2 className="truncate text-xl font-bold">Your chances by week</h2></div>
+          <p className="mt-1 text-xs text-muted-foreground">Every league on one chart. Tap a week to compare, tap a league to pick out its line.</p>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <Button size="sm" variant={measure === "title" ? "default" : "outline"} onClick={() => setMeasure("title")}>Title</Button>
+          <Button size="sm" variant={measure === "playoffs" ? "default" : "outline"} onClick={() => setMeasure("playoffs")}>Playoffs</Button>
+        </div>
+      </div>
+      <div className="mt-4">
+        {isLoading ? (
+          <Skeleton className="h-64 w-full rounded-lg" />
+        ) : (
+          <OddsChart
+            series={series}
+            sortReadout
+            height={240}
+            ariaLabel={`${measure === "title" ? "Title" : "Playoff"} chance by week in every league`}
+          />
+        )}
+      </div>
+      {skipped > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {skipped} guillotine league{skipped === 1 ? " has" : "s have"} no playoffs, so {skipped === 1 ? "it shows" : "they show"} under Title only.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ManagerHub() {
   const fetchHub = useServerFn(getManagerHubFn);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["manager-hub"], queryFn: () => fetchHub() });
@@ -482,6 +549,15 @@ function ManagerHub() {
           <div className="rounded-xl bg-card p-5"><Repeat2 className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.trades.length}</p><p className="text-xs text-muted-foreground">Trade ideas</p></div>
           <div className="rounded-xl bg-card p-5"><Sparkles className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.waivers.length}</p><p className="text-xs text-muted-foreground">Waiver targets</p></div>
           <div className="rounded-xl bg-card p-5"><BellRing className="size-5 text-primary" /><p className="mt-3 text-3xl font-bold">{data.alerts.length}</p><p className="text-xs text-muted-foreground">Injury &amp; bye alerts</p></div>
+        </section>
+
+        <section className="mt-6 rounded-xl bg-card p-5">
+          <PremiumGate
+            title="Your chances by week are part of Premium"
+            what="One chart with your playoff or title chance in every league, week by week."
+          >
+            <HubOddsChart />
+          </PremiumGate>
         </section>
 
         <section className="mt-6 rounded-xl bg-card p-5">
