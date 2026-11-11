@@ -2754,6 +2754,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      league_inputs_digest: {
+        Args: { _league_ids?: string[]; _user_id?: string }
+        Returns: {
+          digest: string
+          league_id: string
+        }[]
+      }
       norm_player_name: { Args: { name: string }; Returns: string }
       player_season_points: {
         Args: { _season: number; _sources?: string[] }
