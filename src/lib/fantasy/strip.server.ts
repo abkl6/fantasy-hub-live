@@ -28,14 +28,16 @@ function standingOf(
   return index < 0 ? null : index + 1;
 }
 
-export async function buildLeagueStrip(supabase: DB): Promise<LeagueStripPayload> {
+/** `userId` keeps an admin's strip to their own leagues (admins can read all). */
+export async function buildLeagueStrip(supabase: DB, opts: { userId?: string } = {}): Promise<LeagueStripPayload> {
   const gameDay = gameWindow().live;
 
-  const { data: leagueRows, error } = await supabase
+  let leagueQuery = supabase
     .from("leagues")
     .select("id, name, color, abbrev, strip_order, open_count, current_week")
-    .not("platform", "in", "(underdog,draftkings)")
-    .order("created_at");
+    .not("platform", "in", "(underdog,draftkings)");
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
+  const { data: leagueRows, error } = await leagueQuery.order("created_at");
   if (error) throw new Error(error.message);
   const leagues = leagueRows ?? [];
   if (!leagues.length) return { gameDay, tiles: [] };
@@ -69,7 +71,7 @@ export async function buildLeagueStrip(supabase: DB): Promise<LeagueStripPayload
   if (gameDay) {
     try {
       const { buildGameDay } = await import("./live.server");
-      live = await buildGameDay(supabase, { summariesOnly: true });
+      live = await buildGameDay(supabase, { summariesOnly: true, ...(opts.userId ? { userId: opts.userId } : {}) });
     } catch {
       live = null;
     }

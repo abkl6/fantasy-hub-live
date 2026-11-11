@@ -562,7 +562,7 @@ function needLine(
 
 export async function buildGameDay(
   supabase: DB,
-  opts: { leagueId?: string; includeGames?: boolean; summariesOnly?: boolean } = {},
+  opts: { leagueId?: string; includeGames?: boolean; summariesOnly?: boolean; userId?: string } = {},
 ): Promise<GameDayPayload> {
   const { season, week } = await currentLiveWeek();
   // The live scoreboard is the source of truth for game status; stored rows can
@@ -573,6 +573,8 @@ export async function buildGameDay(
 
   let leagueQuery = supabase.from("leagues").select("*");
   if (opts.leagueId) leagueQuery = leagueQuery.eq("id", opts.leagueId);
+  // Admins can read every member's leagues; their own screens show only theirs.
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
   const { data: leagueRows } = await leagueQuery;
   const leagues = leagueRows ?? [];
   if (!leagues.length) {

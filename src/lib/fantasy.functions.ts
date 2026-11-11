@@ -60,6 +60,7 @@ export const listLeagues = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("leagues")
       .select("id, name, platform, season, current_week, team_count, last_synced_at, color")
+      .eq("user_id", context.userId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
@@ -1380,6 +1381,7 @@ export const getGameDayFn = createServerFn({ method: "POST" })
 
     const run = () =>
       buildGameDay(context.supabase, {
+        userId: context.userId,
         ...(data.leagueId ? { leagueId: data.leagueId } : {}),
         ...(data.games ? { includeGames: true } : {}),
         ...(data.summaries ? { summariesOnly: true } : {}),
@@ -1405,7 +1407,7 @@ export const getManagerHubFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildManagerHub } = await import("./fantasy/manager.server");
-    return buildManagerHub(context.supabase);
+    return buildManagerHub(context.supabase, { userId: context.userId });
   });
 
 export const getThisWeekFn = createServerFn({ method: "GET" })
@@ -1431,7 +1433,7 @@ export const getLineupCheckFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildLineupCheck } = await import("./fantasy/lineup-check.server");
-    return buildLineupCheck(context.supabase);
+    return buildLineupCheck(context.supabase, { userId: context.userId });
   });
 
 export const getWaiverHubFn = createServerFn({ method: "GET" })

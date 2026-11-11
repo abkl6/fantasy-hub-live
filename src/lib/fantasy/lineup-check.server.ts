@@ -49,12 +49,14 @@ function externalLineupLink(platform: string, externalId: string | null) {
   }
 }
 
-export async function buildLineupCheck(supabase: DB): Promise<LineupCheckPayload> {
-  const { data: leagueRows, error } = await supabase
+/** `userId` keeps an admin's view to their own leagues (admins can read all). */
+export async function buildLineupCheck(supabase: DB, opts: { userId?: string } = {}): Promise<LineupCheckPayload> {
+  let leagueQuery = supabase
     .from("leagues")
     .select("id, name, platform, color, external_id, current_week")
-    .not("platform", "in", "(underdog,draftkings)")
-    .order("created_at");
+    .not("platform", "in", "(underdog,draftkings)");
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
+  const { data: leagueRows, error } = await leagueQuery.order("created_at");
   if (error) throw new Error(error.message);
 
   const book = await loadStrategyRules(supabase);
