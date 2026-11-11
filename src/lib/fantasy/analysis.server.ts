@@ -1,5 +1,6 @@
 /** Loads a league from the database and produces the full analyzer payload. Server-only. */
 
+import { loadAllPlayers } from "./shared-data.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -413,7 +414,7 @@ export async function buildAnalysis(supabase: DB, leagueId: string): Promise<Ana
       supabase.from("teams").select("*").eq("league_id", leagueId),
       supabase.from("roster_spots").select("*").eq("league_id", leagueId),
       supabase.from("matchups").select("*").eq("league_id", leagueId),
-      fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
+      loadAllPlayers(supabase),
     ]);
 
   const slotPlan = await loadSlotPlan(supabase, leagueId);

@@ -5,6 +5,7 @@
  * Server-only.
  */
 
+import { loadAllPlayers } from "./shared-data.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
@@ -91,9 +92,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
     .order("created_at");
   if (error) throw new Error(error.message);
 
-  const players = await fetchAllRows((from, to) =>
-    supabase.from("players").select("*").order("id").range(from, to),
-  );
+  const players = await loadAllPlayers(supabase);
 
   const book = await loadStrategyRules(supabase);
   const byKey = new Map<string, WaiverHubPlayer>();
