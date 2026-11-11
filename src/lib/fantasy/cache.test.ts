@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { cached, hashParts } from "./cache.server";
+import { cached, cachedOrStale, hashParts } from "./cache.server";
 import { simulateSeason } from "./engine";
 
 /** Minimal stand-in for the Supabase client shape cache.server uses. */
@@ -124,5 +124,41 @@ describe("analysis cache", () => {
     await cached(db as never, { ...OPTS, leagueId: "l2" }, hash, compute);
 
     expect(compute).toHaveBeenCalledTimes(3);
+  });
+
+  it("shows an expired result with unchanged inputs at once and queues a rebuild", async () => {
+    const db = fakeSupabase();
+    const hash = hashParts(["ppr", 3]);
+    const compute = vi.fn(async () => ({ value: 1 }));
+    const refresh = vi.fn(async () => undefined);
+
+    await cached(db as never, { ...OPTS, ttlMs: -1 }, hash, compute);
+    const shown = await cachedOrStale(db as never, OPTS, hash, compute, refresh);
+
+    expect(shown.payload).toEqual({ value: 1 });
+    expect(compute).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not queue a rebuild for a result that is still current", async () => {
+    const db = fakeSupabase();
+    const hash = hashParts(["ppr", 3]);
+    const refresh = vi.fn(async () => undefined);
+
+    await cached(db as never, OPTS, hash, async () => ({ value: 1 }));
+    await cachedOrStale(db as never, OPTS, hash, async () => ({ value: 2 }), refresh);
+
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("builds while waiting when the inputs changed", async () => {
+    const db = fakeSupabase();
+    const refresh = vi.fn(async () => undefined);
+
+    await cached(db as never, { ...OPTS, ttlMs: -1 }, hashParts(["ppr", 3]), async () => ({ value: 1 }));
+    const shown = await cachedOrStale(db as never, OPTS, hashParts(["ppr", 4]), async () => ({ value: 2 }), refresh);
+
+    expect(shown.payload).toEqual({ value: 2 });
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

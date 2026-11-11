@@ -60,6 +60,7 @@ export const listLeagues = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("leagues")
       .select("id, name, platform, season, current_week, team_count, last_synced_at, color")
+      .eq("user_id", context.userId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
@@ -89,29 +90,34 @@ export const getAnalysis = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { buildAnalysis } = await import("./fantasy/analysis.server");
     const { syncLeagueRosters } = await import("./fantasy/rosters.server");
-    const { syncPlayerNews } = await import("./fantasy/sleeper.server");
     const { refreshSleeperLeague, SLEEPER_STALE_MS } = await import("./fantasy/sleeper-sync.server");
 
-    // Pull trades, adds and lineup changes back from Sleeper when the stored
-    // copy has gone stale (or the user asked for a refresh).
+    // Pulling trades, adds and lineup changes back from Sleeper takes several
+    // seconds, so a routine page open does not wait for it: the page asks for
+    // it separately (refreshLeagueIfStaleFn) once it has something to show.
+    // Only an explicit refresh waits.
     const { data: meta } = await context.supabase
       .from("leagues")
-      .select("platform, last_synced_at")
+      .select("platform, last_synced_at, external_id")
       .eq("id", data.leagueId)
       .maybeSingle();
     const age = meta?.last_synced_at ? Date.now() - new Date(meta.last_synced_at).getTime() : Infinity;
-    if (meta?.platform === "sleeper" && (data.force || age > SLEEPER_STALE_MS)) {
+    const syncDue = meta?.platform === "sleeper" && age > SLEEPER_STALE_MS;
+    if (meta?.platform === "sleeper" && data.force) {
       await refreshSleeperLeague(context.supabase, context.userId, data.leagueId).catch(() => {});
     }
 
-    // Backfill any team still missing a roster so availability stays accurate.
-    await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
-    // Refresh injury/status data in the background.
-    await syncPlayerNews(context.supabase).catch(() => {});
+    // Hand-built leagues: backfill any team still missing a roster so
+    // availability stays accurate. Synced leagues bring every roster with them.
+    if (!meta?.external_id) await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
+    // Injury news is not refreshed here: the scheduled injury feed already does
+    // it every few minutes for everyone, and doing it on every page open made
+    // each league visit download the whole Sleeper player list.
 
-    const { cachedWithMeta, leagueInputsHash } = await import("./fantasy/cache.server");
+    const { cachedOrStale, leagueInputsHash } = await import("./fantasy/cache.server");
+    const { enqueueLeagueJobs } = await import("./fantasy/jobs.server");
     const hash = await leagueInputsHash(context.supabase, data.leagueId);
-    const result = await cachedWithMeta(
+    const result = await cachedOrStale(
       context.supabase,
       {
         userId: context.userId,
@@ -121,9 +127,33 @@ export const getAnalysis = createServerFn({ method: "POST" })
       },
       hash,
       () => buildAnalysis(context.supabase, data.leagueId),
+      () => enqueueLeagueJobs(context.supabase, context.userId, data.leagueId, { priority: 0 }),
     );
     // The screen shows "updated N min ago" from this.
-    return { ...result.payload, computedAt: result.computedAt };
+    return { ...result.payload, computedAt: result.computedAt, syncDue: syncDue && !data.force };
+  });
+
+/**
+ * Runs the Sleeper refresh a page open skipped. Reports whether anything the
+ * league's numbers depend on actually changed, so the page only reloads then.
+ */
+export const refreshLeagueIfStaleFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { refreshSleeperLeague, SLEEPER_STALE_MS } = await import("./fantasy/sleeper-sync.server");
+    const { leagueInputsHash } = await import("./fantasy/cache.server");
+    const { data: meta } = await context.supabase
+      .from("leagues")
+      .select("platform, last_synced_at")
+      .eq("id", data.leagueId)
+      .maybeSingle();
+    const age = meta?.last_synced_at ? Date.now() - new Date(meta.last_synced_at).getTime() : Infinity;
+    if (meta?.platform !== "sleeper" || age <= SLEEPER_STALE_MS) return { changed: false };
+    const before = await leagueInputsHash(context.supabase, data.leagueId);
+    await refreshSleeperLeague(context.supabase, context.userId, data.leagueId).catch(() => {});
+    const after = await leagueInputsHash(context.supabase, data.leagueId);
+    return { changed: before !== after };
   });
 
 /** Clears a league's stored results so the next load recomputes from scratch. */
@@ -1016,24 +1046,37 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { buildWaiverBoard } = await import("./fantasy/waivers.server");
+    // The screen sends "ALL" for no position filter; that is still the plain board.
+    const position = data.position && data.position !== "ALL" ? data.position : undefined;
     const plainView =
-      !data.search && !data.position && (!data.sort || data.sort === "impact") && !data.showInjured;
+      !data.search && !position && (!data.sort || data.sort === "impact") && !data.showInjured;
 
     if (plainView) {
       // The worker scores the wire after every sync, so the default board is a read.
-      const { readCached, componentHashes } = await import("./fantasy/cache.server");
+      const { readCached, writeCached, componentHashes } = await import("./fantasy/cache.server");
       const parts = await componentHashes(context.supabase, data.leagueId);
-      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(
-        context.supabase,
-        { userId: context.userId, leagueId: data.leagueId, kind: "impact", suffix: "waivers" },
-        parts.sim,
-      );
-      if (hit) return { ...hit.payload, computedAt: hit.computedAt };
+      const opts = { userId: context.userId, leagueId: data.leagueId, kind: "impact" as const, suffix: "waivers" };
+      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(context.supabase, opts, parts.sim, {
+        allowStale: true,
+      });
+      if (hit) {
+        // Same inputs, just older than its expiry: show it and rebuild behind the scenes.
+        if (hit.stale) {
+          const { enqueueLeagueJobs } = await import("./fantasy/jobs.server");
+          await enqueueLeagueJobs(context.supabase, context.userId, data.leagueId, { priority: 0 }).catch(() => {});
+        }
+        return { ...hit.payload, computedAt: hit.computedAt };
+      }
+      // Not warmed yet: build it once and keep it, so the next visit is a read.
+      const started = Date.now();
+      const board = await buildWaiverBoard(context.supabase, data.leagueId, { showInjured: false, limit: 60 });
+      const computedAt = await writeCached(context.supabase, opts, parts.sim, board, Date.now() - started);
+      return { ...board, computedAt };
     }
 
     return buildWaiverBoard(context.supabase, data.leagueId, {
       ...(data.search ? { search: data.search } : {}),
-      ...(data.position ? { position: data.position } : {}),
+      ...(position ? { position } : {}),
       ...(data.sort ? { sort: data.sort } : {}),
       showInjured: data.showInjured ?? false,
       limit: 60,
@@ -1338,6 +1381,7 @@ export const getGameDayFn = createServerFn({ method: "POST" })
 
     const run = () =>
       buildGameDay(context.supabase, {
+        userId: context.userId,
         ...(data.leagueId ? { leagueId: data.leagueId } : {}),
         ...(data.games ? { includeGames: true } : {}),
         ...(data.summaries ? { summariesOnly: true } : {}),
@@ -1363,20 +1407,22 @@ export const getManagerHubFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildManagerHub } = await import("./fantasy/manager.server");
-    return buildManagerHub(context.supabase);
+    return buildManagerHub(context.supabase, { userId: context.userId });
   });
 
 export const getThisWeekFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildThisWeek } = await import("./fantasy/this-week.server");
-    const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
-    const hash = await allLeaguesInputsHash(context.supabase);
-    const result = await cachedWithMeta(
+    const { cachedOrStale, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { enqueueThisWeekJob } = await import("./fantasy/jobs.server");
+    const hash = await allLeaguesInputsHash(context.supabase, { userId: context.userId });
+    const result = await cachedOrStale(
       context.supabase,
       { userId: context.userId, kind: "this-week" },
       hash,
-      () => buildThisWeek(context.supabase),
+      () => buildThisWeek(context.supabase, { userId: context.userId }),
+      () => enqueueThisWeekJob(context.supabase, context.userId),
     );
     return { ...result.payload, computedAt: result.computedAt };
   });
@@ -1387,14 +1433,24 @@ export const getLineupCheckFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildLineupCheck } = await import("./fantasy/lineup-check.server");
-    return buildLineupCheck(context.supabase);
+    return buildLineupCheck(context.supabase, { userId: context.userId });
   });
 
 export const getWaiverHubFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildWaiverHub } = await import("./fantasy/waiver-hub.server");
-    return buildWaiverHub(context.supabase);
+    const { cachedOrStale, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const { enqueueThisWeekJob } = await import("./fantasy/jobs.server");
+    const hash = await allLeaguesInputsHash(context.supabase, { userId: context.userId });
+    const result = await cachedOrStale(
+      context.supabase,
+      { userId: context.userId, kind: "waiver-hub" },
+      hash,
+      () => buildWaiverHub(context.supabase, { userId: context.userId }),
+      () => enqueueThisWeekJob(context.supabase, context.userId),
+    );
+    return { ...result.payload, computedAt: result.computedAt };
   });
 
 export const getTradeFinderFn = createServerFn({ method: "POST" })

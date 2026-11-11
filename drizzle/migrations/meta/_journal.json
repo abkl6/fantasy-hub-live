@@ -8,6 +8,20 @@
       "when": 1793759771324,
       "tag": "0000_season_points_aggregate",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794429444614,
+      "tag": "0001_league_inputs_digest",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794429523572,
+      "tag": "0002_enqueue_compute_jobs",
+      "breakpoints": true
     }
   ]
 }

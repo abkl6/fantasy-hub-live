@@ -81,12 +81,14 @@ export interface ManagerHubPayload {
   reviews: (WeekReview & { leagueId: string; leagueName: string; teamName: string })[];
 }
 
-export async function buildManagerHub(supabase: DB): Promise<ManagerHubPayload> {
-  const { data: leagueRows, error } = await supabase
+/** `userId` keeps an admin's hub to their own leagues (admins can read all). */
+export async function buildManagerHub(supabase: DB, opts: { userId?: string } = {}): Promise<ManagerHubPayload> {
+  let leagueQuery = supabase
     .from("leagues")
     .select("id, user_id, last_confirmed_at")
-    .not("platform", "in", "(underdog,draftkings)")
-    .order("created_at");
+    .not("platform", "in", "(underdog,draftkings)");
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
+  const { data: leagueRows, error } = await leagueQuery.order("created_at");
   if (error) throw new Error(error.message);
   const ownerByLeague = new Map((leagueRows ?? []).map((l) => [l.id, l.user_id]));
   const confirmedByLeague = new Map((leagueRows ?? []).map((l) => [l.id, l.last_confirmed_at]));

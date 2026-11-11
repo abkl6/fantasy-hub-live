@@ -4,6 +4,7 @@
  * championship-odds impact of adding the best candidates. Server-only.
  */
 
+import { loadAllPlayers } from "./shared-data.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -16,7 +17,6 @@ import {
   type ScheduleGame,
 } from "./engine";
 import { normalizeName } from "./names";
-import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
@@ -173,7 +173,7 @@ export async function buildWaiverBoard(
       supabase.from("teams").select("*").eq("league_id", leagueId),
       supabase.from("roster_spots").select("*").eq("league_id", leagueId),
       supabase.from("matchups").select("*").eq("league_id", leagueId),
-      fetchAllRows((from, to) => supabase.from("players").select("*").order("id").range(from, to)),
+      loadAllPlayers(supabase),
     ]);
 
   const book = await loadStrategyRules(supabase);

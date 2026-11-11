@@ -34,8 +34,9 @@ function jobs(supabase: DB) {
 }
 
 /**
- * Queues the work a league needs after a sync. The partial unique index means
- * a second sync while a job is still waiting does not create a duplicate.
+ * Queues the work a league needs after a sync. Anything already waiting is
+ * left alone rather than duplicated. Works from a member's own session as well
+ * as from the background client; the database checks the league is theirs.
  */
 export async function enqueueLeagueJobs(
   supabase: DB,
@@ -43,20 +44,18 @@ export async function enqueueLeagueJobs(
   leagueId: string,
   opts: { priority?: number } = {},
 ): Promise<void> {
-  const priority = opts.priority ?? 100;
-  const rows = [
-    { user_id: userId, league_id: leagueId, kind: "league", priority },
-    { user_id: userId, league_id: leagueId, kind: "impact", priority: priority + 10 },
-    { user_id: userId, league_id: null, kind: "this-week", priority: priority + 20 },
-  ];
-  for (const row of rows) {
-    await jobs(supabase)
-      .insert({ ...row, status: "queued", run_after: new Date().toISOString() })
-      .then(
-        () => undefined,
-        () => undefined,
-      );
-  }
+  const { error } = await supabase.rpc("enqueue_compute_jobs", {
+    _user_id: userId,
+    _league_id: leagueId,
+    _priority: opts.priority ?? 100,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Queues only the cross-league rebuild (This week and the waivers hub). */
+export async function enqueueThisWeekJob(supabase: DB, userId: string, priority = 50): Promise<void> {
+  const { error } = await supabase.rpc("enqueue_compute_jobs", { _user_id: userId, _priority: priority });
+  if (error) throw new Error(error.message);
 }
 
 /** Queue depth and recent failures, for the admin Overview. */
@@ -129,9 +128,16 @@ async function runImpactJob(admin: DB, userId: string, leagueId: string) {
 
 async function runThisWeekJob(admin: DB, userId: string) {
   const { buildThisWeek } = await import("./this-week.server");
-  const hash = await allLeaguesInputsHash(admin);
+  // The worker's client reads every member's rows, so each build is scoped to
+  // the member the job belongs to.
+  const hash = await allLeaguesInputsHash(admin, { userId });
   await cachedWithMeta(admin, { userId, kind: "this-week", force: true }, hash, () =>
-    buildThisWeek(admin),
+    buildThisWeek(admin, { userId }),
+  );
+  // The cross-league waiver list reads the same inputs, so it is warmed alongside.
+  const { buildWaiverHub } = await import("./waiver-hub.server");
+  await cachedWithMeta(admin, { userId, kind: "waiver-hub", force: true }, hash, () =>
+    buildWaiverHub(admin, { userId }),
   );
 }
 

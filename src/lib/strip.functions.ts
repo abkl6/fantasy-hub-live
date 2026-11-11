@@ -9,7 +9,7 @@ export const getLeagueStripFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<LeagueStripPayload> => {
     const { buildLeagueStrip } = await import("./fantasy/strip.server");
-    return buildLeagueStrip(context.supabase);
+    return buildLeagueStrip(context.supabase, { userId: context.userId });
   });
 
 /** Bumps how often a league is opened, which drives the default tile order. */

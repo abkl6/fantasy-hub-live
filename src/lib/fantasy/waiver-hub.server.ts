@@ -5,6 +5,8 @@
  * Server-only.
  */
 
+import { mapLimit } from "./concurrency";
+import { loadAllPlayers } from "./shared-data.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
@@ -20,7 +22,6 @@ import { bestBallDistribution } from "./format";
 import { EMPTY_IMPACT, impactScore, primaryImpactText, type TeamClass } from "./impact";
 import { normalizeName } from "./names";
 import { loadLeague } from "./proposal.server";
-import { fetchAllRows } from "./paginate";
 import { loadProjections } from "./projections.server";
 import { resolveProjectionSource } from "./projection-source";
 import { leagueScoring } from "./scoring";
@@ -83,17 +84,14 @@ function median(values: number[]) {
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
-export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
-  const { data: leagueRows, error } = await supabase
-    .from("leagues")
-    .select("*")
-    .not("platform", "in", "(underdog,draftkings)")
-    .order("created_at");
+/** `userId` scopes the read for the background worker, which sees every member. */
+export async function buildWaiverHub(supabase: DB, opts: { userId?: string } = {}): Promise<WaiverHubPayload> {
+  let leagueQuery = supabase.from("leagues").select("*").not("platform", "in", "(underdog,draftkings)");
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
+  const { data: leagueRows, error } = await leagueQuery.order("created_at");
   if (error) throw new Error(error.message);
 
-  const players = await fetchAllRows((from, to) =>
-    supabase.from("players").select("*").order("id").range(from, to),
-  );
+  const players = await loadAllPlayers(supabase);
 
   const book = await loadStrategyRules(supabase);
   const byKey = new Map<string, WaiverHubPlayer>();
@@ -101,10 +99,54 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
   const fillGroups: WaiverHubFills[] = [];
   let week = 1;
 
+  // Everything each league needs from the database is fetched a few leagues
+  // at a time up front; the scoring below then runs league by league.
+  const preparedById = new Map(
+    (
+      await mapLimit(leagueRows ?? [], 4, async (league) => {
+          const season = Number(league.season ?? new Date().getUTCFullYear());
+          const reads = await Promise.all([
+            supabase
+              .from("roster_spots")
+              .select("player_name, position, nfl_team, team_id")
+              .eq("league_id", league.id),
+            supabase.from("teams").select("id, is_mine, faab_remaining").eq("league_id", league.id),
+            supabase.from("faab_bids").select("amount, won").eq("league_id", league.id).eq("won", true),
+            supabase
+              .from("nfl_schedule")
+              .select("nfl_team, opponent")
+              .eq("season", season)
+              .eq("week", league.current_week ?? 1),
+            supabase
+              .from("team_implied_totals")
+              .select("nfl_team, implied")
+              .eq("season", season)
+              .eq("week", league.current_week ?? 1),
+            supabase
+              .from("defense_ranks")
+              .select("nfl_team, points_allowed")
+              .eq("season", season)
+              .eq("week", league.current_week ?? 1),
+          ]);
+          const mine = (reads[1].data ?? []).find((t) => t.is_mine) ?? null;
+          const [proj, loaded] = await Promise.all([
+            loadProjections(supabase, {
+              scoring: leagueScoring(league.scoring_type, (league.scoring_rules ?? {}) as Record<string, number>),
+              week: league.current_week ?? 1,
+              source: resolveProjectionSource(league),
+              sos: (league as { sos_adjust?: boolean }).sos_adjust,
+            }),
+            mine ? loadLeague(supabase, league.id) : Promise.resolve(null),
+          ]);
+          return [league.id, { reads, proj, loaded }] as const;
+      })
+    ),
+  );
+
   for (const league of leagueRows ?? []) {
     week = league.current_week ?? week;
 
-    const season = Number(league.season ?? new Date().getUTCFullYear());
+    const prepared = preparedById.get(league.id)!;
     const [
       { data: spotRows },
       { data: teamRows },
@@ -112,29 +154,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
       { data: scheduleRows },
       { data: impliedRows },
       { data: defenseRows },
-    ] = await Promise.all([
-      supabase
-        .from("roster_spots")
-        .select("player_name, position, nfl_team, team_id")
-        .eq("league_id", league.id),
-      supabase.from("teams").select("id, is_mine, faab_remaining").eq("league_id", league.id),
-      supabase.from("faab_bids").select("amount, won").eq("league_id", league.id).eq("won", true),
-      supabase
-        .from("nfl_schedule")
-        .select("nfl_team, opponent")
-        .eq("season", season)
-        .eq("week", league.current_week ?? 1),
-      supabase
-        .from("team_implied_totals")
-        .select("nfl_team, implied")
-        .eq("season", season)
-        .eq("week", league.current_week ?? 1),
-      supabase
-        .from("defense_ranks")
-        .select("nfl_team, points_allowed")
-        .eq("season", season)
-        .eq("week", league.current_week ?? 1),
-    ]);
+    ] = prepared.reads;
     const opponentOf = new Map(
       (scheduleRows ?? []).map((r) => [r.nfl_team.toUpperCase(), r.opponent?.toUpperCase() ?? null]),
     );
@@ -175,12 +195,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
       league.scoring_type,
       (league.scoring_rules ?? {}) as Record<string, number>,
     );
-    const proj = await loadProjections(supabase, {
-      scoring,
-      week: league.current_week ?? 1,
-      source: resolveProjectionSource(league),
-      sos: (league as { sos_adjust?: boolean }).sos_adjust,
-    });
+    const proj = prepared.proj;
 
     // The top-120 projected players in this league's scoring.
     const ranked = players
@@ -200,7 +215,7 @@ export async function buildWaiverHub(supabase: DB): Promise<WaiverHubPayload> {
     const impactByName = new Map<string, { label: string; rank: number }>();
     let myClass: TeamClass = "middle";
     if (mine) {
-      const loaded = await loadLeague(supabase, league.id);
+      const loaded = prepared.loaded ?? (await loadLeague(supabase, league.id));
       const slots = loaded.slots as Slot[];
       const myRoster = loaded.rosters.get(mine.id) ?? [];
       const distOf = (roster: EnginePlayer[]) =>

@@ -8,6 +8,7 @@
  * flagged is_auto so real entries always win and can replace them.
  */
 
+import { loadAllPlayers } from "./shared-data.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -50,21 +51,25 @@ export async function syncLeagueRosters(supabase: DB, userId: string, leagueId: 
   const slots = (await loadSlotPlan(supabase, leagueId)).keys;
   const targetSize = slots.length + BENCH_SPOTS;
 
-  const [{ data: teamRows }, { data: spotRows }, { data: playerRows }] = await Promise.all([
+  const [{ data: teamRows }, { data: spotRows }] = await Promise.all([
     supabase.from("teams").select("id").eq("league_id", leagueId).order("created_at"),
     supabase
       .from("roster_spots")
       .select("id, team_id, player_name, is_auto")
       .eq("league_id", leagueId),
-    supabase
-      .from("players")
-      .select("id, full_name, position, nfl_team, proj_points_week")
-      .order("proj_points_week", { ascending: false }),
   ]);
 
   const teams = teamRows ?? [];
   let spots = spotRows ?? [];
-  const pool: PoolPlayer[] = (playerRows ?? []).map((p) => ({
+  // Nothing to fill or tidy: skip the player download entirely.
+  const heldBy = new Set(spots.filter((s) => !s.is_auto).map((s) => s.team_id));
+  if (teams.length && teams.every((t) => heldBy.has(t.id)) && !spots.some((s) => s.is_auto)) {
+    return { filled: 0, removed: 0 };
+  }
+  const playerRows = [...(await loadAllPlayers(supabase))].sort(
+    (a, b) => Number(b.proj_points_week) - Number(a.proj_points_week),
+  );
+  const pool: PoolPlayer[] = playerRows.map((p) => ({
     id: p.id,
     full_name: p.full_name,
     position: p.position.toUpperCase(),

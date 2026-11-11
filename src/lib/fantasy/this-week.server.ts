@@ -3,6 +3,7 @@
  * between Monday night and the first kickoff. Server-only.
  */
 
+import { mapLimit } from "./concurrency";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
@@ -40,27 +41,32 @@ const PRIORITY: Record<ThisWeekKind, number> = {
   rising: 4,
 };
 
-export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
+/**
+ * `userId` scopes the read to one member. Signed-in callers are already scoped
+ * by row security; the background worker reads everything and must pass it.
+ */
+export async function buildThisWeek(supabase: DB, opts: { userId?: string } = {}): Promise<ThisWeekPayload> {
   const now = new Date();
   const kickoff = nextKickoff(now);
   const waiverRun = nextWaiverRun(now);
 
-  const { data: leagueRows, error } = await supabase
+  let leagueQuery = supabase
     .from("leagues")
     .select("id, name, platform, color, current_week, last_confirmed_at, user_id")
-    .not("platform", "in", "(underdog,draftkings)")
-    .order("created_at");
+    .not("platform", "in", "(underdog,draftkings)");
+  if (opts.userId) leagueQuery = leagueQuery.eq("user_id", opts.userId);
+  const { data: leagueRows, error } = await leagueQuery.order("created_at");
   if (error) throw new Error(error.message);
 
 
   // How often each kind of advice has been right lately. Kinds that have been
   // landing get pushed up the list; kinds that have not drop down.
-  const { data: gradedRows } = await supabase
+  let gradedQuery = supabase
     .from("recommendation_log")
     .select("kind, week, grade")
-    .not("grade", "is", null)
-    .order("week", { ascending: false })
-    .limit(500);
+    .not("grade", "is", null);
+  if (opts.userId) gradedQuery = gradedQuery.eq("user_id", opts.userId);
+  const { data: gradedRows } = await gradedQuery.order("week", { ascending: false }).limit(500);
   const latestWeek = Math.max(1, ...(leagueRows ?? []).map((l) => l.current_week ?? 1));
   const rates: HitRate[] = hitRates(
     (gradedRows ?? []).map((r) => ({ kind: r.kind, week: r.week, grade: r.grade })),
@@ -71,11 +77,12 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
 
   const leagues: ThisWeekLeague[] = [];
 
-  for (const row of leagueRows ?? []) {
+  // Each league is worked out on its own, a few at a time, in league order.
+  const perLeague = async (row: NonNullable<typeof leagueRows>[number]): Promise<ThisWeekLeague | null> => {
     // Reuse the league's stored analysis; only a cold cache rebuilds it here.
     const analysis = await leagueAnalysis(supabase, row.user_id, row.id);
 
-    if (!analysis.myTeam) continue;
+    if (!analysis.myTeam) return null;
     const week = row.current_week;
     const items: ThisWeekItem[] = [];
     const isDynasty = analysis.dynasty !== null;
@@ -274,7 +281,7 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
     }
 
     items.sort((a, b) => a.priority - b.priority || b.impactRank - a.impactRank);
-    leagues.push({
+    return {
       id: row.id,
       name: row.name,
       platform: row.platform,
@@ -283,7 +290,10 @@ export async function buildThisWeek(supabase: DB): Promise<ThisWeekPayload> {
       record: analysis.myTeam.record,
       week,
       items,
-    });
+    };
+  };
+  for (const built of await mapLimit(leagueRows ?? [], 4, perLeague)) {
+    if (built) leagues.push(built);
   }
 
   const items = leagues

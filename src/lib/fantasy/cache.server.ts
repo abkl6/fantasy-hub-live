@@ -27,13 +27,16 @@ export type CacheKind =
   | "lineup"
   | "distribution"
   | "schedule"
-  | "sim";
+  | "sim"
+  | "waiver-hub";
 
 /** Placeholder league id used for cross-league rows (This week). */
 export const GLOBAL_LEAGUE = null;
 
 const FIFTEEN_MIN = 15 * 60_000;
 const FIVE_MIN = 5 * 60_000;
+/** Expired rows are kept this long so an unchanged result can still be shown. */
+const STALE_KEEP_MS = 30 * 60_000;
 
 /** 15 minutes normally, 5 while games are being played. */
 export function defaultTtl(now: Date = new Date()): number {
@@ -57,18 +60,54 @@ function stable(value: unknown): unknown {
 
 /**
  * Everything that can change a league payload: rosters, projection choice,
- * scoring, slots, week, and the newest actuals we have loaded.
+ * scoring, slots, week, standings, results and the newest actuals loaded.
+ * What a sync can actually change, rather than when it last ran: a refresh
+ * that brings back nothing new keeps the stored result valid.
+ *
+ * The database fingerprints all of it in one call; the separate reads below
+ * are only a fallback for when that call is unavailable.
  */
 export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<string> {
+  const digests = await leagueDigests(supabase, { leagueIds: [leagueId] });
+  const digest = digests?.get(leagueId);
+  if (digest) return hashParts([leagueId, digest]);
+  return leagueInputsHashByReads(supabase, leagueId);
+}
+
+async function leagueDigests(
+  supabase: DB,
+  opts: { leagueIds?: string[]; userId?: string },
+): Promise<Map<string, string> | null> {
+  try {
+    const rpc = (supabase as unknown as { rpc?: DB["rpc"] }).rpc;
+    if (typeof rpc !== "function") return null;
+    const { data, error } = await supabase.rpc("league_inputs_digest", {
+      ...(opts.leagueIds ? { _league_ids: opts.leagueIds } : {}),
+      ...(opts.userId ? { _user_id: opts.userId } : {}),
+    });
+    if (error || !data) return null;
+    return new Map(data.map((row) => [row.league_id, row.digest]));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Everything that can change a league payload: rosters, projection choice,
+ * scoring, slots, week, and the newest actuals we have loaded.
+ */
+async function leagueInputsHashByReads(supabase: DB, leagueId: string): Promise<string> {
   const { data: league } = await supabase
     .from("leagues")
     .select(
-      "projection_source, scoring_rules, roster_slots, sos_adjust, class_override, current_week, season, contest_format, format, variant, eligible_positions, last_synced_at",
+      "projection_source, scoring_rules, roster_slots, sos_adjust, class_override, current_week, season, contest_format, format, variant, eligible_positions",
     )
     .eq("id", leagueId)
     .maybeSingle();
 
-  const [{ data: spots, count: spotCount }, { data: actuals }] = await Promise.all([
+  // What a sync can actually change, rather than when it last ran: a refresh
+  // that brings back nothing new keeps the stored result valid.
+  const [{ data: spots, count: spotCount }, { data: actuals }, { data: teamRows }, { data: games }] = await Promise.all([
     supabase
       .from("roster_spots")
       .select("created_at", { count: "exact" })
@@ -81,6 +120,17 @@ export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<
       .eq("season", league?.season ?? new Date().getFullYear())
       .order("week", { ascending: false })
       .limit(1),
+    supabase
+      .from("teams")
+      .select("id, name, wins, losses, ties, points_for, points_against, faab_remaining, vp, eliminated_week")
+      .eq("league_id", leagueId)
+      .order("id"),
+    supabase
+      .from("matchups")
+      .select("week, home_team_id, away_team_id, home_score, away_score, is_final")
+      .eq("league_id", leagueId)
+      .order("week")
+      .order("home_team_id"),
   ]);
 
   return hashParts([
@@ -95,18 +145,30 @@ export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<
     league?.contest_format ?? null,
     league?.format ?? null,
     league?.variant ?? null,
-    league?.last_synced_at ?? null,
     spots?.[0]?.created_at ?? null,
     spotCount ?? 0,
     actuals?.[0]?.week ?? null,
+    (teamRows ?? []).map((t) =>
+      [t.id, t.name, t.wins, t.losses, t.ties, t.points_for, t.points_against, t.faab_remaining, t.vp, t.eliminated_week].join("|"),
+    ),
+    (games ?? []).map((m) =>
+      [m.week, m.home_team_id, m.away_team_id, m.home_score, m.away_score, m.is_final ? 1 : 0].join("|"),
+    ),
   ]);
 }
 
 /** One hash covering every league the member owns — used by This week. */
-export async function allLeaguesInputsHash(supabase: DB): Promise<string> {
-  const { data } = await supabase.from("leagues").select("id").order("id");
-  const hashes = [];
-  for (const row of data ?? []) hashes.push(await leagueInputsHash(supabase, row.id));
+export async function allLeaguesInputsHash(supabase: DB, opts: { userId?: string } = {}): Promise<string> {
+  const digests = await leagueDigests(supabase, opts.userId ? { userId: opts.userId } : {});
+  if (digests) {
+    const ids = [...digests.keys()].sort();
+    return hashParts(ids.map((id) => hashParts([id, digests.get(id)])));
+  }
+  let query = supabase.from("leagues").select("id");
+  if (opts.userId) query = query.eq("user_id", opts.userId);
+  const { data } = await query.order("id");
+  // Leagues are independent, so they are hashed side by side, not one by one.
+  const hashes = await Promise.all((data ?? []).map((row) => leagueInputsHashByReads(supabase, row.id)));
   return hashParts(hashes);
 }
 
@@ -228,7 +290,8 @@ export async function readCached<T>(
   supabase: DB,
   opts: Pick<CacheOptions, "userId" | "leagueId" | "kind" | "suffix">,
   inputsHash: string,
-): Promise<CachedResult<T> | null> {
+  read: { allowStale?: boolean } = {},
+): Promise<(CachedResult<T> & { stale: boolean }) | null> {
   const key = opts.suffix ? `${inputsHash}:${opts.suffix}` : inputsHash;
   const { data } = await supabase
     .from("analysis_cache")
@@ -238,13 +301,39 @@ export async function readCached<T>(
     .eq("inputs_hash", key)
     .filter("league_id", opts.leagueId ? "eq" : "is", opts.leagueId ?? null)
     .maybeSingle();
-  if (!data || new Date(data.expires_at).getTime() <= Date.now()) return null;
+  if (!data) return null;
+  const stale = new Date(data.expires_at).getTime() <= Date.now();
+  if (stale && !read.allowStale) return null;
   return {
     payload: data.payload as T,
     computedAt: data.computed_at,
     fresh: false,
     computeMs: data.compute_ms,
+    stale,
   };
+}
+
+/**
+ * For screens: a stored result whose inputs are unchanged is shown straight
+ * away even when it has passed its expiry, and `refresh` queues a background
+ * rebuild. Only a result whose inputs changed (or none at all) is built while
+ * the member waits.
+ */
+export async function cachedOrStale<T>(
+  supabase: DB,
+  opts: CacheOptions,
+  inputsHash: string,
+  compute: () => Promise<T>,
+  refresh: () => Promise<unknown>,
+): Promise<CachedResult<T>> {
+  if (!opts.force) {
+    const hit = await readCached<T>(supabase, opts, inputsHash, { allowStale: true });
+    if (hit) {
+      if (hit.stale) await refresh().catch(() => undefined);
+      return hit;
+    }
+  }
+  return cachedWithMeta(supabase, opts, inputsHash, compute);
 }
 
 /**
@@ -264,7 +353,7 @@ async function pruneExpired(supabase: DB, userId: string, kind: CacheKind): Prom
       lt?: (column: string, value: string) => PromiseLike<unknown>;
     };
     if (typeof query.lt !== "function") return;
-    await query.lt("expires_at", new Date(Date.now() - 60_000).toISOString());
+    await query.lt("expires_at", new Date(Date.now() - STALE_KEEP_MS).toISOString());
   } catch {
     // Housekeeping only: a failed prune never blocks the result being stored.
   }
