@@ -104,7 +104,7 @@ export async function buildWaiverHub(supabase: DB, opts: { userId?: string } = {
   const preparedById = new Map(
     (
       await mapLimit(leagueRows ?? [], 4, async (league) => {
-    const season = Number(league.season ?? new Date().getUTCFullYear());
+          const season = Number(league.season ?? new Date().getUTCFullYear());
           const reads = await Promise.all([
             supabase
               .from("roster_spots")
