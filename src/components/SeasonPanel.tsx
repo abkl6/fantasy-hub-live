@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, RotateCcw } from "lucide-react";
 
+import { OddsChart } from "@/components/OddsChart";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getSeasonScenarioFn } from "@/lib/fantasy.functions";
@@ -112,36 +113,26 @@ function WinHistogram({
 function OddsTrail({ history }: { history: SeasonPayload["history"] }) {
   if (!history.length)
     return <p className="text-sm text-muted-foreground">No weeks recorded yet — this builds up as the season runs.</p>;
-  const peak = Math.max(0.05, ...history.map((h) => h.playoffOdds));
   return (
     <div className="space-y-3">
-      <div className="flex items-end gap-2" style={{ height: 140 }}>
-        {history.map((h) => (
-          <div key={h.week} className="flex flex-1 flex-col items-center justify-end gap-1">
-            <div className="flex w-full items-end justify-center gap-0.5" style={{ height: "100%" }}>
-              <div
-                className="w-2 rounded-t bg-primary/40"
-                style={{ height: `${Math.max(2, (h.playoffOdds / peak) * 100)}%` }}
-                title={`Week ${h.week}: ${pct(h.playoffOdds)} playoffs`}
-              />
-              <div
-                className="w-2 rounded-t bg-primary"
-                style={{ height: `${Math.max(2, (h.titleOdds / peak) * 100)}%` }}
-                title={`Week ${h.week}: ${pct(h.titleOdds)} title`}
-              />
-            </div>
-            <span className="text-[10px] text-muted-foreground tabular-nums">{h.week}</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-4 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <span className="size-2 rounded-sm bg-primary/40" aria-hidden="true" /> Playoffs
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="size-2 rounded-sm bg-primary" aria-hidden="true" /> Title
-        </span>
-      </div>
+      <OddsChart
+        ariaLabel="Playoff and title chance by week"
+        height={180}
+        series={[
+          {
+            key: "playoffs",
+            label: "Playoff chance",
+            color: "var(--chart-3)",
+            points: history.map((h) => ({ week: h.week, value: h.playoffOdds })),
+          },
+          {
+            key: "title",
+            label: "Title chance",
+            color: "var(--primary)",
+            points: history.map((h) => ({ week: h.week, value: h.titleOdds })),
+          },
+        ]}
+      />
       <ul className="space-y-1">
         {history
           .filter((h) => h.markers.length)

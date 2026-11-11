@@ -2085,7 +2085,7 @@ function LeagueOddsTrend({
       <h2 className="text-sm font-bold">Your chances week by week</h2>
       <p className="mt-0.5 text-xs text-muted-foreground">
         {guillotine
-          ? "Chance to be the last team standing after each week. Tap a week to see it."
+          ? "Title chance after each week. Tap a week to see it."
           : "Playoff and title chance after each week. Tap a week to see it."}
       </p>
       <div className="mt-3">
