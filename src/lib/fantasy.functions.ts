@@ -1375,12 +1375,12 @@ export const getThisWeekFn = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { buildThisWeek } = await import("./fantasy/this-week.server");
     const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
-    const hash = await allLeaguesInputsHash(context.supabase);
+    const hash = await allLeaguesInputsHash(context.supabase, { userId: context.userId });
     const result = await cachedWithMeta(
       context.supabase,
       { userId: context.userId, kind: "this-week" },
       hash,
-      () => buildThisWeek(context.supabase),
+      () => buildThisWeek(context.supabase, { userId: context.userId }),
     );
     return { ...result.payload, computedAt: result.computedAt };
   });
@@ -1399,12 +1399,12 @@ export const getWaiverHubFn = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { buildWaiverHub } = await import("./fantasy/waiver-hub.server");
     const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
-    const hash = await allLeaguesInputsHash(context.supabase);
+    const hash = await allLeaguesInputsHash(context.supabase, { userId: context.userId });
     const result = await cachedWithMeta(
       context.supabase,
       { userId: context.userId, kind: "waiver-hub" },
       hash,
-      () => buildWaiverHub(context.supabase),
+      () => buildWaiverHub(context.supabase, { userId: context.userId }),
     );
     return { ...result.payload, computedAt: result.computedAt };
   });
