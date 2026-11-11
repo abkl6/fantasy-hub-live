@@ -1102,6 +1102,34 @@ export const getPlayoffPictureFn = createServerFn({ method: "POST" })
   });
 
 
+/** Your team's title and playoff chances by week in every one of your leagues (Hub chart). */
+export const getOddsHistoryFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { oddsSeriesByLeague } = await import("./fantasy/odds-history");
+    // Admins can read every member's leagues, so scope to the caller explicitly.
+    const { data: leagues } = await context.supabase
+      .from("leagues")
+      .select("id, name, abbrev, color, variant")
+      .eq("user_id", context.userId)
+      .order("name");
+    const ids = (leagues ?? []).map((l) => l.id);
+    if (!ids.length) return { leagues: [] };
+    const { data: rows } = await context.supabase
+      .from("weekly_snapshots")
+      .select("league_id, week, title_odds, playoff_odds, teams!inner(is_mine)")
+      .in("league_id", ids)
+      .eq("teams.is_mine", true)
+      .order("week", { ascending: true })
+      .limit(5000);
+    return {
+      leagues: oddsSeriesByLeague(
+        (leagues ?? []).map((l) => ({ id: l.id, name: l.name, abbrev: l.abbrev, color: l.color, variant: l.variant })),
+        (rows ?? []).map((r) => ({ league_id: r.league_id, week: r.week, title_odds: r.title_odds, playoff_odds: r.playoff_odds })),
+      ),
+    };
+  });
+
 export const getTrendsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
