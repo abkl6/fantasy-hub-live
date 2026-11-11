@@ -60,6 +60,7 @@ import {
   getScoringGapFn,
   getTrendsFn,
   getWaiverBoard,
+  refreshLeagueIfStaleFn,
   importSleeperDraftFn,
   logRecommendationActionFn,
   logRecommendationsShownFn,
@@ -191,6 +192,21 @@ function LeaguePage() {
     forceRef.current = true;
     return refetch();
   };
+
+  // The page shows what is stored first; a due Sleeper refresh runs afterwards
+  // and the numbers reload only if it brought back something new.
+  const refreshIfStale = useServerFn(refreshLeagueIfStaleFn);
+  const syncDue = Boolean((data as { syncDue?: boolean } | undefined)?.syncDue);
+  const syncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!syncDue || syncedRef.current === leagueId) return;
+    syncedRef.current = leagueId;
+    refreshIfStale({ data: { leagueId } })
+      .then((r) => {
+        if (r.changed) void refetch();
+      })
+      .catch(() => {});
+  }, [syncDue, leagueId, refreshIfStale, refetch]);
 
   // Throws away the stored result for this league and rebuilds it now.
   const clearCacheFn = useServerFn(clearLeagueCache);

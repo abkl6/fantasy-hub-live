@@ -91,15 +91,18 @@ export const getAnalysis = createServerFn({ method: "POST" })
     const { syncLeagueRosters } = await import("./fantasy/rosters.server");
     const { refreshSleeperLeague, SLEEPER_STALE_MS } = await import("./fantasy/sleeper-sync.server");
 
-    // Pull trades, adds and lineup changes back from Sleeper when the stored
-    // copy has gone stale (or the user asked for a refresh).
+    // Pulling trades, adds and lineup changes back from Sleeper takes several
+    // seconds, so a routine page open does not wait for it: the page asks for
+    // it separately (refreshLeagueIfStaleFn) once it has something to show.
+    // Only an explicit refresh waits.
     const { data: meta } = await context.supabase
       .from("leagues")
       .select("platform, last_synced_at, external_id")
       .eq("id", data.leagueId)
       .maybeSingle();
     const age = meta?.last_synced_at ? Date.now() - new Date(meta.last_synced_at).getTime() : Infinity;
-    if (meta?.platform === "sleeper" && (data.force || age > SLEEPER_STALE_MS)) {
+    const syncDue = meta?.platform === "sleeper" && age > SLEEPER_STALE_MS;
+    if (meta?.platform === "sleeper" && data.force) {
       await refreshSleeperLeague(context.supabase, context.userId, data.leagueId).catch(() => {});
     }
 
@@ -126,7 +129,30 @@ export const getAnalysis = createServerFn({ method: "POST" })
       () => enqueueLeagueJobs(context.supabase, context.userId, data.leagueId, { priority: 0 }),
     );
     // The screen shows "updated N min ago" from this.
-    return { ...result.payload, computedAt: result.computedAt };
+    return { ...result.payload, computedAt: result.computedAt, syncDue: syncDue && !data.force };
+  });
+
+/**
+ * Runs the Sleeper refresh a page open skipped. Reports whether anything the
+ * league's numbers depend on actually changed, so the page only reloads then.
+ */
+export const refreshLeagueIfStaleFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leagueId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { refreshSleeperLeague, SLEEPER_STALE_MS } = await import("./fantasy/sleeper-sync.server");
+    const { leagueInputsHash } = await import("./fantasy/cache.server");
+    const { data: meta } = await context.supabase
+      .from("leagues")
+      .select("platform, last_synced_at")
+      .eq("id", data.leagueId)
+      .maybeSingle();
+    const age = meta?.last_synced_at ? Date.now() - new Date(meta.last_synced_at).getTime() : Infinity;
+    if (meta?.platform !== "sleeper" || age <= SLEEPER_STALE_MS) return { changed: false };
+    const before = await leagueInputsHash(context.supabase, data.leagueId);
+    await refreshSleeperLeague(context.supabase, context.userId, data.leagueId).catch(() => {});
+    const after = await leagueInputsHash(context.supabase, data.leagueId);
+    return { changed: before !== after };
   });
 
 /** Clears a league's stored results so the next load recomputes from scratch. */
