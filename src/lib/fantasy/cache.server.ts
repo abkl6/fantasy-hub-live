@@ -27,7 +27,8 @@ export type CacheKind =
   | "lineup"
   | "distribution"
   | "schedule"
-  | "sim";
+  | "sim"
+  | "waiver-hub";
 
 /** Placeholder league id used for cross-league rows (This week). */
 export const GLOBAL_LEAGUE = null;
@@ -63,12 +64,14 @@ export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<
   const { data: league } = await supabase
     .from("leagues")
     .select(
-      "projection_source, scoring_rules, roster_slots, sos_adjust, class_override, current_week, season, contest_format, format, variant, eligible_positions, last_synced_at",
+      "projection_source, scoring_rules, roster_slots, sos_adjust, class_override, current_week, season, contest_format, format, variant, eligible_positions",
     )
     .eq("id", leagueId)
     .maybeSingle();
 
-  const [{ data: spots, count: spotCount }, { data: actuals }] = await Promise.all([
+  // What a sync can actually change, rather than when it last ran: a refresh
+  // that brings back nothing new keeps the stored result valid.
+  const [{ data: spots, count: spotCount }, { data: actuals }, { data: teamRows }, { data: games }] = await Promise.all([
     supabase
       .from("roster_spots")
       .select("created_at", { count: "exact" })
@@ -81,6 +84,17 @@ export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<
       .eq("season", league?.season ?? new Date().getFullYear())
       .order("week", { ascending: false })
       .limit(1),
+    supabase
+      .from("teams")
+      .select("id, name, wins, losses, ties, points_for, points_against, faab_remaining, vp, eliminated_week")
+      .eq("league_id", leagueId)
+      .order("id"),
+    supabase
+      .from("matchups")
+      .select("week, home_team_id, away_team_id, home_score, away_score, is_final")
+      .eq("league_id", leagueId)
+      .order("week")
+      .order("home_team_id"),
   ]);
 
   return hashParts([
@@ -95,18 +109,23 @@ export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<
     league?.contest_format ?? null,
     league?.format ?? null,
     league?.variant ?? null,
-    league?.last_synced_at ?? null,
     spots?.[0]?.created_at ?? null,
     spotCount ?? 0,
     actuals?.[0]?.week ?? null,
+    (teamRows ?? []).map((t) =>
+      [t.id, t.name, t.wins, t.losses, t.ties, t.points_for, t.points_against, t.faab_remaining, t.vp, t.eliminated_week].join("|"),
+    ),
+    (games ?? []).map((m) =>
+      [m.week, m.home_team_id, m.away_team_id, m.home_score, m.away_score, m.is_final ? 1 : 0].join("|"),
+    ),
   ]);
 }
 
 /** One hash covering every league the member owns — used by This week. */
 export async function allLeaguesInputsHash(supabase: DB): Promise<string> {
   const { data } = await supabase.from("leagues").select("id").order("id");
-  const hashes = [];
-  for (const row of data ?? []) hashes.push(await leagueInputsHash(supabase, row.id));
+  // Leagues are independent, so they are hashed side by side, not one by one.
+  const hashes = await Promise.all((data ?? []).map((row) => leagueInputsHash(supabase, row.id)));
   return hashParts(hashes);
 }
 

@@ -89,7 +89,6 @@ export const getAnalysis = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { buildAnalysis } = await import("./fantasy/analysis.server");
     const { syncLeagueRosters } = await import("./fantasy/rosters.server");
-    const { syncPlayerNews } = await import("./fantasy/sleeper.server");
     const { refreshSleeperLeague, SLEEPER_STALE_MS } = await import("./fantasy/sleeper-sync.server");
 
     // Pull trades, adds and lineup changes back from Sleeper when the stored
@@ -106,8 +105,9 @@ export const getAnalysis = createServerFn({ method: "POST" })
 
     // Backfill any team still missing a roster so availability stays accurate.
     await syncLeagueRosters(context.supabase, context.userId, data.leagueId);
-    // Refresh injury/status data in the background.
-    await syncPlayerNews(context.supabase).catch(() => {});
+    // Injury news is not refreshed here: the scheduled injury feed already does
+    // it every few minutes for everyone, and doing it on every page open made
+    // each league visit download the whole Sleeper player list.
 
     const { cachedWithMeta, leagueInputsHash } = await import("./fantasy/cache.server");
     const hash = await leagueInputsHash(context.supabase, data.leagueId);
@@ -1016,24 +1016,28 @@ export const getWaiverBoard = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { buildWaiverBoard } = await import("./fantasy/waivers.server");
+    // The screen sends "ALL" for no position filter; that is still the plain board.
+    const position = data.position && data.position !== "ALL" ? data.position : undefined;
     const plainView =
-      !data.search && !data.position && (!data.sort || data.sort === "impact") && !data.showInjured;
+      !data.search && !position && (!data.sort || data.sort === "impact") && !data.showInjured;
 
     if (plainView) {
       // The worker scores the wire after every sync, so the default board is a read.
-      const { readCached, componentHashes } = await import("./fantasy/cache.server");
+      const { readCached, writeCached, componentHashes } = await import("./fantasy/cache.server");
       const parts = await componentHashes(context.supabase, data.leagueId);
-      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(
-        context.supabase,
-        { userId: context.userId, leagueId: data.leagueId, kind: "impact", suffix: "waivers" },
-        parts.sim,
-      );
+      const opts = { userId: context.userId, leagueId: data.leagueId, kind: "impact" as const, suffix: "waivers" };
+      const hit = await readCached<Awaited<ReturnType<typeof buildWaiverBoard>>>(context.supabase, opts, parts.sim);
       if (hit) return { ...hit.payload, computedAt: hit.computedAt };
+      // Not warmed yet: build it once and keep it, so the next visit is a read.
+      const started = Date.now();
+      const board = await buildWaiverBoard(context.supabase, data.leagueId, { showInjured: false, limit: 60 });
+      const computedAt = await writeCached(context.supabase, opts, parts.sim, board, Date.now() - started);
+      return { ...board, computedAt };
     }
 
     return buildWaiverBoard(context.supabase, data.leagueId, {
       ...(data.search ? { search: data.search } : {}),
-      ...(data.position ? { position: data.position } : {}),
+      ...(position ? { position } : {}),
       ...(data.sort ? { sort: data.sort } : {}),
       showInjured: data.showInjured ?? false,
       limit: 60,
@@ -1394,7 +1398,15 @@ export const getWaiverHubFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { buildWaiverHub } = await import("./fantasy/waiver-hub.server");
-    return buildWaiverHub(context.supabase);
+    const { cachedWithMeta, allLeaguesInputsHash } = await import("./fantasy/cache.server");
+    const hash = await allLeaguesInputsHash(context.supabase);
+    const result = await cachedWithMeta(
+      context.supabase,
+      { userId: context.userId, kind: "waiver-hub" },
+      hash,
+      () => buildWaiverHub(context.supabase),
+    );
+    return { ...result.payload, computedAt: result.computedAt };
   });
 
 export const getTradeFinderFn = createServerFn({ method: "POST" })

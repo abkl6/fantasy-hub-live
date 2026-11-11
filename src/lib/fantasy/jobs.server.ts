@@ -133,6 +133,11 @@ async function runThisWeekJob(admin: DB, userId: string) {
   await cachedWithMeta(admin, { userId, kind: "this-week", force: true }, hash, () =>
     buildThisWeek(admin),
   );
+  // The cross-league waiver list reads the same inputs, so it is warmed alongside.
+  const { buildWaiverHub } = await import("./waiver-hub.server");
+  await cachedWithMeta(admin, { userId, kind: "waiver-hub", force: true }, hash, () =>
+    buildWaiverHub(admin),
+  );
 }
 
 async function runJob(admin: DB, job: JobRow) {
