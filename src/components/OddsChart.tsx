@@ -8,7 +8,7 @@ export type OddsChartSeries = {
   key: string;
   label: string;
   color: string;
-  dash?: string;
+  dash?: string | undefined;
   points: { week: number; value: number }[];
 };
 
