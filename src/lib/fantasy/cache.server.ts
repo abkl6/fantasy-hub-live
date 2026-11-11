@@ -58,9 +58,43 @@ function stable(value: unknown): unknown {
 
 /**
  * Everything that can change a league payload: rosters, projection choice,
- * scoring, slots, week, and the newest actuals we have loaded.
+ * scoring, slots, week, standings, results and the newest actuals loaded.
+ * What a sync can actually change, rather than when it last ran: a refresh
+ * that brings back nothing new keeps the stored result valid.
+ *
+ * The database fingerprints all of it in one call; the separate reads below
+ * are only a fallback for when that call is unavailable.
  */
 export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<string> {
+  const digests = await leagueDigests(supabase, { leagueIds: [leagueId] });
+  const digest = digests?.get(leagueId);
+  if (digest) return hashParts([leagueId, digest]);
+  return leagueInputsHashByReads(supabase, leagueId);
+}
+
+async function leagueDigests(
+  supabase: DB,
+  opts: { leagueIds?: string[]; userId?: string },
+): Promise<Map<string, string> | null> {
+  try {
+    const rpc = (supabase as unknown as { rpc?: DB["rpc"] }).rpc;
+    if (typeof rpc !== "function") return null;
+    const { data, error } = await supabase.rpc("league_inputs_digest", {
+      ...(opts.leagueIds ? { _league_ids: opts.leagueIds } : {}),
+      ...(opts.userId ? { _user_id: opts.userId } : {}),
+    });
+    if (error || !data) return null;
+    return new Map(data.map((row) => [row.league_id, row.digest]));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Everything that can change a league payload: rosters, projection choice,
+ * scoring, slots, week, and the newest actuals we have loaded.
+ */
+async function leagueInputsHashByReads(supabase: DB, leagueId: string): Promise<string> {
   const { data: league } = await supabase
     .from("leagues")
     .select(
@@ -123,11 +157,16 @@ export async function leagueInputsHash(supabase: DB, leagueId: string): Promise<
 
 /** One hash covering every league the member owns — used by This week. */
 export async function allLeaguesInputsHash(supabase: DB, opts: { userId?: string } = {}): Promise<string> {
+  const digests = await leagueDigests(supabase, opts.userId ? { userId: opts.userId } : {});
+  if (digests) {
+    const ids = [...digests.keys()].sort();
+    return hashParts(ids.map((id) => hashParts([id, digests.get(id)])));
+  }
   let query = supabase.from("leagues").select("id");
   if (opts.userId) query = query.eq("user_id", opts.userId);
   const { data } = await query.order("id");
   // Leagues are independent, so they are hashed side by side, not one by one.
-  const hashes = await Promise.all((data ?? []).map((row) => leagueInputsHash(supabase, row.id)));
+  const hashes = await Promise.all((data ?? []).map((row) => leagueInputsHashByReads(supabase, row.id)));
   return hashParts(hashes);
 }
 
