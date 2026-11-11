@@ -15,6 +15,13 @@
       "when": 1794429444614,
       "tag": "0001_league_inputs_digest",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794429523572,
+      "tag": "0002_enqueue_compute_jobs",
+      "breakpoints": true
     }
   ]
 }

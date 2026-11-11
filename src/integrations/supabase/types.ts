@@ -2747,6 +2747,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      enqueue_compute_jobs: {
+        Args: { _league_id?: string; _priority?: number; _user_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
